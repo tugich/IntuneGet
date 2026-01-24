@@ -231,6 +231,8 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
 
+This license applies to all code in this repository, regardless of when it was committed.
+
 - Self-host for internal business use
 - Modify for personal or internal use
 - Network service modifications must be open-sourced
