@@ -68,12 +68,12 @@ export default function GitHubSetupPage() {
               <li>
                 Go to{" "}
                 <a
-                  href="https://github.com/ugurkocde/IntuneGet-Website"
+                  href="https://github.com/ugurkocde/IntuneGet"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent-cyan hover:underline inline-flex items-center gap-1"
                 >
-                  github.com/ugurkocde/IntuneGet-Website
+                  github.com/ugurkocde/IntuneGet
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </li>
@@ -235,7 +235,7 @@ export default function GitHubSetupPage() {
 
         <CodeBlock language="bash" filename=".env.local">
 {`GITHUB_OWNER=your-github-username
-GITHUB_REPO=IntuneGet-Website
+GITHUB_REPO=IntuneGet
 GITHUB_PAT=ghp_your-personal-access-token
 CALLBACK_SECRET=same-secret-as-in-github`}
         </CodeBlock>

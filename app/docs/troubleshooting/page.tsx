@@ -468,7 +468,7 @@ export default function TroubleshootingPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <a
-            href="https://github.com/ugurkocde/IntuneGet-Website/issues"
+            href="https://github.com/ugurkocde/IntuneGet/issues"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg border border-white/10 bg-bg-surface p-6 hover:border-accent-cyan/30 hover:bg-bg-elevated transition-all"
@@ -484,7 +484,7 @@ export default function TroubleshootingPage() {
           </a>
 
           <a
-            href="https://github.com/ugurkocde/IntuneGet-Website/discussions"
+            href="https://github.com/ugurkocde/IntuneGet/discussions"
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-lg border border-white/10 bg-bg-surface p-6 hover:border-accent-cyan/30 hover:bg-bg-elevated transition-all"

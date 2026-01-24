@@ -66,8 +66,8 @@ export default function DockerPage() {
 
         <CodeBlock language="bash">
 {`# Clone your fork (or the main repo)
-git clone https://github.com/YOUR_USERNAME/IntuneGet-Website.git
-cd IntuneGet-Website
+git clone https://github.com/YOUR_USERNAME/IntuneGet.git
+cd IntuneGet
 
 # Copy and configure environment
 cp .env.example .env.local
@@ -94,8 +94,8 @@ docker-compose up -d`}
         <Steps>
           <StepIndicator step={1} title="Clone the Repository">
             <CodeBlock language="bash">
-{`git clone https://github.com/YOUR_USERNAME/IntuneGet-Website.git
-cd IntuneGet-Website`}
+{`git clone https://github.com/YOUR_USERNAME/IntuneGet.git
+cd IntuneGet`}
             </CodeBlock>
           </StepIndicator>
 

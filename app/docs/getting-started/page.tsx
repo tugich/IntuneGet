@@ -278,8 +278,8 @@ export default function GettingStartedPage() {
 
             <CodeBlock language="bash" filename="Terminal">
 {`# Clone the repository
-git clone https://github.com/ugurkocde/IntuneGet-Website.git
-cd IntuneGet-Website
+git clone https://github.com/ugurkocde/IntuneGet.git
+cd IntuneGet
 
 # Copy and configure environment
 cp .env.example .env.local

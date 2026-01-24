@@ -3,9 +3,10 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { Shield, Zap, Cloud, CheckCircle2, Loader2, Package } from 'lucide-react';
+import { Shield, Zap, Cloud, CheckCircle2, Loader2, Package, ChevronDown, Copy, Check, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
+import { getAdminConsentUrl } from '@/lib/msal-config';
 
 // Microsoft logo SVG component
 function MicrosoftLogo({ className }: { className?: string }) {
@@ -48,8 +49,21 @@ function SignInContent() {
   const searchParams = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConsentSectionOpen, setIsConsentSectionOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const consentUrl = typeof window !== 'undefined' ? getAdminConsentUrl() : '';
+
+  const handleCopyConsentUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(consentUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   // Redirect to dashboard if already signed in
   useEffect(() => {
@@ -209,6 +223,74 @@ function SignInContent() {
               )}
             </Button>
 
+            {/* Admin consent info */}
+            <p className="text-xs text-slate-500 text-center">
+              IntuneGet requires admin consent to deploy apps to your tenant.
+            </p>
+
+            {/* Collapsible consent link section */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setIsConsentSectionOpen(!isConsentSectionOpen)}
+                className="w-full flex items-center justify-center gap-2 text-sm text-slate-400 hover:text-slate-300 transition-colors py-1"
+              >
+                <span>Can&apos;t sign in? Get consent link</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    isConsentSectionOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              <div
+                className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                  isConsentSectionOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                }`}
+              >
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="text-amber-200 font-medium">Global Admin Required</p>
+                      <p className="text-amber-200/70 mt-1">
+                        Only Global Administrators can grant the permissions IntuneGet needs.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-400 font-medium">
+                      Share this link with your Global Administrator:
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        readOnly
+                        value={consentUrl}
+                        className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-300 truncate focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                      />
+                      <Button
+                        onClick={handleCopyConsentUrl}
+                        size="sm"
+                        variant="outline"
+                        className="flex-shrink-0 border-slate-700 hover:bg-slate-800 text-slate-300"
+                      >
+                        {copied ? (
+                          <Check className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    Once they grant consent, you can sign in normally.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -252,6 +334,20 @@ function SignInContent() {
                 Read group memberships
               </li>
             </ul>
+          </div>
+
+          {/* Self-hosting info */}
+          <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-center">
+            <p className="text-sm text-slate-400">
+              Prefer to self-host? IntuneGet is open source.{' '}
+              <Link
+                href="/docs/docker"
+                className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-1 transition-colors"
+              >
+                Self-hosting guide
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            </p>
           </div>
 
           {/* Footer link */}
