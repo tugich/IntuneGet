@@ -1,85 +1,39 @@
 name: Create and Deploy IntuneWin Package
 
 on:
-  workflow_dispatch:
-    inputs:
-      jobId:
-        description: 'Unique job identifier'
-        required: true
-        type: string
-      tenantId:
-        description: 'Target Intune tenant ID'
-        required: true
-        type: string
-      wingetId:
-        description: 'Winget package ID'
-        required: true
-        type: string
-      displayName:
-        description: 'Application display name'
-        required: true
-        type: string
-      publisher:
-        description: 'Publisher name'
-        required: true
-        type: string
-      version:
-        description: 'Application version'
-        required: true
-        type: string
-      installerUrl:
-        description: 'Installer download URL'
-        required: true
-        type: string
-      installerSha256:
-        description: 'Expected SHA256 hash'
-        required: false
-        type: string
-      installerType:
-        description: 'Installer type (exe, msi, etc.)'
-        required: true
-        type: string
-      silentSwitches:
-        description: 'Silent install switches'
-        required: true
-        type: string
-      uninstallCommand:
-        description: 'Uninstall command'
-        required: true
-        type: string
-      callbackUrl:
-        description: 'Webhook URL for results'
-        required: true
-        type: string
-      psadtConfig:
-        description: 'PSADT configuration JSON'
-        required: false
-        type: string
-        default: '{}'
-      detectionRules:
-        description: 'Detection rules JSON array'
-        required: false
-        type: string
-        default: '[]'
-      assignments:
-        description: 'App assignments JSON array'
-        required: false
-        type: string
-        default: '[]'
-      installScope:
-        description: 'Install scope (machine or user)'
-        required: false
-        type: string
-        default: 'machine'
+  repository_dispatch:
+    types: [package-app]
 
 jobs:
   package-and-deploy:
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # Map client_payload to environment variables for use in steps
+      # Payload is grouped into: job, app, installer, config (GitHub limits to 10 top-level properties)
+      JOB_ID: ${{ github.event.client_payload.job.jobId }}
+      TENANT_ID: ${{ github.event.client_payload.job.tenantId }}
+      CALLBACK_URL: ${{ github.event.client_payload.job.callbackUrl }}
+      WINGET_ID: ${{ github.event.client_payload.app.wingetId }}
+      DISPLAY_NAME: ${{ github.event.client_payload.app.displayName }}
+      PUBLISHER: ${{ github.event.client_payload.app.publisher }}
+      VERSION: ${{ github.event.client_payload.app.version }}
+      INSTALLER_URL: ${{ github.event.client_payload.installer.url }}
+      INSTALLER_SHA256: ${{ github.event.client_payload.installer.sha256 }}
+      INSTALLER_TYPE: ${{ github.event.client_payload.installer.type }}
+      SILENT_SWITCHES: ${{ github.event.client_payload.installer.silentSwitches }}
+      UNINSTALL_COMMAND: ${{ github.event.client_payload.installer.uninstallCommand }}
+      PSADT_CONFIG: ${{ github.event.client_payload.config.psadtConfig }}
+      DETECTION_RULES: ${{ github.event.client_payload.config.detectionRules }}
+      ASSIGNMENTS: ${{ github.event.client_payload.config.assignments }}
+      INSTALL_SCOPE: ${{ github.event.client_payload.config.installScope }}
 
     steps:
-      - name: Checkout repository
+      - name: Checkout public repository for scripts
         uses: actions/checkout@v4
+        with:
+          repository: ugurkocde/IntuneGet
+          path: intuneget
 
       - name: Setup callback helper function
         run: |
@@ -152,21 +106,22 @@ jobs:
         env:
           CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
         run: |
+          Write-Host "::add-mask::$env:TENANT_ID"
           Write-Host "========================================"
-          Write-Host "Packaging: ${{ inputs.displayName }} v${{ inputs.version }}"
-          Write-Host "Publisher: ${{ inputs.publisher }}"
-          Write-Host "Winget ID: ${{ inputs.wingetId }}"
+          Write-Host "Packaging: $env:DISPLAY_NAME v$env:VERSION"
+          Write-Host "Publisher: $env:PUBLISHER"
+          Write-Host "Winget ID: $env:WINGET_ID"
           Write-Host "========================================"
 
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "packaging"
             message = "Starting packaging pipeline..."
             progress = 5
             runId = "${{ github.run_id }}"
             runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
       - name: Download tools
         env:
@@ -174,11 +129,11 @@ jobs:
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "packaging"
             message = "Downloading packaging tools..."
             progress = 10
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           $toolsDir = ".\tools"
           New-Item -ItemType Directory -Path $toolsDir -Force
@@ -192,22 +147,22 @@ jobs:
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "packaging"
             message = "Downloading installer..."
             progress = 20
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           $installerDir = ".\installer"
           New-Item -ItemType Directory -Path $installerDir -Force
 
-          $url = "${{ inputs.installerUrl }}"
+          $url = $env:INSTALLER_URL
           $fileName = [System.IO.Path]::GetFileName([System.Uri]::new($url).LocalPath)
-          if ([string]::IsNullOrEmpty($fileName)) { $fileName = "installer.${{ inputs.installerType }}" }
+          if ([string]::IsNullOrEmpty($fileName)) { $fileName = "installer.$env:INSTALLER_TYPE" }
 
           Invoke-WebRequest -Uri $url -OutFile "$installerDir\$fileName" -UseBasicParsing
 
-          $expectedHash = "${{ inputs.installerSha256 }}"
+          $expectedHash = $env:INSTALLER_SHA256
           if ($expectedHash -and $expectedHash -ne "") {
             $actualHash = (Get-FileHash "$installerDir\$fileName" -Algorithm SHA256).Hash
             if ($actualHash -ne $expectedHash) {
@@ -222,19 +177,18 @@ jobs:
       - name: Create PSADT package
         env:
           CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
-          PSADT_CONFIG: ${{ inputs.psadtConfig }}
-          INPUT_JOB_ID: ${{ inputs.jobId }}
-          INPUT_CALLBACK_URL: ${{ inputs.callbackUrl }}
-          INPUT_SILENT_SWITCHES: ${{ inputs.silentSwitches }}
-          INPUT_UNINSTALL_COMMAND: ${{ inputs.uninstallCommand }}
-          INPUT_DISPLAY_NAME: ${{ inputs.displayName }}
-          INPUT_PUBLISHER: ${{ inputs.publisher }}
-          INPUT_VERSION: ${{ inputs.version }}
-          INPUT_WINGET_ID: ${{ inputs.wingetId }}
-          INPUT_INSTALLER_TYPE: ${{ inputs.installerType }}
-          INPUT_INSTALL_SCOPE: ${{ inputs.installScope }}
+          INPUT_JOB_ID: ${{ github.event.client_payload.job.jobId }}
+          INPUT_CALLBACK_URL: ${{ github.event.client_payload.job.callbackUrl }}
+          INPUT_SILENT_SWITCHES: ${{ github.event.client_payload.installer.silentSwitches }}
+          INPUT_UNINSTALL_COMMAND: ${{ github.event.client_payload.installer.uninstallCommand }}
+          INPUT_DISPLAY_NAME: ${{ github.event.client_payload.app.displayName }}
+          INPUT_PUBLISHER: ${{ github.event.client_payload.app.publisher }}
+          INPUT_VERSION: ${{ github.event.client_payload.app.version }}
+          INPUT_WINGET_ID: ${{ github.event.client_payload.app.wingetId }}
+          INPUT_INSTALLER_TYPE: ${{ github.event.client_payload.installer.type }}
+          INPUT_INSTALL_SCOPE: ${{ github.event.client_payload.config.installScope }}
         run: |
-          & "$env:GITHUB_WORKSPACE\.github\scripts\Create-PSADTPackage.ps1"
+          & "$env:GITHUB_WORKSPACE\intuneget\.github\scripts\Create-PSADTPackage.ps1"
 
       - name: Create IntuneWin package
         env:
@@ -242,11 +196,11 @@ jobs:
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "packaging"
             message = "Creating .intunewin package..."
             progress = 50
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           $outputDir = ".\output"
           New-Item -ItemType Directory -Path $outputDir -Force
@@ -259,7 +213,7 @@ jobs:
           }
 
           # Rename package to use display name for better identification in Intune
-          $displayName = '${{ inputs.displayName }}'
+          $displayName = $env:DISPLAY_NAME
           $safeDisplayName = $displayName -replace '[\\/:*?"<>|]', '_'
           $packageFileName = "$safeDisplayName.intunewin"
           $newPath = Join-Path $outputDir $packageFileName
@@ -325,7 +279,7 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
         run: |
-          $tenantId = "${{ inputs.tenantId }}"
+          $tenantId = $env:TENANT_ID
           Write-Host "::add-mask::$tenantId"
           $body = @{
             client_id = $env:AZURE_CLIENT_ID
@@ -343,16 +297,14 @@ jobs:
       - name: Upload to Intune
         env:
           CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
-          DETECTION_RULES: ${{ inputs.detectionRules }}
-          PSADT_CONFIG: ${{ inputs.psadtConfig }}
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "uploading"
             message = "Uploading to Microsoft Intune..."
             progress = 70
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           $headers = @{
             "Authorization" = "Bearer $env:GRAPH_TOKEN"
@@ -461,8 +413,8 @@ jobs:
           # If no detection rules provided, create a default script-based detection
           if ($graphRules.Count -eq 0) {
             Write-Host "No detection rules provided, using default registry-based detection script"
-            $displayName = '${{ inputs.displayName }}'
-            $wingetId = '${{ inputs.wingetId }}'
+            $displayName = $env:DISPLAY_NAME
+            $wingetId = $env:WINGET_ID
             $scriptLines = @(
               "# Auto-generated detection script for $displayName"
               "`$ErrorActionPreference = 'SilentlyContinue'"
@@ -520,7 +472,7 @@ jobs:
 
           # Load app icon if available
           $largeIcon = $null
-          $iconPath = "icons/${{ inputs.wingetId }}/icon-128.png"
+          $iconPath = "intuneget/icons/$env:WINGET_ID/icon-128.png"
           if (Test-Path $iconPath) {
             $iconBytes = [System.IO.File]::ReadAllBytes($iconPath)
             $iconBase64 = [System.Convert]::ToBase64String($iconBytes)
@@ -536,15 +488,15 @@ jobs:
           # 1. Create the Win32 app in Intune
           $appBody = @{
             "@odata.type" = "#microsoft.graph.win32LobApp"
-            displayName = "${{ inputs.displayName }}"
-            publisher = "${{ inputs.publisher }}"
-            description = "Deployed via IntuneGet from Winget: ${{ inputs.wingetId }}"
+            displayName = $env:DISPLAY_NAME
+            publisher = $env:PUBLISHER
+            description = "Deployed via IntuneGet from Winget: $env:WINGET_ID"
             largeIcon = $largeIcon
             fileName = "$env:PACKAGE_FILENAME"
             installCommandLine = "Invoke-AppDeployToolkit.exe"
             uninstallCommandLine = "Invoke-AppDeployToolkit.exe -DeploymentType Uninstall"
             installExperience = @{
-              runAsAccount = if ("${{ inputs.installScope }}" -eq "user") { "user" } else { "system" }
+              runAsAccount = if ($env:INSTALL_SCOPE -eq "user") { "user" } else { "system" }
               deviceRestartBehavior = $restartBehavior
             }
             returnCodes = @(
@@ -607,11 +559,11 @@ jobs:
 
           # Send progress update
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "uploading"
             message = "Uploading package content..."
             progress = 80
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           # 5. Upload encrypted content file in chunks (6MB blocks) - using ISO-8859-1 encoding per MS reference
           $chunkSize = 6MB
@@ -703,7 +655,6 @@ jobs:
       - name: Apply assignments
         if: success()
         env:
-          ASSIGNMENTS: ${{ inputs.assignments }}
           CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
         run: |
           $assignmentsJson = $env:ASSIGNMENTS
@@ -714,11 +665,11 @@ jobs:
 
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "uploading"
             message = "Applying assignments..."
             progress = 90
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET | Out-Null
 
           $headers = @{
             "Authorization" = "Bearer $env:GRAPH_TOKEN"
@@ -770,7 +721,7 @@ jobs:
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "deployed"
             message = "Successfully deployed to Intune"
             progress = 100
@@ -778,7 +729,7 @@ jobs:
             intuneAppUrl = "$env:INTUNE_APP_URL"
             runId = "${{ github.run_id }}"
             runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET -MaxRetries 5 | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET -MaxRetries 5 | Out-Null
 
           # Write GitHub Job Summary
           $packageSizeMB = [math]::Round([long]$env:INTUNEWIN_SIZE / 1MB, 2)
@@ -787,10 +738,10 @@ jobs:
             "",
             "| Property | Value |",
             "|----------|-------|",
-            "| **App Name** | ${{ inputs.displayName }} |",
-            "| **Version** | ${{ inputs.version }} |",
-            "| **Publisher** | ${{ inputs.publisher }} |",
-            "| **Package ID** | ${{ inputs.wingetId }} |",
+            "| **App Name** | $env:DISPLAY_NAME |",
+            "| **Version** | $env:VERSION |",
+            "| **Publisher** | $env:PUBLISHER |",
+            "| **Package ID** | $env:WINGET_ID |",
             "| **Intune App ID** | $env:INTUNE_APP_ID |",
             "| **Package Size** | $packageSizeMB MB |",
             "",
@@ -805,13 +756,13 @@ jobs:
         run: |
           . "$env:GITHUB_WORKSPACE\Send-Callback.ps1"
           Send-Callback -Body @{
-            jobId = "${{ inputs.jobId }}"
+            jobId = $env:JOB_ID
             status = "failed"
             message = "Pipeline failed - check run logs"
             progress = 0
             runId = "${{ github.run_id }}"
             runUrl = "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          } -CallbackUrl "${{ inputs.callbackUrl }}" -CallbackSecret $env:CALLBACK_SECRET -MaxRetries 5 | Out-Null
+          } -CallbackUrl $env:CALLBACK_URL -CallbackSecret $env:CALLBACK_SECRET -MaxRetries 5 | Out-Null
 
           # Write GitHub Job Summary for failure
           $summary = @(
@@ -819,10 +770,10 @@ jobs:
             "",
             "| Property | Value |",
             "|----------|-------|",
-            "| **App Name** | ${{ inputs.displayName }} |",
-            "| **Version** | ${{ inputs.version }} |",
-            "| **Publisher** | ${{ inputs.publisher }} |",
-            "| **Package ID** | ${{ inputs.wingetId }} |",
+            "| **App Name** | $env:DISPLAY_NAME |",
+            "| **Version** | $env:VERSION |",
+            "| **Publisher** | $env:PUBLISHER |",
+            "| **Package ID** | $env:WINGET_ID |",
             "| **Status** | Failed |",
             "",
             "Check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details."
