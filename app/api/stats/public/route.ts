@@ -6,6 +6,7 @@ let cache: { data: { signinClicks: number; appsDeployed: number; appsSupported: 
 const CACHE_TTL = 60 * 1000; // 60 seconds
 
 export async function GET() {
+  console.log('[stats/public] Function invoked at', new Date().toISOString());
   try {
     // Check cache first
     if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
