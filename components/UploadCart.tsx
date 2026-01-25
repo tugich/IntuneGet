@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   X,
@@ -11,10 +11,13 @@ import {
   ChevronRight,
   AlertCircle,
   Loader2,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/stores/cart-store';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
+import { usePermissionStatus } from '@/hooks/usePermissionStatus';
+import { PermissionStatusIndicator } from '@/components/PermissionStatusIndicator';
 
 interface PackagingJob {
   id: string;
@@ -42,6 +45,21 @@ export function UploadCart() {
   const [error, setError] = useState<string | null>(null);
 
   const { isAuthenticated, getAccessToken, signIn } = useMicrosoftAuth();
+  const {
+    status: permissionStatus,
+    error: permissionError,
+    errorMessage: permissionErrorMessage,
+    isChecking,
+    verify,
+    canDeploy,
+  } = usePermissionStatus();
+
+  // Verify permissions when cart opens
+  useEffect(() => {
+    if (isOpen && isAuthenticated && permissionStatus !== 'verified') {
+      verify();
+    }
+  }, [isOpen, isAuthenticated, permissionStatus, verify]);
 
   const handleDeploy = async () => {
     if (items.length === 0) return;
@@ -193,6 +211,17 @@ export function UploadCart() {
         {/* Footer */}
         {items.length > 0 && (
           <div className="border-t border-white/5 p-4 space-y-4">
+            {/* Permission status indicator */}
+            {isAuthenticated && (
+              <PermissionStatusIndicator
+                status={permissionStatus}
+                error={permissionError}
+                errorMessage={permissionErrorMessage}
+                onRetry={() => verify()}
+                isRetrying={isChecking}
+              />
+            )}
+
             {/* Error message */}
             {error && (
               <div className="flex items-start gap-3 p-3 bg-status-error/10 border border-status-error/20 rounded-lg">
@@ -244,13 +273,18 @@ export function UploadCart() {
               </Button>
               <Button
                 onClick={handleDeploy}
-                disabled={isDeploying}
-                className="flex-1 bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-white border-0 shadow-glow-cyan"
+                disabled={isDeploying || (isAuthenticated && !canDeploy)}
+                className="flex-1 bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-white border-0 shadow-glow-cyan disabled:opacity-50"
               >
                 {isDeploying ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Deploying...
+                  </>
+                ) : isAuthenticated && !canDeploy ? (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    {permissionStatus === 'checking' ? 'Checking...' : 'Fix Permissions'}
                   </>
                 ) : (
                   <>
