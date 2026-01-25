@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useCartStore } from '@/stores/cart-store';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { usePermissionStatus } from '@/hooks/usePermissionStatus';
+import { trackDeployment } from '@/hooks/useLandingStats';
 import { PermissionStatusIndicator } from '@/components/PermissionStatusIndicator';
 
 interface PackagingJob {
@@ -72,6 +73,10 @@ export function UploadCart() {
 
   const handleDeploy = async () => {
     if (items.length === 0) return;
+
+    // Track deployment immediately (fire-and-forget)
+    trackDeployment(items.length);
+
     setError(null);
 
     // Check authentication
