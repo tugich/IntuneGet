@@ -155,7 +155,7 @@ export function HeroSection() {
                 <span className="text-2xl md:text-3xl font-bold text-accent-cyan">
                   {isLoading ? "..." : <CountUp end={appsDeployed} />}
                 </span>
-                <span className="text-xs md:text-sm text-zinc-500">Deployed</span>
+                <span className="text-xs md:text-sm text-zinc-500">Uploaded Apps</span>
               </div>
               <div className="hidden sm:block w-px h-10 bg-zinc-700/50" />
               <div className="flex flex-col items-center">
