@@ -31,13 +31,14 @@ export default function MspTenantsPage() {
     removeTenant,
   } = useMsp();
 
-  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
   const [removingTenantId, setRemovingTenantId] = useState<string | null>(null);
 
   // Check for URL params (consent callback results)
   useEffect(() => {
     const success = searchParams.get('success');
     const error = searchParams.get('error');
+    const warning = searchParams.get('warning');
     const message = searchParams.get('message');
 
     if (success) {
@@ -46,6 +47,15 @@ export default function MspTenantsPage() {
         message: success === 'consent_granted'
           ? 'Customer consent granted successfully!'
           : message || 'Operation completed successfully',
+      });
+      // Refresh tenants list to show updated status
+      refreshTenants();
+      // Clear params
+      router.replace('/dashboard/msp/tenants', { scroll: false });
+    } else if (warning) {
+      setNotification({
+        type: 'warning',
+        message: message || 'Action completed with warnings',
       });
       // Refresh tenants list to show updated status
       refreshTenants();
@@ -114,9 +124,12 @@ export default function MspTenantsPage() {
     return null;
   }
 
-  // Separate active and pending tenants
+  // Separate active, incomplete, and pending tenants
   const activeTenants = managedTenants.filter(
     t => t.is_active && t.consent_status === 'granted' && t.tenant_id
+  );
+  const incompleteTenants = managedTenants.filter(
+    t => t.is_active && t.consent_status === 'consent_incomplete'
   );
   const pendingTenants = managedTenants.filter(
     t => t.is_active && t.consent_status === 'pending'
@@ -165,16 +178,19 @@ export default function MspTenantsPage() {
         <div className={cn(
           'p-4 rounded-xl flex items-start gap-3',
           notification.type === 'success' && 'bg-green-500/10 border border-green-500/20',
+          notification.type === 'warning' && 'bg-yellow-500/10 border border-yellow-500/20',
           notification.type === 'error' && 'bg-red-500/10 border border-red-500/20'
         )}>
           {notification.type === 'success' ? (
             <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+          ) : notification.type === 'warning' ? (
+            <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0" />
           ) : (
             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
           )}
           <p className={cn(
             'text-sm',
-            notification.type === 'success' ? 'text-green-400' : 'text-red-400'
+            notification.type === 'success' ? 'text-green-400' : notification.type === 'warning' ? 'text-yellow-400' : 'text-red-400'
           )}>
             {notification.message}
           </p>
@@ -215,6 +231,28 @@ export default function MspTenantsPage() {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Incomplete Consent Tenants */}
+      {incompleteTenants.length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-orange-500" />
+            Incomplete Permissions ({incompleteTenants.length})
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {incompleteTenants.map((tenant) => (
+              <TenantCard
+                key={tenant.id}
+                tenant={tenant}
+                onRemove={handleRemoveTenant}
+              />
+            ))}
+          </div>
+          <p className="mt-4 text-sm text-orange-400/80">
+            These tenants granted consent but are missing Intune permissions (DeviceManagementApps.ReadWrite.All). The customer admin needs to re-grant consent with the correct permissions to enable app deployments.
+          </p>
         </div>
       )}
 

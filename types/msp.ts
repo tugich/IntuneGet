@@ -51,7 +51,7 @@ export interface MspOrganizationStats {
 /**
  * Consent status for a managed tenant
  */
-export type ConsentStatus = 'pending' | 'granted' | 'revoked';
+export type ConsentStatus = 'pending' | 'granted' | 'consent_incomplete' | 'revoked';
 
 /**
  * MSP Managed Tenant - a customer tenant managed by the MSP
@@ -339,6 +339,8 @@ export function getConsentStatusDisplay(status: ConsentStatus): string {
       return 'Pending Consent';
     case 'granted':
       return 'Active';
+    case 'consent_incomplete':
+      return 'Incomplete Permissions';
     case 'revoked':
       return 'Consent Revoked';
     default:
@@ -355,6 +357,8 @@ export function getConsentStatusColor(status: ConsentStatus): string {
       return 'text-yellow-500';
     case 'granted':
       return 'text-green-500';
+    case 'consent_incomplete':
+      return 'text-orange-500';
     case 'revoked':
       return 'text-red-500';
     default:
