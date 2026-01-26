@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { MicrosoftAuthProvider } from "@/components/providers/MicrosoftAuthProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
-import { PlausibleProvider } from "@/components/providers/PlausibleProvider";
 import { MspProvider } from "@/contexts/MspContext";
 
 // Analytics configuration
@@ -114,16 +114,20 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        {ANALYTICS_ENABLED && PLAUSIBLE_DOMAIN && (
+          <Script
+            defer
+            data-domain={PLAUSIBLE_DOMAIN}
+            src="https://plausible.io/js/script.js"
+            strategy="afterInteractive"
+          />
+        )}
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        {ANALYTICS_ENABLED && PLAUSIBLE_DOMAIN ? (
-          <PlausibleProvider domain={PLAUSIBLE_DOMAIN}>
-            {content}
-          </PlausibleProvider>
-        ) : (
-          content
-        )}
+        {content}
       </body>
     </html>
   );
