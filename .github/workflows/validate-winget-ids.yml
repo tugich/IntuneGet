@@ -359,26 +359,26 @@ jobs:
             }
 
             try {
-              $prompt = "Search the web to find the winget package ID for this Windows application:`n`n" +
+              $prompt = "Search the web to find the CORRECT winget package ID for this Windows application:`n`n" +
                 "App: $AppName`n" +
                 "Publisher: $Publisher`n" +
-                "Expected ID pattern: $ExistingWingetId`n`n" +
+                "Invalid/Expected ID: $ExistingWingetId (THIS ID IS WRONG - do NOT return it)`n`n" +
                 "SEARCH STRATEGY:`n" +
                 "1. Search for `"$AppName winget id`" or `"$AppName winget install`"`n" +
                 "2. Check these reliable sources:`n" +
                 "   - winget.run (package database)`n" +
                 "   - winstall.app (package search)`n" +
-                "   - learn.microsoft.com (official docs)`n" +
                 "   - github.com/microsoft/winget-pkgs (official repository)`n`n" +
+                "IMPORTANT: The ID '$ExistingWingetId' does NOT exist in winget. You must find a DIFFERENT, valid ID.`n`n" +
                 "RULES:`n" +
                 "- Winget IDs follow the format: Publisher.AppName (e.g., Microsoft.VisualStudioCode)`n" +
+                "- For Visual Studio, the correct IDs are like: Microsoft.VisualStudio.2022.Community`n" +
                 "- If multiple editions exist (Community/Pro/Enterprise), prefer the free/Community edition`n" +
-                "- If the existing ID pattern suggests a publisher (e.g., `"Microsoft.`"), prioritize matches from that publisher`n" +
-                "- Return the MOST LIKELY correct ID even if not 100% certain`n`n" +
+                "- NEVER return the invalid ID shown above`n`n" +
                 "RESPONSE FORMAT:`n" +
                 "- Return ONLY the winget ID (e.g., Microsoft.VisualStudio.2022.Community)`n" +
-                "- Return NOT_AVAILABLE only if you confirm the app is definitely not in winget`n" +
-                "- Return UNKNOWN only as a last resort if no information found at all"
+                "- Return NOT_AVAILABLE only if the app is definitely not in winget`n" +
+                "- Return UNKNOWN only if no information found at all"
 
               $body = @{
                 model = "gpt-5-nano"
@@ -399,33 +399,20 @@ jobs:
                 -Body $body `
                 -TimeoutSec 300
 
-              # Debug: Log the response structure
-              Write-Host "    API Response keys: $($response.PSObject.Properties.Name -join ', ')" -ForegroundColor Gray
-
-              # Responses API returns output_text for the final text response
+              # Responses API returns text property for the final text response
               $answer = $null
-              if ($response.output_text) {
+              if ($response.text) {
+                $answer = $response.text.Trim()
+              } elseif ($response.output_text) {
                 $answer = $response.output_text.Trim()
-              } elseif ($response.output -and $response.output.Count -gt 0) {
-                # Fallback: extract text from output array
-                foreach ($item in $response.output) {
-                  if ($item.type -eq 'message' -and $item.content) {
-                    foreach ($content in $item.content) {
-                      if ($content.type -eq 'output_text' -or $content.type -eq 'text') {
-                        $answer = $content.text.Trim()
-                        break
-                      }
-                    }
-                  }
-                  if ($answer) { break }
-                }
               }
 
               if (-not $answer) {
                 Write-Host "    Could not extract text from API response" -ForegroundColor Yellow
-                Write-Host "    Response: $($response | ConvertTo-Json -Depth 3 -Compress)" -ForegroundColor Gray
                 return @{ Status = "UNKNOWN"; Id = $null }
               }
+
+              Write-Host "    API returned: $answer" -ForegroundColor Gray
 
               # Validate the response format
               if ($answer -eq "NOT_AVAILABLE" -or $answer -eq "UNKNOWN") {
