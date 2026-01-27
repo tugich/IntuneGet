@@ -6,9 +6,7 @@ import {
   User,
   Building2,
   Shield,
-  LogOut,
   CheckCircle2,
-  AlertCircle,
   ExternalLink,
   Loader2,
   HelpCircle,
@@ -17,6 +15,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { PageHeader, SectionTransition } from '@/components/dashboard';
+import { NotificationSettings } from '@/components/settings/NotificationSettings';
+import { WebhookManager } from '@/components/settings/WebhookManager';
 import { cn } from '@/lib/utils';
 
 interface PermissionStatusState {
@@ -31,14 +31,10 @@ interface PermissionStatusState {
 }
 
 export default function SettingsPage() {
-  const { user, signOut, getAccessToken, requestAdminConsent } = useMicrosoftAuth();
+  const { user, getAccessToken, requestAdminConsent } = useMicrosoftAuth();
   const prefersReducedMotion = useReducedMotion();
   const [isChecking, setIsChecking] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatusState | null>(null);
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
 
   const handleCheckPermissions = async () => {
     setIsChecking(true);
@@ -124,7 +120,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-6xl">
       <PageHeader
         title="Settings"
         description="Manage your account and Intune connection"
@@ -138,76 +134,79 @@ export default function SettingsPage() {
         animate="visible"
         className="space-y-6"
       >
-        {/* Account section */}
-        <motion.section
-          variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
-              <User className="w-5 h-5 text-accent-cyan" />
+        {/* Top row: Account + Intune Connection side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Account section */}
+          <motion.section
+            variants={itemVariants}
+            className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-accent-cyan" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">Account</h2>
             </div>
-            <h2 className="text-lg font-semibold text-white">Account</h2>
-          </div>
 
-          <div className="space-y-1">
-            <SettingRow label="Name" value={user?.name || 'Not provided'} />
-            <SettingRow label="Email" value={user?.email || 'Not provided'} />
-            <SettingRow
-              label="Authentication Provider"
-              value="Microsoft Entra ID"
-              noBorder
-            />
-          </div>
-        </motion.section>
-
-        {/* Intune connection section */}
-        <motion.section
-          variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-accent-violet/10 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-accent-violet" />
+            <div className="space-y-1">
+              <SettingRow label="Name" value={user?.name || 'Not provided'} />
+              <SettingRow label="Email" value={user?.email || 'Not provided'} />
+              <SettingRow
+                label="Authentication Provider"
+                value="Microsoft Entra ID"
+                noBorder
+              />
             </div>
-            <h2 className="text-lg font-semibold text-white">Intune Connection</h2>
-          </div>
+          </motion.section>
 
-          <div className="space-y-1">
-            <div className="flex items-center justify-between py-3 border-b border-white/5">
-              <div>
-                <p className="text-zinc-400 text-sm">Status</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <CheckCircle2 className="w-4 h-4 text-status-success" />
-                  <p className="text-status-success">Connected</p>
+          {/* Intune connection section */}
+          <motion.section
+            variants={itemVariants}
+            className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-accent-violet/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-accent-violet" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">Intune Connection</h2>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center justify-between py-3 border-b border-white/5">
+                <div>
+                  <p className="text-zinc-400 text-sm">Status</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <CheckCircle2 className="w-4 h-4 text-status-success" />
+                    <p className="text-status-success">Connected</p>
+                  </div>
+                </div>
+              </div>
+
+              <SettingRow
+                label="Tenant ID"
+                value={user?.tenantId || 'Not available'}
+                mono
+              />
+
+              <div className="flex items-center justify-between py-3">
+                <div>
+                  <p className="text-zinc-400 text-sm">Intune Portal</p>
+                  <a
+                    href="https://intune.microsoft.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-accent-cyan hover:text-accent-cyan-bright transition-colors mt-1"
+                  >
+                    Open Intune Portal
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
                 </div>
               </div>
             </div>
+          </motion.section>
+        </div>
 
-            <SettingRow
-              label="Tenant ID"
-              value={user?.tenantId || 'Not available'}
-              mono
-            />
-
-            <div className="flex items-center justify-between py-3">
-              <div>
-                <p className="text-zinc-400 text-sm">Intune Portal</p>
-                <a
-                  href="https://intune.microsoft.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-accent-cyan hover:text-accent-cyan-bright transition-colors mt-1"
-                >
-                  Open Intune Portal
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* Permissions section */}
+        {/* Permissions section - full width */}
         <motion.section
           variants={itemVariants}
           className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
@@ -239,7 +238,8 @@ export default function SettingsPage() {
             IntuneGet requires the following permissions to deploy applications:
           </p>
 
-          <div className="space-y-3">
+          {/* Permissions in a responsive grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <PermissionItem
               name="DeviceManagementApps.ReadWrite.All"
               description="Read and write Intune applications"
@@ -297,32 +297,19 @@ export default function SettingsPage() {
           </div>
         </motion.section>
 
-        {/* Danger zone */}
-        <motion.section
-          variants={itemVariants}
-          className="rounded-xl p-6 border border-status-error/20 bg-status-error/5 hover:border-status-error/30 transition-colors"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-status-error/10 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-status-error" />
-            </div>
-            <h2 className="text-lg font-semibold text-white">Sign Out</h2>
-          </div>
+        {/* Notifications row: Email + Webhooks side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Email Notifications section */}
+          <motion.div variants={itemVariants} className="h-full">
+            <NotificationSettings className="h-full" />
+          </motion.div>
 
-          <p className="text-zinc-400 text-sm mb-4">
-            Signing out will disconnect your Microsoft account from IntuneGet. You
-            will need to sign in again to deploy applications.
-          </p>
+          {/* Webhook Notifications section */}
+          <motion.div variants={itemVariants} className="h-full">
+            <WebhookManager className="h-full" />
+          </motion.div>
+        </div>
 
-          <Button
-            onClick={handleSignOut}
-            variant="outline"
-            className="border-status-error/30 text-status-error hover:bg-status-error/10 hover:border-status-error/50"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
-        </motion.section>
       </motion.div>
     </div>
   );
