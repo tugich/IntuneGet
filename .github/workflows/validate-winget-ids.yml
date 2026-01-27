@@ -373,18 +373,15 @@ jobs:
 
               $body = @{
                 model = "gpt-5-nano"
-                web_search_options = @{
-                  search_context_size = "medium"
-                }
-                messages = @(
+                tools = @(
                   @{
-                    role = "user"
-                    content = $prompt
+                    type = "web_search"
                   }
                 )
+                input = $prompt
               } | ConvertTo-Json -Depth 10
 
-              $response = Invoke-RestMethod -Uri "https://api.openai.com/v1/chat/completions" `
+              $response = Invoke-RestMethod -Uri "https://api.openai.com/v1/responses" `
                 -Method Post `
                 -Headers @{
                   "Authorization" = "Bearer $apiKey"
@@ -393,7 +390,8 @@ jobs:
                 -Body $body `
                 -TimeoutSec 30
 
-              $answer = $response.choices[0].message.content.Trim()
+              # Responses API returns output_text for the final text response
+              $answer = $response.output_text.Trim()
 
               # Validate the response format
               if ($answer -eq "NOT_AVAILABLE" -or $answer -eq "UNKNOWN") {
