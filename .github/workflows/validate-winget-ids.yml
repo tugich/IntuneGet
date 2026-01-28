@@ -398,7 +398,6 @@ jobs:
                   @{ role = "system"; content = "You validate winget package matches. Respond ONLY 'YES' or 'NO'." },
                   @{ role = "user"; content = $prompt }
                 )
-                temperature = 0
               } | ConvertTo-Json -Depth 10
 
               $response = Invoke-RestMethod -Uri "https://api.openai.com/v1/chat/completions" `
