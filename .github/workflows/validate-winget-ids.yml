@@ -56,71 +56,48 @@ jobs:
         run: npm ci
 
       - name: Setup Winget
+        uses: Cyberboss/install-winget@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Winget Sources
         shell: pwsh
         run: |
-          # Check if winget is available
-          $winget = Get-Command winget -ErrorAction SilentlyContinue
-
-          if (-not $winget) {
-            Write-Host "Installing WinGet..."
-            $progressPreference = 'SilentlyContinue'
-            $url = "https://aka.ms/getwinget"
-            $installerPath = "$env:TEMP\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-            Invoke-WebRequest -Uri $url -OutFile $installerPath
-            Add-AppxPackage -Path $installerPath
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-          }
-
           Write-Host "Winget version:"
           winget --version
 
           # List current sources
-          Write-Host "`nCurrent winget sources (before setup):"
+          Write-Host "`nCurrent winget sources:"
           winget source list
 
-          # Check if winget source exists, if not add it
-          $sources = winget source list 2>&1 | Out-String
-          if ($sources -notmatch 'winget\s+https://cdn.winget.microsoft.com/cache') {
-            Write-Host "`nWinget community source not found - adding it..."
-            winget source add --name winget --arg https://cdn.winget.microsoft.com/cache --accept-source-agreements
-          } else {
-            Write-Host "`nWinget community source already exists"
-          }
+          # Reset all sources to defaults (this ensures winget community repo is properly configured)
+          Write-Host "`nResetting sources to defaults..."
+          winget source reset --force
 
-          # Update sources
-          Write-Host "`nUpdating winget sources..."
-          winget source update --name winget
+          # Update all sources
+          Write-Host "`nUpdating sources..."
+          winget source update
 
-          # List sources again to confirm
-          Write-Host "`nCurrent winget sources (after setup):"
+          # List sources after reset
+          Write-Host "`nSources after reset:"
           winget source list
 
-          # Wait for source index to be ready
-          Start-Sleep -Seconds 5
+          # Wait for index to be ready
+          Start-Sleep -Seconds 10
 
-          # Verify winget is working by checking a known package
-          Write-Host "`nVerifying winget setup with known package (Microsoft.Skype)..."
-          $testOutput = winget show --id Microsoft.Skype --exact --source winget --accept-source-agreements 2>&1 | Out-String
-          if ($testOutput -match 'Microsoft.Skype') {
-            Write-Host "Winget verification PASSED - Microsoft.Skype found" -ForegroundColor Green
+          # Test with a search (more reliable than show)
+          Write-Host "`nTesting winget with search..."
+          $searchResult = winget search Microsoft.Skype --exact --accept-source-agreements 2>&1 | Out-String
+          Write-Host $searchResult
+
+          if ($searchResult -match 'Microsoft\.Skype') {
+            Write-Host "`nWinget verification PASSED" -ForegroundColor Green
           } else {
-            Write-Host "Winget verification WARNING - Microsoft.Skype not found in initial test" -ForegroundColor Yellow
-            Write-Host "Output: $testOutput"
-            # Try adding the source explicitly and update again
-            Write-Host "`nRetrying source setup..."
-            winget source remove --name winget 2>$null
-            winget source add --name winget --arg https://cdn.winget.microsoft.com/cache --accept-source-agreements
-            winget source update --name winget
-            Start-Sleep -Seconds 10
+            Write-Host "`nWinget verification WARNING - trying alternate setup" -ForegroundColor Yellow
 
-            # Final verification
-            $testOutput2 = winget show --id Microsoft.Skype --exact --source winget --accept-source-agreements 2>&1 | Out-String
-            if ($testOutput2 -match 'Microsoft.Skype') {
-              Write-Host "Winget verification PASSED after retry" -ForegroundColor Green
-            } else {
-              Write-Host "Winget verification FAILED - continuing anyway" -ForegroundColor Red
-              Write-Host "Output: $testOutput2"
-            }
+            # Try using winget configure to ensure proper setup
+            Write-Host "`nListing all available packages matching 'Skype'..."
+            winget search Skype --accept-source-agreements
           }
 
       - name: Fetch apps from Supabase
