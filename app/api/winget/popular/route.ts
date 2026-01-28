@@ -16,7 +16,6 @@ interface CuratedAppResult {
   tags: string[] | null;
   icon_path: string | null;
   popularity_rank: number | null;
-  chocolatey_downloads: number | null;
 }
 
 // Get popular packages from curated apps
@@ -81,7 +80,6 @@ export async function GET(request: NextRequest) {
           category: p.category,
           iconPath: p.icon_path,
           popularityRank: p.popularity_rank,
-          chocolateyDownloads: p.chocolatey_downloads,
         })),
         source: 'curated',
       });

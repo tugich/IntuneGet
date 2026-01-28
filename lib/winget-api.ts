@@ -38,7 +38,6 @@ export interface CuratedPackage extends NormalizedPackage {
   iconPath?: string;
   category?: string;
   popularityRank?: number;
-  chocolateyDownloads?: number;
 }
 
 /**
@@ -122,7 +121,6 @@ export async function getPackage(packageId: string): Promise<CuratedPackage | nu
         iconPath: curatedData.icon_path,
         category: curatedData.category,
         popularityRank: curatedData.popularity_rank,
-        chocolateyDownloads: curatedData.chocolatey_downloads,
       };
     }
 
@@ -376,7 +374,6 @@ function normalizeCuratedApp(app: Record<string, unknown>): CuratedPackage {
     iconPath: app.icon_path as string | undefined,
     category: app.category as string | undefined,
     popularityRank: app.popularity_rank as number | undefined,
-    chocolateyDownloads: app.chocolatey_downloads as number | undefined,
   };
 }
 

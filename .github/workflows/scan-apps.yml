@@ -76,38 +76,66 @@ jobs:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           APP_IDS: ${{ github.event.inputs.app_ids || 'all' }}
-        shell: pwsh
+          MAX_APPS: ${{ env.MAX_APPS }}
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
+          node << 'EOF'
+          const fs = require('fs');
+          const { createClient } = require('@supabase/supabase-js');
 
-          # Load curated app list
-          $listPath = "curated-apps/list.json"
-          if (Test-Path $listPath) {
-            $list = Get-Content $listPath | ConvertFrom-Json
-            $apps = $list.apps
-          } else {
-            Write-Error "Curated app list not found"
-            exit 1
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+          const appIds = process.env.APP_IDS || 'all';
+          const maxApps = parseInt(process.env.MAX_APPS) || 10;
+
+          if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase credentials not configured');
+            process.exit(1);
           }
 
-          # Filter apps
-          $appIds = $env:APP_IDS
-          $maxApps = [int]$env:MAX_APPS
+          const supabase = createClient(supabaseUrl, supabaseKey);
 
-          if ($appIds -ne 'all') {
-            $targetIds = $appIds -split ',' | ForEach-Object { $_.Trim() }
-            $apps = $apps | Where-Object { $targetIds -contains $_.winget_id }
+          async function getApps() {
+            let query = supabase
+              .from('curated_apps')
+              .select('winget_id, name, publisher, latest_version, popularity_rank');
+
+            // Filter by specific app IDs if provided
+            if (appIds !== 'all') {
+              const targetIds = appIds.split(',').map(id => id.trim());
+              query = query.in('winget_id', targetIds);
+            }
+
+            // Order by popularity rank (lower is more popular)
+            query = query.order('popularity_rank', { ascending: true, nullsFirst: false });
+
+            // Limit to max apps
+            query = query.limit(maxApps);
+
+            const { data: apps, error } = await query;
+
+            if (error) {
+              console.error('Failed to fetch apps:', error.message);
+              process.exit(1);
+            }
+
+            console.log(`Selected ${apps.length} apps for scanning`);
+
+            // Save apps to process
+            fs.writeFileSync('apps-to-scan.json', JSON.stringify(apps, null, 2));
+
+            // Output count for GitHub Actions
+            const outputFile = process.env.GITHUB_OUTPUT;
+            if (outputFile) {
+              fs.appendFileSync(outputFile, `app_count=${apps.length}\n`);
+            }
           }
 
-          # Prioritize apps without snapshots (would need DB check, using rank for now)
-          $apps = $apps | Sort-Object rank | Select-Object -First $maxApps
-
-          Write-Host "Selected $($apps.Count) apps for scanning"
-
-          # Save apps to process
-          $apps | ConvertTo-Json -Depth 10 | Out-File "apps-to-scan.json" -Encoding UTF8
-
-          echo "app_count=$($apps.Count)" >> $env:GITHUB_OUTPUT
+          getApps().catch(err => {
+            console.error('Error:', err);
+            process.exit(1);
+          });
+          EOF
 
       - name: Scan apps
         if: steps.get-apps.outputs.app_count != '0'
