@@ -84,47 +84,79 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           APP_IDS: ${{ github.event.inputs.app_ids || 'all' }}
           FORCE_REFRESH: ${{ github.event.inputs.force_refresh || 'false' }}
-        shell: pwsh
+          MAX_APPS: ${{ env.MAX_APPS }}
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
+          node << 'EOF'
+          const fs = require('fs');
+          const { createClient } = require('@supabase/supabase-js');
 
-          # Load curated app list
-          $listPath = "curated-apps/list.json"
-          if (Test-Path $listPath) {
-            $list = Get-Content $listPath | ConvertFrom-Json
-            $apps = $list.apps
-          } else {
-            Write-Error "Curated app list not found"
-            exit 1
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+          const appIds = process.env.APP_IDS || 'all';
+          const forceRefresh = process.env.FORCE_REFRESH === 'true';
+          const maxApps = parseInt(process.env.MAX_APPS) || 100;
+
+          if (!supabaseUrl || !supabaseKey) {
+            console.error('Supabase credentials not configured');
+            process.exit(1);
           }
 
-          # Filter apps
-          $appIds = $env:APP_IDS
-          $forceRefresh = $env:FORCE_REFRESH -eq 'true'
-          $maxApps = [int]$env:MAX_APPS
+          const supabase = createClient(supabaseUrl, supabaseKey);
 
-          if ($appIds -ne 'all') {
-            $targetIds = $appIds -split ',' | ForEach-Object { $_.Trim() }
-            $apps = $apps | Where-Object { $targetIds -contains $_.winget_id }
-          }
+          async function getApps() {
+            let query = supabase
+              .from('curated_apps')
+              .select('winget_id, name, publisher, latest_version');
 
-          # Filter out apps that already have icons (unless force refresh)
-          if (-not $forceRefresh) {
-            $apps = $apps | Where-Object {
-              $iconDir = "public/icons/$($_.winget_id)"
-              -not (Test-Path "$iconDir/icon-64.png")
+            // Filter by specific app IDs if provided
+            if (appIds !== 'all') {
+              const targetIds = appIds.split(',').map(id => id.trim());
+              query = query.in('winget_id', targetIds);
+            }
+
+            // Filter apps without icons (unless force refresh)
+            if (!forceRefresh) {
+              query = query.or('has_icon.is.null,has_icon.eq.false');
+            }
+
+            // Limit number of apps
+            query = query.limit(maxApps);
+
+            const { data: apps, error } = await query;
+
+            if (error) {
+              console.error('Failed to fetch apps:', error.message);
+              process.exit(1);
+            }
+
+            // Additional local filtering for apps that don't have icon files
+            const appsToProcess = [];
+            for (const app of apps) {
+              const iconPath = `public/icons/${app.winget_id}/icon-64.png`;
+              if (forceRefresh || !fs.existsSync(iconPath)) {
+                appsToProcess.push(app);
+              }
+              if (appsToProcess.length >= maxApps) break;
+            }
+
+            console.log(`Processing ${appsToProcess.length} apps for icon extraction`);
+
+            // Save apps to process
+            fs.writeFileSync('apps-to-process.json', JSON.stringify(appsToProcess, null, 2));
+
+            // Output count for GitHub Actions
+            const outputFile = process.env.GITHUB_OUTPUT;
+            if (outputFile) {
+              fs.appendFileSync(outputFile, `app_count=${appsToProcess.length}\n`);
             }
           }
 
-          # Limit number of apps
-          $apps = $apps | Select-Object -First $maxApps
-
-          Write-Host "Processing $($apps.Count) apps for icon extraction"
-
-          # Save apps to process
-          $apps | ConvertTo-Json -Depth 10 | Out-File "apps-to-process.json" -Encoding UTF8
-
-          echo "app_count=$($apps.Count)" >> $env:GITHUB_OUTPUT
+          getApps().catch(err => {
+            console.error('Error:', err);
+            process.exit(1);
+          });
+          EOF
 
       - name: Extract icons
         if: steps.get-apps.outputs.app_count != '0'
@@ -366,7 +398,7 @@ jobs:
 
             # Pull and rebase, then push (retry up to 3 times for race conditions)
             for i in 1 2 3; do
-              git pull --rebase origin master && git push origin master && break
+              git pull --rebase origin main && git push origin main && break
               echo "Retry $i: pull/push failed, retrying..."
               sleep 5
             done
