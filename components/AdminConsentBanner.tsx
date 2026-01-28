@@ -186,9 +186,10 @@ export function AdminConsentBanner({ onConsentGranted }: AdminConsentBannerProps
               Intune Permissions Missing
             </h3>
             <p className="text-sm text-slate-400 mb-2">
-              Admin consent was granted, but the required Intune permission
-              (<code className="text-amber-400 text-xs">DeviceManagementApps.ReadWrite.All</code>)
-              is missing. This can happen if permissions were updated after initial consent.
+              Admin consent was granted, but required Intune permissions are missing.
+              The app needs <code className="text-amber-400 text-xs">DeviceManagementApps.ReadWrite.All</code> and
+              <code className="text-amber-400 text-xs ml-1">DeviceManagementManagedDevices.Read.All</code>.
+              This can happen if permissions were updated after initial consent.
             </p>
             <p className="text-sm text-slate-400 mb-4">
               <strong className="text-amber-400">Your packaging jobs may be failing because of this.</strong> A Global Administrator needs to re-grant admin consent.

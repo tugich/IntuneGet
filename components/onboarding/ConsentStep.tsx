@@ -273,9 +273,10 @@ export function ConsentStep({ onNext, onBack }: ConsentStepProps) {
           Intune Permissions Missing
         </h1>
         <p className="text-slate-400 mb-6">
-          Admin consent was granted, but the required Intune permission
-          (<code className="text-amber-400">DeviceManagementApps.ReadWrite.All</code>)
-          was not included. This can happen if permissions were updated after initial consent.
+          Admin consent was granted, but required Intune permissions are missing.
+          The app needs <code className="text-amber-400">DeviceManagementApps.ReadWrite.All</code> and
+          <code className="text-amber-400 ml-1">DeviceManagementManagedDevices.Read.All</code>.
+          This can happen if permissions were updated after initial consent.
         </p>
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-6">
           <p className="text-sm text-slate-300 mb-4">

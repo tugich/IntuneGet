@@ -54,7 +54,8 @@ IntuneGet requires two types of permissions:
 2. Select **Microsoft Graph**
 3. Select **Application permissions**
 4. Search and add: `DeviceManagementApps.ReadWrite.All`
-5. Click **Add permissions**
+5. Search and add: `DeviceManagementManagedDevices.Read.All`
+6. Click **Add permissions**
 
 Your permissions should look like this:
 
@@ -62,6 +63,7 @@ Your permissions should look like this:
 |------------|------|--------|
 | User.Read | Delegated | Granted for your org |
 | DeviceManagementApps.ReadWrite.All | Application | Requires admin consent |
+| DeviceManagementManagedDevices.Read.All | Application | Requires admin consent |
 
 ## Create Client Secret
 

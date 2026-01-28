@@ -25,6 +25,7 @@ interface PermissionStatus {
   deviceManagementApps: boolean | null;
   userRead: boolean | null;
   groupRead: boolean | null;
+  deviceManagementManagedDevices: boolean | null;
 }
 
 interface ConsentVerificationResult {
@@ -103,6 +104,7 @@ async function verifyConsentWithGraph(tenantId: string): Promise<GraphVerificati
             deviceManagementApps: false,
             userRead: true,
             groupRead: tokenRoles.includes('Group.Read.All'),
+            deviceManagementManagedDevices: tokenRoles.includes('DeviceManagementManagedDevices.Read.All'),
           };
 
           // Log the verification failure
@@ -129,6 +131,7 @@ async function verifyConsentWithGraph(tenantId: string): Promise<GraphVerificati
         deviceManagementApps: null,
         userRead: true, // If we got a token, basic access works
         groupRead: tokenRoles.includes('Group.Read.All') || null,
+        deviceManagementManagedDevices: tokenRoles.includes('DeviceManagementManagedDevices.Read.All') || null,
       };
 
       // Test DeviceManagementApps.ReadWrite.All permission
@@ -198,6 +201,39 @@ async function verifyConsentWithGraph(tenantId: string): Promise<GraphVerificati
         );
       } catch {
         permissions.groupRead = null;
+      }
+
+      // Test DeviceManagementManagedDevices.Read.All permission
+      try {
+        const discoveredAppsTestResponse = await fetch(
+          'https://graph.microsoft.com/v1.0/deviceManagement/detectedApps?$top=1&$select=id',
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (discoveredAppsTestResponse.status === 403) {
+          permissions.deviceManagementManagedDevices = false;
+        } else if (discoveredAppsTestResponse.status >= 500) {
+          permissions.deviceManagementManagedDevices = null;
+        } else {
+          permissions.deviceManagementManagedDevices = true;
+        }
+
+        // Log the Discovered Apps API permission test
+        logApiPermissionTest(
+          '/api/auth/verify-consent',
+          tenantId,
+          'DeviceManagementManagedDevices.Read.All',
+          discoveredAppsTestResponse.status,
+          permissions.deviceManagementManagedDevices
+        );
+      } catch {
+        permissions.deviceManagementManagedDevices = null;
       }
 
       // Determine overall verification status

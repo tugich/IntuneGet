@@ -27,6 +27,7 @@ interface PermissionStatusState {
     deviceManagementApps: boolean | null;
     userRead: boolean | null;
     groupRead: boolean | null;
+    deviceManagementManagedDevices: boolean | null;
   };
 }
 
@@ -51,6 +52,7 @@ export default function SettingsPage() {
             deviceManagementApps: null,
             userRead: null,
             groupRead: null,
+            deviceManagementManagedDevices: null,
           },
         });
         return;
@@ -73,6 +75,7 @@ export default function SettingsPage() {
           deviceManagementApps: result.permissions?.deviceManagementApps ?? (result.verified ? true : null),
           userRead: result.permissions?.userRead ?? true,
           groupRead: result.permissions?.groupRead ?? null,
+          deviceManagementManagedDevices: result.permissions?.deviceManagementManagedDevices ?? null,
         },
       });
     } catch (error) {
@@ -85,6 +88,7 @@ export default function SettingsPage() {
           deviceManagementApps: null,
           userRead: null,
           groupRead: null,
+          deviceManagementManagedDevices: null,
         },
       });
     } finally {
@@ -239,11 +243,17 @@ export default function SettingsPage() {
           </p>
 
           {/* Permissions in a responsive grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <PermissionItem
               name="DeviceManagementApps.ReadWrite.All"
               description="Read and write Intune applications"
               granted={permissionStatus?.permissions.deviceManagementApps ?? null}
+              checking={isChecking}
+            />
+            <PermissionItem
+              name="DeviceManagementManagedDevices.Read.All"
+              description="Read discovered apps from managed devices"
+              granted={permissionStatus?.permissions.deviceManagementManagedDevices ?? null}
               checking={isChecking}
             />
             <PermissionItem
@@ -270,6 +280,21 @@ export default function SettingsPage() {
             <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
               <p className="text-sm text-amber-400 mb-2">
                 Intune permission is missing. A Global Administrator needs to re-grant consent.
+              </p>
+              <Button
+                onClick={handleGrantConsent}
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-black"
+              >
+                Re-grant Admin Consent
+              </Button>
+            </div>
+          )}
+
+          {permissionStatus?.permissions.deviceManagementManagedDevices === false && (
+            <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-sm text-amber-400 mb-2">
+                Discovered Apps permission is missing. The Discovered Apps feature requires this permission. A Global Administrator needs to re-grant consent.
               </p>
               <Button
                 onClick={handleGrantConsent}
