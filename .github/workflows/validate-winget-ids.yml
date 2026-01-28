@@ -398,7 +398,7 @@ jobs:
                   @{ role = "system"; content = "You validate winget package matches. Respond ONLY 'YES' or 'NO'." },
                   @{ role = "user"; content = $prompt }
                 )
-                max_tokens = 10
+                max_completion_tokens = 10
                 temperature = 0
               } | ConvertTo-Json -Depth 10
 
