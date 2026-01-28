@@ -14,12 +14,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useMsp } from '@/contexts/MspContext';
-import { TenantCard } from '@/components/msp';
+import { TenantCard, ConsentUrlDialog } from '@/components/msp';
+import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { cn } from '@/lib/utils';
 
 export default function MspTenantsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { getAccessToken } = useMicrosoftAuth();
   const {
     isMspUser,
     isLoadingOrganization,
@@ -33,6 +35,11 @@ export default function MspTenantsPage() {
 
   const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
   const [removingTenantId, setRemovingTenantId] = useState<string | null>(null);
+  const [consentUrlDialog, setConsentUrlDialog] = useState<{ isOpen: boolean; url: string; tenantName: string }>({
+    isOpen: false,
+    url: '',
+    tenantName: '',
+  });
 
   // Check for URL params (consent callback results)
   useEffect(() => {
@@ -103,6 +110,51 @@ export default function MspTenantsPage() {
     } finally {
       setRemovingTenantId(null);
     }
+  };
+
+  const handleGetConsentUrl = async (tenantRecordId: string) => {
+    const tenant = managedTenants.find(t => t.id === tenantRecordId);
+    if (!tenant) return;
+
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        setNotification({
+          type: 'error',
+          message: 'Authentication required. Please sign in again.',
+        });
+        return;
+      }
+
+      const response = await fetch(`/api/msp/tenants/${tenantRecordId}/consent-url`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.message || data.error || 'Failed to get consent URL');
+      }
+
+      const data = await response.json();
+      setConsentUrlDialog({
+        isOpen: true,
+        url: data.consentUrl,
+        tenantName: tenant.display_name,
+      });
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to get consent URL',
+      });
+    }
+  };
+
+  const closeConsentUrlDialog = () => {
+    setConsentUrlDialog({ isOpen: false, url: '', tenantName: '' });
   };
 
   // Loading state
@@ -247,11 +299,12 @@ export default function MspTenantsPage() {
                 key={tenant.id}
                 tenant={tenant}
                 onRemove={handleRemoveTenant}
+                onGetConsentUrl={handleGetConsentUrl}
               />
             ))}
           </div>
           <p className="mt-4 text-sm text-orange-400/80">
-            These tenants granted consent but are missing Intune permissions (DeviceManagementApps.ReadWrite.All). The customer admin needs to re-grant consent with the correct permissions to enable app deployments.
+            These tenants granted consent but are missing Intune permissions (DeviceManagementApps.ReadWrite.All). The customer admin needs to re-grant consent with the correct permissions to enable app deployments. Use the &quot;Get Consent URL&quot; option to get a new consent link.
           </p>
         </div>
       )}
@@ -269,14 +322,23 @@ export default function MspTenantsPage() {
                 key={tenant.id}
                 tenant={tenant}
                 onRemove={handleRemoveTenant}
+                onGetConsentUrl={handleGetConsentUrl}
               />
             ))}
           </div>
           <p className="mt-4 text-sm text-zinc-500">
-            These tenants are waiting for their administrator to grant consent. Share the consent URL with them to complete setup.
+            These tenants are waiting for their administrator to grant consent. Use the menu on each card to get the consent URL to share with them.
           </p>
         </div>
       )}
+
+      {/* Consent URL Dialog */}
+      <ConsentUrlDialog
+        isOpen={consentUrlDialog.isOpen}
+        onClose={closeConsentUrlDialog}
+        consentUrl={consentUrlDialog.url}
+        tenantName={consentUrlDialog.tenantName}
+      />
     </div>
   );
 }

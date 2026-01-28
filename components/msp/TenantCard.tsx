@@ -1,17 +1,19 @@
 'use client';
 
-import { Building2, CheckCircle2, Clock, XCircle, MoreVertical, Trash2, ExternalLink } from 'lucide-react';
+import { Building2, CheckCircle2, Clock, XCircle, MoreVertical, Trash2, Link2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TenantCardProps } from '@/types/msp';
 import { getConsentStatusDisplay, getConsentStatusColor, isTenantActive } from '@/types/msp';
 import { useState, useRef, useEffect } from 'react';
 
-export function TenantCard({ tenant, onSelect, onRemove, isSelected }: TenantCardProps) {
+export function TenantCard({ tenant, onSelect, onRemove, onGetConsentUrl, isSelected }: TenantCardProps) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isActive = isTenantActive(tenant);
   const isPending = tenant.consent_status === 'pending';
+  const isIncomplete = tenant.consent_status === 'consent_incomplete';
+  const canGetConsentUrl = isPending || isIncomplete;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -38,12 +40,21 @@ export function TenantCard({ tenant, onSelect, onRemove, isSelected }: TenantCar
     setShowMenu(false);
   };
 
+  const handleGetConsentUrl = () => {
+    if (onGetConsentUrl) {
+      onGetConsentUrl(tenant.id);
+    }
+    setShowMenu(false);
+  };
+
   const getStatusIcon = () => {
     switch (tenant.consent_status) {
       case 'granted':
         return <CheckCircle2 className="w-4 h-4 text-green-500" />;
       case 'pending':
         return <Clock className="w-4 h-4 text-yellow-500" />;
+      case 'consent_incomplete':
+        return <AlertTriangle className="w-4 h-4 text-orange-500" />;
       case 'revoked':
         return <XCircle className="w-4 h-4 text-red-500" />;
       default:
@@ -80,7 +91,16 @@ export function TenantCard({ tenant, onSelect, onRemove, isSelected }: TenantCar
         </button>
 
         {showMenu && (
-          <div className="absolute top-full right-0 mt-1 w-40 bg-bg-elevated border border-white/10 rounded-lg shadow-xl z-10 overflow-hidden">
+          <div className="absolute top-full right-0 mt-1 w-48 bg-bg-elevated border border-white/10 rounded-lg shadow-xl z-10 overflow-hidden">
+            {canGetConsentUrl && onGetConsentUrl && (
+              <button
+                onClick={handleGetConsentUrl}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 transition-colors"
+              >
+                <Link2 className="w-4 h-4" />
+                Get Consent URL
+              </button>
+            )}
             {onRemove && (
               <button
                 onClick={handleRemove}

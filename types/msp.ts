@@ -271,6 +271,7 @@ export interface TenantCardProps {
   tenant: MspManagedTenantWithStats;
   onSelect?: (tenantId: string) => void;
   onRemove?: (tenantId: string) => void;
+  onGetConsentUrl?: (tenantRecordId: string) => void;
   isSelected?: boolean;
 }
 

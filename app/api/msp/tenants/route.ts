@@ -201,9 +201,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate the consent URL with signed state for security
-    const baseUrl = getBaseUrl();
-    const signedState = signConsentState(mspOrgId, tenant.id);
-    const consentUrl = getMspCustomerConsentUrl(mspOrgId, tenant.id, baseUrl, signedState);
+    let consentUrl: string;
+    try {
+      const baseUrl = getBaseUrl();
+      const signedState = signConsentState(mspOrgId, tenant.id);
+      consentUrl = getMspCustomerConsentUrl(mspOrgId, tenant.id, baseUrl, signedState);
+    } catch (signError) {
+      console.error('Error generating consent URL:', signError);
+      // The tenant was created but we couldn't generate the consent URL
+      // Return the tenant info with an error message so the user knows to retry
+      return NextResponse.json(
+        {
+          error: 'Failed to generate consent URL',
+          message: 'The tenant was created but the consent URL could not be generated. Please use the "Get Consent URL" option from the tenant menu to retrieve it.',
+          tenant: tenant as MspManagedTenant,
+        },
+        { status: 201 }
+      );
+    }
 
     const response: AddTenantResponse = {
       tenant: tenant as MspManagedTenant,
@@ -213,6 +228,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
     console.error('MSP tenants POST error:', error);
+
+    // Check if it's a state signing error
+    if (error instanceof Error && error.message.includes('MSP_STATE_SECRET')) {
+      return NextResponse.json(
+        {
+          error: 'Configuration error',
+          message: 'Server is not properly configured for MSP consent. Please contact support.'
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
