@@ -5,7 +5,7 @@ on:
   workflow_run:
     workflows: ["Build Curated App List"]
     types: [completed]
-    branches: [master]
+    branches: [main, master]
   schedule:
     # Run weekly on Saturdays at 04:00 UTC (fallback)
     - cron: '0 4 * * 6'
@@ -52,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: master
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
