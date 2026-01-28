@@ -75,7 +75,7 @@ jobs:
 
           # Update winget sources to ensure we have latest package data
           Write-Host "Updating winget sources..."
-          winget source update --accept-source-agreements
+          winget source update
 
       - name: Fetch apps from Supabase
         id: fetch
