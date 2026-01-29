@@ -23,7 +23,7 @@ concurrency:
 
 env:
   NODE_VERSION: '20'
-  WINGET_INDEX_URL: 'https://raw.githubusercontent.com/svrooij/winget-pkgs-index/main/index.json'
+  WINGET_INDEX_URL: 'https://raw.githubusercontent.com/svrooij/winget-pkgs-index/main/index.v2.json'
 
 permissions:
   contents: read
@@ -109,7 +109,7 @@ jobs:
             }
 
             // Transform packages to our schema
-            // Index format: { Name, PackageId, Version }
+            // Index v2 format: { Name, PackageId, Version, Tags, LastUpdate }
             const appsToUpsert = packages.map(pkg => {
               // Extract publisher from PackageId (first part before .)
               const packageId = pkg.PackageId || pkg.PackageIdentifier || '';
@@ -121,6 +121,8 @@ jobs:
                 name: pkg.Name || pkg.PackageName || packageId,
                 publisher: publisher,
                 latest_version: pkg.Version || null,
+                tags: pkg.Tags || [],
+                winget_last_update: pkg.LastUpdate || null,
                 is_verified: true, // Source is authoritative (winget-pkgs)
                 is_winget_verified: true,
                 updated_at: new Date().toISOString()
