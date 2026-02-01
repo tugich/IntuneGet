@@ -1,8 +1,14 @@
 import {
   Header,
   HeroSection,
+  CustomerLogosSection,
+  ProblemOutcomeSection,
+  TrustSection,
   FeaturesSection,
+  DemoSection,
+  AdvancedCapabilitiesSection,
   HowItWorksSection,
+  TestimonialsSection,
   FAQSectionAnimated,
   CTASection,
   Footer,
@@ -15,8 +21,14 @@ export default function LandingPage() {
       <Header />
       <main className="flex-1">
         <HeroSection />
+        <CustomerLogosSection />
+        <ProblemOutcomeSection />
+        <TrustSection />
         <FeaturesSection />
+        <DemoSection />
+        <AdvancedCapabilitiesSection />
         <HowItWorksSection />
+        <TestimonialsSection />
         <FAQSectionAnimated />
         <CTASection />
       </main>

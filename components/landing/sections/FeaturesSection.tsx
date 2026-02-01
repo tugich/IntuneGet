@@ -63,12 +63,12 @@ export function FeaturesSection() {
             </span>
           </FadeIn>
           <FadeIn delay={0.1}>
-            <h2 className="text-display-md text-white">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-stone-900">
               Everything You Need
             </h2>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <p className="mx-auto max-w-2xl text-lg text-zinc-400">
+            <p className="mx-auto max-w-2xl text-lg text-stone-600">
               Powerful tools to streamline your Intune app deployment process
             </p>
           </FadeIn>

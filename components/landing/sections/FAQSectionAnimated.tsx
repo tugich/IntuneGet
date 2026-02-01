@@ -17,9 +17,19 @@ const faqs = [
       "IntuneGet is a powerful tool that bridges the gap between Winget and Microsoft Intune. It automatically packages applications from the Winget repository and uploads them to your Intune environment, streamlining your app deployment process with just a few clicks.",
   },
   {
-    question: "Is IntuneGet really free and open source?",
+    question: "Is IntuneGet really 100% free?",
     answer:
-      "Yes! IntuneGet is completely free and open source under the MIT license. You can use it without any cost, modify it to fit your needs, and contribute to its development. We believe in making IT management tools accessible to everyone.",
+      "Yes! IntuneGet is completely free and open source under the MIT license. There are no hidden fees, no premium tiers, and no credit card required. You can use all features without any cost, modify it to fit your needs, and contribute to its development.",
+  },
+  {
+    question: "How long does setup take?",
+    answer:
+      "Most users are up and running in under 5 minutes. Simply sign in with your Microsoft account, grant the necessary permissions, and you're ready to start deploying apps. Our step-by-step onboarding guides you through the entire process.",
+  },
+  {
+    question: "Where is my data stored?",
+    answer:
+      "Your credentials and sensitive data never leave your environment. IntuneGet uses secure Microsoft authentication (Entra ID) and only stores minimal metadata needed for the service. All communications are encrypted, and you can self-host for complete control.",
   },
   {
     question: "Which applications are supported?",
@@ -32,9 +42,9 @@ const faqs = [
       "You'll need appropriate permissions in your Entra ID and Intune environment to upload and manage applications. Typically, this requires Intune Administrator or Application Administrator roles. We provide detailed documentation on the required permissions.",
   },
   {
-    question: "How secure is the deployment process?",
+    question: "What support is available?",
     answer:
-      "Security is our top priority. IntuneGet uses Microsoft's official APIs and follows enterprise security best practices. All communications are encrypted, and we never store your credentials. The tool integrates seamlessly with Entra ID authentication.",
+      "As an open source project, support is provided through our GitHub community. You can file issues, ask questions in discussions, and get help from other users. We also have comprehensive documentation covering common use cases and troubleshooting.",
   },
   {
     question: "Can I self-host IntuneGet?",
@@ -83,12 +93,12 @@ export function FAQSectionAnimated() {
             </Badge>
           </FadeIn>
           <FadeIn delay={0.1}>
-            <h2 className="text-display-md text-white mb-4">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-stone-900 mb-4">
               Everything You Need to Know
             </h2>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
+            <p className="text-lg text-stone-600 max-w-2xl mx-auto">
               Get answers to the most common questions about IntuneGet and how
               it can transform your app deployment workflow.
             </p>
@@ -102,21 +112,21 @@ export function FAQSectionAnimated() {
               <div
                 className={cn(
                   "rounded-2xl border transition-all duration-300",
-                  "bg-bg-surface/50 backdrop-blur-sm",
+                  "bg-white shadow-card",
                   openIndex === index
-                    ? "border-accent-cyan/30 shadow-[0_0_30px_rgba(6,182,212,0.1)]"
-                    : "border-white/5 hover:border-white/10"
+                    ? "border-accent-cyan/30 shadow-card-hover"
+                    : "border-stone-200/60 hover:border-stone-300/60"
                 )}
               >
                 <button
                   onClick={() => toggleFAQ(index)}
                   className="w-full px-6 py-5 text-left flex items-center justify-between gap-4"
                 >
-                  <h3 className="text-base sm:text-lg font-semibold text-white pr-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-stone-900 pr-4">
                     {faq.question}
                   </h3>
                   <motion.div
-                    className="flex-shrink-0 text-zinc-400"
+                    className="flex-shrink-0 text-stone-400"
                     animate={{
                       rotate: openIndex === index ? 180 : 0,
                     }}
@@ -140,8 +150,8 @@ export function FAQSectionAnimated() {
                       }}
                     >
                       <div className="px-6 pb-5">
-                        <div className="h-px bg-gradient-to-r from-transparent via-accent-cyan/20 to-transparent mb-4" />
-                        <p className="text-zinc-400 leading-relaxed">
+                        <div className="h-px bg-gradient-to-r from-transparent via-stone-200 to-transparent mb-4" />
+                        <p className="text-stone-600 leading-relaxed">
                           {faq.answer}
                         </p>
                       </div>

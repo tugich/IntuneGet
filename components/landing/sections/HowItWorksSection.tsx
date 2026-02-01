@@ -32,19 +32,10 @@ export function HowItWorksSection() {
   return (
     <section
       id="how-it-works"
-      className="relative w-full py-24 md:py-32 overflow-hidden"
+      className="relative w-full py-24 md:py-32 overflow-hidden bg-white"
     >
       {/* Background */}
       <GridBackground variant="lines" opacity={0.15} className="absolute inset-0" />
-
-      {/* Gradient background */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, transparent 0%, rgba(6, 182, 212, 0.03) 50%, transparent 100%)",
-        }}
-      />
 
       {/* Gradient orbs */}
       <GradientOrb
@@ -69,12 +60,12 @@ export function HowItWorksSection() {
             </span>
           </FadeIn>
           <FadeIn delay={0.1}>
-            <h2 className="text-display-md text-white">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-stone-900">
               How It Works
             </h2>
           </FadeIn>
           <FadeIn delay={0.2}>
-            <p className="mx-auto max-w-2xl text-lg text-zinc-400">
+            <p className="mx-auto max-w-2xl text-lg text-stone-600">
               Three simple steps to streamline your application deployment
             </p>
           </FadeIn>
@@ -83,7 +74,7 @@ export function HowItWorksSection() {
         {/* Timeline */}
         <div className="relative max-w-4xl mx-auto">
           {/* Connecting line */}
-          <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-accent-cyan/50 via-accent-violet/50 to-transparent hidden md:block" />
+          <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-accent-cyan/40 via-accent-violet/40 to-transparent hidden md:block" />
 
           {/* Steps */}
           <div className="space-y-12 md:space-y-24">
@@ -111,9 +102,7 @@ export function HowItWorksSection() {
                     }
                   >
                     <div className="relative">
-                      {/* Glow effect */}
-                      <div className="absolute inset-0 rounded-full bg-accent-cyan/30 blur-xl" />
-                      <div className="relative w-16 h-16 rounded-full bg-bg-surface border border-accent-cyan/30 flex items-center justify-center">
+                      <div className="relative w-16 h-16 rounded-full bg-white border-2 border-accent-cyan/30 flex items-center justify-center shadow-soft-lg">
                         <span className="font-mono text-xl font-bold text-accent-cyan">
                           {step.number}
                         </span>
@@ -128,12 +117,12 @@ export function HowItWorksSection() {
                     }`}
                   >
                     <div
-                      className={`p-6 md:p-8 rounded-2xl bg-bg-surface/50 border border-white/5 backdrop-blur-sm transition-all duration-300 hover:border-accent-cyan/20 hover:bg-bg-elevated/50`}
+                      className="p-6 md:p-8 rounded-2xl bg-white border border-stone-200/60 shadow-card hover:shadow-card-hover transition-all duration-300"
                     >
-                      <h3 className="text-xl font-semibold text-white mb-3">
+                      <h3 className="text-xl font-semibold text-stone-900 mb-3">
                         {step.title}
                       </h3>
-                      <p className="text-zinc-400 leading-relaxed">
+                      <p className="text-stone-600 leading-relaxed">
                         {step.description}
                       </p>
                     </div>

@@ -28,15 +28,16 @@ export function GradientOrb({
   };
 
   const colorClasses = {
-    cyan: "from-accent-cyan/30 to-accent-cyan/5",
-    violet: "from-accent-violet/30 to-accent-violet/5",
-    mixed: "from-accent-cyan/20 via-accent-violet/20 to-accent-cyan/10",
+    cyan: "from-accent-cyan/10 to-accent-cyan/2",
+    violet: "from-accent-violet/10 to-accent-violet/2",
+    mixed: "from-accent-cyan/8 via-accent-violet/8 to-accent-cyan/4",
   };
 
+  // Much more subtle opacity for light theme
   const intensityOpacity = {
-    low: 0.3,
-    medium: 0.5,
-    high: 0.7,
+    low: 0.15,
+    medium: 0.25,
+    high: 0.35,
   };
 
   const animationVariants: Variants = {
@@ -46,11 +47,11 @@ export function GradientOrb({
       y: 0,
     },
     animate: {
-      scale: [1, 1.1, 0.95, 1.05, 1],
-      x: [0, 20, -15, 10, 0],
-      y: [0, -25, 15, -10, 0],
+      scale: [1, 1.05, 0.98, 1.02, 1],
+      x: [0, 10, -8, 5, 0],
+      y: [0, -12, 8, -5, 0],
       transition: {
-        duration: 8,
+        duration: 10,
         repeat: Infinity,
         ease: "easeInOut" as const,
       },
@@ -70,10 +71,10 @@ export function GradientOrb({
         opacity: intensityOpacity[intensity],
         background: `radial-gradient(circle, ${
           color === "cyan"
-            ? "rgba(6, 182, 212, 0.4)"
+            ? "rgba(8, 145, 178, 0.15)"
             : color === "violet"
-            ? "rgba(139, 92, 246, 0.4)"
-            : "rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.3)"
+            ? "rgba(124, 58, 237, 0.12)"
+            : "rgba(8, 145, 178, 0.1), rgba(124, 58, 237, 0.1)"
         } 0%, transparent 70%)`,
       }}
       initial="initial"
