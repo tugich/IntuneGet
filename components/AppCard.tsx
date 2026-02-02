@@ -96,7 +96,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="group glass-dark rounded-xl p-5 cursor-pointer contain-layout transition-all duration-300 hover:shadow-xl hover:shadow-accent-cyan/5 hover:border-white/10 hover:-translate-y-0.5"
+      className="group glass-light rounded-xl p-5 cursor-pointer contain-layout transition-all duration-300 hover:shadow-xl hover:shadow-accent-cyan/5 hover:border-black/10 hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-4">
         {/* App icon - larger size with hover effect */}
@@ -116,19 +116,19 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="text-white font-semibold text-base truncate group-hover:text-accent-cyan-bright transition-colors">
+              <h3 className="text-text-primary font-semibold text-base truncate group-hover:text-accent-cyan-bright transition-colors">
                 {pkg.name}
               </h3>
-              <p className="text-zinc-500 text-sm truncate">{pkg.publisher}</p>
+              <p className="text-text-muted text-sm truncate">{pkg.publisher}</p>
             </div>
             {/* Version badge */}
-            <span className="text-xs text-zinc-400 bg-bg-elevated px-2.5 py-1 rounded-md flex-shrink-0 border border-white/5 group-hover:border-accent-cyan/20 transition-colors">
+            <span className="text-xs text-text-secondary bg-bg-elevated px-2.5 py-1 rounded-md flex-shrink-0 border border-black/5 group-hover:border-accent-cyan/20 transition-colors">
               v{pkg.version}
             </span>
           </div>
 
           {pkg.description && (
-            <p className="text-zinc-400 text-sm mt-3 line-clamp-2 leading-relaxed">
+            <p className="text-text-secondary text-sm mt-3 line-clamp-2 leading-relaxed">
               {pkg.description}
             </p>
           )}
@@ -138,7 +138,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
             {pkg.category && (
               <CategoryBadge category={pkg.category} />
             )}
-            <p className="text-zinc-600 text-xs font-mono truncate group-hover:text-zinc-500 transition-colors">
+            <p className="text-text-muted text-xs font-mono truncate group-hover:text-text-muted transition-colors">
               {pkg.id}
             </p>
           </div>
@@ -146,7 +146,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
       </div>
 
       {/* Actions - always visible */}
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/5">
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-black/5">
         <div className="flex items-center gap-3">
           {pkg.homepage && (
             <a
@@ -154,7 +154,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="text-zinc-500 hover:text-accent-cyan transition-colors p-1"
+              className="text-text-muted hover:text-accent-cyan transition-colors p-1"
             >
               <ExternalLink className="w-4 h-4" />
             </a>
@@ -168,7 +168,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
           className={
             inCart
               ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
-              : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-white border-0 shadow-glow-cyan'
+              : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-text-primary border-0 shadow-glow-cyan'
           }
         >
           {isLoading ? (

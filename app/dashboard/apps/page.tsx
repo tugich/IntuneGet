@@ -108,8 +108,8 @@ export default function AppCatalogPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className={mounted ? 'animate-fade-up stagger-1' : 'opacity-0'}>
-        <h1 className="text-display-sm text-white">App Catalog</h1>
-        <p className="text-zinc-400 mt-2">
+        <h1 className="text-display-sm text-text-primary">App Catalog</h1>
+        <p className="text-text-secondary mt-2">
           Browse and deploy from <span className="text-accent-cyan">{categoriesData?.totalApps?.toLocaleString() || '...'}</span> curated Winget packages
         </p>
       </div>
@@ -137,17 +137,17 @@ export default function AppCatalogPage() {
               <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mx-auto mb-4" />
               <div className="absolute inset-0 w-10 h-10 mx-auto blur-xl bg-accent-cyan/30 animate-pulse-glow" />
             </div>
-            <p className="text-zinc-400">Searching packages...</p>
+            <p className="text-text-secondary">Searching packages...</p>
           </div>
         </div>
       ) : showEmptyState ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-elevated flex items-center justify-center animate-float-slow">
-              <Search className="w-8 h-8 text-zinc-600" />
+              <Search className="w-8 h-8 text-text-muted" />
             </div>
-            <h3 className="text-white font-medium mb-1">No packages found</h3>
-            <p className="text-zinc-400 text-sm">
+            <h3 className="text-text-primary font-medium mb-1">No packages found</h3>
+            <p className="text-text-secondary text-sm">
               Try a different search term or browse popular packages
             </p>
           </div>
@@ -155,7 +155,7 @@ export default function AppCatalogPage() {
       ) : showSearchResults ? (
         // Search results view
         <>
-          <div className={`flex items-center gap-2 text-zinc-400 ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
+          <div className={`flex items-center gap-2 text-text-secondary ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
             <Package className="w-4 h-4 text-accent-cyan" />
             <span className="text-sm">
               <span className="text-accent-cyan font-medium">{searchPackages.length}</span> package{searchPackages.length !== 1 ? 's' : ''} found
@@ -180,7 +180,7 @@ export default function AppCatalogPage() {
       ) : showCategoryResults ? (
         // Category filter results with infinite scroll
         <>
-          <div className={`flex items-center gap-2 text-zinc-400 ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
+          <div className={`flex items-center gap-2 text-text-secondary ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
             <Grid className="w-4 h-4 text-accent-violet" />
             <span className="text-sm">
               <span className="text-accent-violet font-medium">{allPackages.length}</span> apps in category
@@ -190,7 +190,7 @@ export default function AppCatalogPage() {
           {isLoadingInfinite ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="glass-dark rounded-xl p-5">
+                <div key={i} className="glass-light rounded-xl p-5">
                   <div className="flex items-start gap-4">
                     <div className="w-16 h-16 rounded-lg bg-bg-elevated animate-shimmer" />
                     <div className="flex-1">
@@ -222,13 +222,13 @@ export default function AppCatalogPage() {
               {/* Infinite scroll trigger */}
               <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
                 {isFetchingNextPage && (
-                  <div className="flex items-center gap-3 text-zinc-400">
+                  <div className="flex items-center gap-3 text-text-secondary">
                     <Loader2 className="w-5 h-5 animate-spin text-accent-cyan" />
                     <span className="text-sm">Loading more apps...</span>
                   </div>
                 )}
                 {!hasNextPage && allPackages.length > 0 && (
-                  <p className="text-zinc-600 text-sm">You've seen all the apps</p>
+                  <p className="text-text-muted text-sm">You've seen all the apps</p>
                 )}
               </div>
             </>
@@ -241,7 +241,7 @@ export default function AppCatalogPage() {
           <section className={mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5 text-accent-cyan" />
-              <h2 className="text-lg font-semibold text-white">Featured</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Featured</h2>
             </div>
             <FeaturedApps
               packages={featuredPackages}
@@ -268,13 +268,13 @@ export default function AppCatalogPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <LayoutGrid className="w-5 h-5 text-accent-violet" />
-              <h2 className="text-lg font-semibold text-white">All Apps</h2>
+              <h2 className="text-lg font-semibold text-text-primary">All Apps</h2>
             </div>
 
             {isLoadingInfinite && allPackages.length === 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="glass-dark rounded-xl p-5">
+                  <div key={i} className="glass-light rounded-xl p-5">
                     <div className="flex items-start gap-4">
                       <div className="w-16 h-16 rounded-lg bg-bg-elevated animate-shimmer" />
                       <div className="flex-1">
@@ -306,13 +306,13 @@ export default function AppCatalogPage() {
                 {/* Infinite scroll trigger */}
                 <div ref={loadMoreRef} className="h-20 flex items-center justify-center mt-4">
                   {isFetchingNextPage && (
-                    <div className="flex items-center gap-3 text-zinc-400">
+                    <div className="flex items-center gap-3 text-text-secondary">
                       <Loader2 className="w-5 h-5 animate-spin text-accent-cyan" />
                       <span className="text-sm">Loading more apps...</span>
                     </div>
                   )}
                   {!hasNextPage && allPackages.length > 0 && (
-                    <p className="text-zinc-600 text-sm">You've seen all the apps</p>
+                    <p className="text-text-muted text-sm">You've seen all the apps</p>
                   )}
                 </div>
               </>
@@ -334,13 +334,13 @@ export default function AppCatalogPage() {
       {selectedPackage && isLoadingInstallers && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} />
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-white/5 shadow-2xl flex items-center justify-center animate-slide-in-right">
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-black/5 shadow-2xl flex items-center justify-center animate-slide-in-right">
             <div className="text-center">
               <div className="relative">
                 <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mx-auto mb-4" />
                 <div className="absolute inset-0 w-10 h-10 mx-auto blur-xl bg-accent-cyan/30 animate-pulse-glow" />
               </div>
-              <p className="text-zinc-400">Loading package details...</p>
+              <p className="text-text-secondary">Loading package details...</p>
             </div>
           </div>
         </div>
@@ -350,18 +350,18 @@ export default function AppCatalogPage() {
       {selectedPackage && !isLoadingInstallers && selectedInstallers.length === 0 && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} />
-          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-white/5 shadow-2xl flex items-center justify-center animate-slide-in-right">
+          <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-black/5 shadow-2xl flex items-center justify-center animate-slide-in-right">
             <div className="text-center px-6">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-status-error/10 flex items-center justify-center">
                 <Package className="w-8 h-8 text-status-error" />
               </div>
-              <h3 className="text-white font-medium mb-2">No installers found</h3>
-              <p className="text-zinc-400 text-sm mb-4">
+              <h3 className="text-text-primary font-medium mb-2">No installers found</h3>
+              <p className="text-text-secondary text-sm mb-4">
                 Unable to find installer information for this package version.
               </p>
               <button
                 onClick={handleCloseConfig}
-                className="px-4 py-2 bg-bg-elevated hover:bg-white/10 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-bg-elevated hover:bg-black/10 text-text-primary rounded-lg transition-colors"
               >
                 Close
               </button>

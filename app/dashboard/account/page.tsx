@@ -87,7 +87,7 @@ export default function AccountPage() {
 
   // Token status helper
   const getTokenStatus = () => {
-    if (tokenExpiry === null) return { color: 'zinc', label: 'Unknown', bg: 'bg-zinc-500/10', text: 'text-zinc-400' };
+    if (tokenExpiry === null) return { color: 'zinc', label: 'Unknown', bg: 'bg-black/5', text: 'text-text-muted' };
     if (tokenExpiry > 30) return { color: 'success', label: 'Active', bg: 'bg-status-success/10', text: 'text-status-success' };
     if (tokenExpiry > 5) return { color: 'warning', label: 'Expiring Soon', bg: 'bg-status-warning/10', text: 'text-status-warning' };
     return { color: 'error', label: 'Expiring', bg: 'bg-status-error/10', text: 'text-status-error' };
@@ -113,7 +113,7 @@ export default function AccountPage() {
         {/* Profile Section */}
         <motion.section
           variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors relative overflow-hidden"
+          className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors relative overflow-hidden"
         >
           {/* Subtle gradient background */}
           <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/5 via-transparent to-accent-violet/5 pointer-events-none" />
@@ -123,7 +123,7 @@ export default function AccountPage() {
               <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
                 <User className="w-5 h-5 text-accent-cyan" />
               </div>
-              <h2 className="text-lg font-semibold text-white">Profile</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Profile</h2>
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-start gap-6">
@@ -131,7 +131,7 @@ export default function AccountPage() {
               <div className="relative flex-shrink-0">
                 <div className="absolute -inset-1 bg-gradient-to-br from-accent-cyan via-accent-violet to-accent-cyan rounded-full opacity-75 blur-sm" />
                 <div className="relative w-20 h-20 rounded-full bg-bg-elevated flex items-center justify-center border-2 border-bg-surface">
-                  <span className="text-2xl font-bold text-white">
+                  <span className="text-2xl font-bold text-text-primary">
                     {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                   </span>
                 </div>
@@ -170,7 +170,7 @@ export default function AccountPage() {
             <div className="w-10 h-10 rounded-lg bg-accent-violet/10 flex items-center justify-center">
               <BarChart3 className="w-5 h-5 text-accent-violet" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Usage Statistics</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Usage Statistics</h2>
           </div>
 
           <StatCardGrid columns={2}>
@@ -217,19 +217,19 @@ export default function AccountPage() {
         {/* Tenant Details */}
         <motion.section
           variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+          className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-accent-violet/10 flex items-center justify-center">
               <Building2 className="w-5 h-5 text-accent-violet" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Tenant Details</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Tenant Details</h2>
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center justify-between py-3 border-b border-white/5">
+            <div className="flex items-center justify-between py-3 border-b border-black/5">
               <div>
-                <p className="text-zinc-400 text-sm">Connection Status</p>
+                <p className="text-text-secondary text-sm">Connection Status</p>
                 <div className="flex items-center gap-2 mt-1">
                   <CheckCircle2 className="w-4 h-4 text-status-success" />
                   <p className="text-status-success">Connected</p>
@@ -249,7 +249,7 @@ export default function AccountPage() {
 
             <div className="flex items-center justify-between py-3">
               <div>
-                <p className="text-zinc-400 text-sm">Intune Portal</p>
+                <p className="text-text-secondary text-sm">Intune Portal</p>
                 <a
                   href="https://intune.microsoft.com"
                   target="_blank"
@@ -267,19 +267,19 @@ export default function AccountPage() {
         {/* Session Information */}
         <motion.section
           variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+          className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
               <Shield className="w-5 h-5 text-accent-cyan" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Session</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Session</h2>
           </div>
 
           <div className="space-y-1">
-            <div className="flex items-center justify-between py-3 border-b border-white/5">
+            <div className="flex items-center justify-between py-3 border-b border-black/5">
               <div>
-                <p className="text-zinc-400 text-sm">Token Status</p>
+                <p className="text-text-secondary text-sm">Token Status</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className={cn(
                     'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
@@ -290,7 +290,7 @@ export default function AccountPage() {
                     {tokenStatus.label}
                   </span>
                   {tokenExpiry !== null && (
-                    <span className="text-zinc-500 text-sm">
+                    <span className="text-text-muted text-sm">
                       {tokenExpiry > 0 ? `${tokenExpiry} min remaining` : 'Expired'}
                     </span>
                   )}
@@ -315,10 +315,10 @@ export default function AccountPage() {
             <div className="w-10 h-10 rounded-lg bg-status-error/10 flex items-center justify-center">
               <AlertCircle className="w-5 h-5 text-status-error" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Sign Out</h2>
+            <h2 className="text-lg font-semibold text-text-primary">Sign Out</h2>
           </div>
 
-          <p className="text-zinc-400 text-sm mb-4">
+          <p className="text-text-secondary text-sm mb-4">
             Signing out will disconnect your Microsoft account from IntuneGet. You
             will need to sign in again to deploy applications.
           </p>
@@ -360,13 +360,13 @@ function ProfileRow({
     <div
       className={cn(
         'flex items-center justify-between py-3 gap-4',
-        !noBorder && 'border-b border-white/5'
+        !noBorder && 'border-b border-black/5'
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-zinc-400 text-sm">{label}</p>
+        <p className="text-text-secondary text-sm">{label}</p>
         <p className={cn(
-          'text-white mt-0.5',
+          'text-text-primary mt-0.5',
           mono && 'font-mono text-sm',
           truncate && 'truncate'
         )}>
@@ -376,7 +376,7 @@ function ProfileRow({
       {copyable && onCopy && value && value !== 'Not available' && (
         <button
           onClick={() => onCopy(value)}
-          className="flex-shrink-0 p-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors"
+          className="flex-shrink-0 p-2 rounded-lg hover:bg-black/5 text-text-secondary hover:text-text-primary transition-colors"
           title="Copy to clipboard"
         >
           {copied ? (

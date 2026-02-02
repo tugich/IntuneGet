@@ -21,11 +21,11 @@ export function FeaturedApps({ packages, onSelect, isLoading }: FeaturedAppsProp
     return (
       <div className="space-y-4">
         {/* Large featured card skeleton */}
-        <div className="glass-dark rounded-2xl p-6 h-48 animate-shimmer" />
+        <div className="glass-light rounded-2xl p-6 h-48 animate-shimmer" />
         {/* Two smaller cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="glass-dark rounded-xl p-5 h-32 animate-shimmer" />
-          <div className="glass-dark rounded-xl p-5 h-32 animate-shimmer" />
+          <div className="glass-light rounded-xl p-5 h-32 animate-shimmer" />
+          <div className="glass-light rounded-xl p-5 h-32 animate-shimmer" />
         </div>
       </div>
     );
@@ -121,14 +121,14 @@ function FeaturedMainCardComponent({ package: pkg, onSelect }: FeaturedCardProps
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="group relative glass-dark rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-accent-cyan/10"
+      className="group relative glass-light rounded-2xl overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-accent-cyan/10"
     >
       {/* Gradient background */}
       <div className="absolute inset-0 bg-gradient-to-br from-accent-cyan/10 via-transparent to-accent-violet/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 
       {/* Featured badge */}
       <div className="absolute top-4 left-4 z-10">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-accent-cyan to-accent-violet text-white shadow-lg">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-accent-cyan to-accent-violet text-text-primary shadow-lg">
           <Star className="w-3 h-3" />
           Featured
         </span>
@@ -152,25 +152,25 @@ function FeaturedMainCardComponent({ package: pkg, onSelect }: FeaturedCardProps
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h2 className="text-2xl md:text-3xl font-bold text-white group-hover:text-accent-cyan-bright transition-colors">
+                <h2 className="text-2xl md:text-3xl font-bold text-text-primary group-hover:text-accent-cyan-bright transition-colors">
                   {pkg.name}
                 </h2>
-                <p className="text-zinc-400 mt-1">{pkg.publisher}</p>
+                <p className="text-text-secondary mt-1">{pkg.publisher}</p>
               </div>
-              <span className="text-sm text-zinc-400 bg-bg-elevated px-3 py-1.5 rounded-lg border border-white/5 flex-shrink-0">
+              <span className="text-sm text-text-secondary bg-bg-elevated px-3 py-1.5 rounded-lg border border-black/5 flex-shrink-0">
                 v{pkg.version}
               </span>
             </div>
 
             {pkg.description && (
-              <p className="text-zinc-300 mt-4 text-base leading-relaxed line-clamp-2">
+              <p className="text-text-secondary mt-4 text-base leading-relaxed line-clamp-2">
                 {pkg.description}
               </p>
             )}
 
             <div className="flex items-center gap-3 mt-6">
               {pkg.category && <CategoryBadge category={pkg.category} />}
-              <span className="text-zinc-600 text-sm font-mono">{pkg.id}</span>
+              <span className="text-text-muted text-sm font-mono">{pkg.id}</span>
             </div>
           </div>
 
@@ -183,7 +183,7 @@ function FeaturedMainCardComponent({ package: pkg, onSelect }: FeaturedCardProps
               className={
                 inCart
                   ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
-                  : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-white border-0 shadow-glow-cyan'
+                  : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-text-primary border-0 shadow-glow-cyan'
               }
             >
               {isLoading ? (
@@ -206,7 +206,7 @@ function FeaturedMainCardComponent({ package: pkg, onSelect }: FeaturedCardProps
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-zinc-500 hover:text-accent-cyan transition-colors p-2"
+                className="text-text-muted hover:text-accent-cyan transition-colors p-2"
               >
                 <ExternalLink className="w-5 h-5" />
               </a>
@@ -283,7 +283,7 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect }: FeaturedCard
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="group glass-dark rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-accent-violet/5 hover:border-white/10"
+      className="group glass-light rounded-xl p-5 cursor-pointer transition-all duration-300 hover:shadow-xl hover:shadow-accent-violet/5 hover:border-black/10"
     >
       <div className="flex items-start gap-4">
         <AppIcon
@@ -297,10 +297,10 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect }: FeaturedCard
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h3 className="text-lg font-semibold text-white truncate group-hover:text-accent-violet transition-colors">
+              <h3 className="text-lg font-semibold text-text-primary truncate group-hover:text-accent-violet transition-colors">
                 {pkg.name}
               </h3>
-              <p className="text-zinc-500 text-sm">{pkg.publisher}</p>
+              <p className="text-text-muted text-sm">{pkg.publisher}</p>
             </div>
             <Button
               size="sm"
@@ -309,7 +309,7 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect }: FeaturedCard
               className={
                 inCart
                   ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
-                  : 'bg-bg-elevated hover:bg-white/10 text-white border border-white/10'
+                  : 'bg-bg-elevated hover:bg-black/10 text-text-primary border border-black/10'
               }
             >
               {isLoading ? (
@@ -323,7 +323,7 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect }: FeaturedCard
           </div>
 
           {pkg.description && (
-            <p className="text-zinc-400 text-sm mt-2 line-clamp-2">
+            <p className="text-text-secondary text-sm mt-2 line-clamp-2">
               {pkg.description}
             </p>
           )}

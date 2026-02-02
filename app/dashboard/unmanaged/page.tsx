@@ -111,7 +111,7 @@ function RadialProgress({
         stroke="currentColor"
         strokeWidth="4"
         fill="none"
-        className="text-white/5"
+        className="text-black/5"
       />
       <circle
         cx={size / 2}
@@ -151,12 +151,12 @@ function StatCard({
       className="relative group"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="relative glass-dark rounded-2xl p-5 border border-white/[0.03] group-hover:border-white/10 transition-all duration-300">
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="relative glass-light rounded-2xl p-5 border border-black/[0.03] group-hover:border-black/10 transition-all duration-300">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">{label}</p>
-            <p className="text-3xl font-bold text-white tabular-nums">
+            <p className="text-[11px] font-medium text-text-muted uppercase tracking-wider">{label}</p>
+            <p className="text-3xl font-bold text-text-primary tabular-nums">
               <AnimatedNumber value={value} />
             </p>
           </div>
@@ -192,8 +192,8 @@ function FilterChip({
       className={cn(
         "relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
         active
-          ? "bg-white/10 text-white shadow-lg"
-          : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-300"
+          ? "bg-black/10 text-text-primary shadow-lg"
+          : "bg-black/[0.03] text-text-secondary hover:bg-black/[0.06] hover:text-text-primary"
       )}
       style={active && color ? {
         boxShadow: `0 0 20px ${color}30`,
@@ -211,7 +211,7 @@ function FilterChip({
         <span
           className={cn(
             "relative px-2 py-0.5 rounded-full text-xs tabular-nums",
-            active ? "bg-white/20" : "bg-white/5"
+            active ? "bg-black/20" : "bg-black/5"
           )}
         >
           {count}
@@ -248,8 +248,8 @@ function AppListRow({
 
   return (
     <div className="group relative">
-      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      <div className="relative flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.03] group-hover:border-white/10 transition-all duration-200">
+      <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-black/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="relative flex items-center gap-4 p-4 rounded-xl bg-black/[0.02] border border-black/[0.03] group-hover:border-black/10 transition-all duration-200">
         {/* App icon */}
         <div className="relative flex-shrink-0">
           <AppIcon
@@ -268,14 +268,14 @@ function AppListRow({
         {/* App info */}
         <div className="flex-1 min-w-0 grid grid-cols-[1fr,auto,auto,auto] gap-4 items-center">
           <div className="min-w-0">
-            <h3 className="text-white font-medium truncate group-hover:text-accent-cyan-bright transition-colors">
+            <h3 className="text-text-primary font-medium truncate group-hover:text-accent-cyan-bright transition-colors">
               {app.displayName}
             </h3>
-            <p className="text-zinc-500 text-sm truncate">{app.publisher || 'Unknown publisher'}</p>
+            <p className="text-text-muted text-sm truncate">{app.publisher || 'Unknown publisher'}</p>
           </div>
 
           {/* Device count */}
-          <div className="flex items-center gap-2 text-zinc-400">
+          <div className="flex items-center gap-2 text-text-secondary">
             <Monitor className="w-4 h-4" />
             <span className="text-sm tabular-nums">{app.deviceCount.toLocaleString()}</span>
           </div>
@@ -296,7 +296,7 @@ function AppListRow({
                 size="sm"
                 variant="ghost"
                 onClick={onLink}
-                className="h-8 px-3 text-zinc-400 hover:text-white hover:bg-white/10"
+                className="h-8 px-3 text-text-secondary hover:text-text-primary hover:bg-black/10"
               >
                 <LinkIcon className="w-4 h-4" />
               </Button>
@@ -894,8 +894,8 @@ export default function UnmanagedAppsPage() {
             <div className="absolute inset-3 rounded-full border border-transparent border-t-accent-violet animate-spin animation-delay-200" style={{ animationDirection: 'reverse' }} />
             <Radar className="absolute inset-0 m-auto w-8 h-8 text-accent-cyan animate-pulse" />
           </div>
-          <p className="text-zinc-400 text-lg">Scanning for unmanaged apps...</p>
-          <p className="text-zinc-600 text-sm mt-2">Analyzing your Intune tenant</p>
+          <p className="text-text-secondary text-lg">Scanning for unmanaged apps...</p>
+          <p className="text-text-muted text-sm mt-2">Analyzing your Intune tenant</p>
         </div>
       </div>
     );
@@ -906,13 +906,13 @@ export default function UnmanagedAppsPage() {
     return (
       <div className="space-y-8">
         <div className={mounted ? 'animate-fade-up' : 'opacity-0'}>
-          <h1 className="text-display-sm text-white">Unmanaged Apps</h1>
-          <p className="text-zinc-400 mt-2">
+          <h1 className="text-display-sm text-text-primary">Unmanaged Apps</h1>
+          <p className="text-text-secondary mt-2">
             Unmanaged apps detected across your devices
           </p>
         </div>
 
-        <div className={cn("glass-dark rounded-2xl p-10 border border-amber-500/20", mounted ? 'animate-fade-up stagger-2' : 'opacity-0')}>
+        <div className={cn("glass-light rounded-2xl p-10 border border-amber-500/20", mounted ? 'animate-fade-up stagger-2' : 'opacity-0')}>
           <div className="flex flex-col items-center text-center max-w-lg mx-auto">
             <div className="relative mb-6">
               <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
@@ -921,8 +921,8 @@ export default function UnmanagedAppsPage() {
               <div className="absolute -inset-1 rounded-2xl bg-amber-500/20 blur-xl opacity-50" />
             </div>
 
-            <h2 className="text-2xl font-semibold text-white mb-3">Additional Permission Required</h2>
-            <p className="text-zinc-400 mb-8">
+            <h2 className="text-2xl font-semibold text-text-primary mb-3">Additional Permission Required</h2>
+            <p className="text-text-secondary mb-8">
               To access unmanaged apps, your Azure AD application needs the{' '}
               <code className="text-accent-cyan bg-accent-cyan/10 px-2 py-1 rounded-md font-mono text-sm">
                 {permissionError}
@@ -930,8 +930,8 @@ export default function UnmanagedAppsPage() {
               permission.
             </p>
 
-            <div className="w-full bg-bg-elevated/50 rounded-xl p-6 text-left mb-8 border border-white/5">
-              <h3 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <div className="w-full bg-bg-elevated/50 rounded-xl p-6 text-left mb-8 border border-black/5">
+              <h3 className="text-sm font-semibold text-text-primary mb-4 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-accent-cyan" />
                 Quick Setup Guide
               </h3>
@@ -943,7 +943,7 @@ export default function UnmanagedAppsPage() {
                   `Search for "${permissionError}" and add it`,
                   'Click "Grant admin consent" for your organization',
                 ].map((step, i) => (
-                  <li key={i} className="flex gap-3 text-sm text-zinc-400">
+                  <li key={i} className="flex gap-3 text-sm text-text-secondary">
                     <span className="flex-shrink-0 w-6 h-6 rounded-full bg-accent-cyan/10 text-accent-cyan flex items-center justify-center text-xs font-bold">
                       {i + 1}
                     </span>
@@ -969,7 +969,7 @@ export default function UnmanagedAppsPage() {
                   setPermissionError(null);
                   handleRefresh();
                 }}
-                className="border-white/10 hover:bg-white/5"
+                className="border-black/10 hover:bg-black/5"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Retry
@@ -992,19 +992,19 @@ export default function UnmanagedAppsPage() {
                 <Radar className="w-5 h-5 text-accent-cyan" />
               </div>
             </div>
-            <h1 className="text-display-sm text-white">Unmanaged Apps</h1>
+            <h1 className="text-display-sm text-text-primary">Unmanaged Apps</h1>
           </div>
-          <p className="text-zinc-400">
+          <p className="text-text-secondary">
             Unmanaged apps detected across your devices. Claim them to enable managed deployment.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {lastSynced && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-white/[0.03] px-3 py-2 rounded-lg">
+            <div className="flex items-center gap-2 text-xs text-text-muted bg-black/[0.03] px-3 py-2 rounded-lg">
               <div className={cn("w-2 h-2 rounded-full", fromCache ? "bg-amber-500" : "bg-emerald-500")} />
               <span>{fromCache ? 'Cached' : 'Live'}</span>
-              <span className="text-zinc-600">|</span>
+              <span className="text-text-muted">|</span>
               <span>{new Date(lastSynced).toLocaleTimeString()}</span>
             </div>
           )}
@@ -1012,7 +1012,7 @@ export default function UnmanagedAppsPage() {
             variant="outline"
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="border-white/10 hover:bg-white/5 hover:border-accent-cyan/30"
+            className="border-black/10 hover:bg-black/5 hover:border-accent-cyan/30"
           >
             <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing && "animate-spin")} />
             Refresh
@@ -1079,17 +1079,17 @@ export default function UnmanagedAppsPage() {
         {/* Search and View Toggle */}
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
             <Input
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               placeholder="Search by app name, publisher, or package ID..."
-              className="pl-12 h-12 bg-white/[0.03] border-white/[0.06] focus:border-accent-cyan/50 rounded-xl text-base"
+              className="pl-12 h-12 bg-black/[0.03] border-black/[0.06] focus:border-accent-cyan/50 rounded-xl text-base"
             />
             {filters.search && (
               <button
                 onClick={() => setFilters({ ...filters, search: '' })}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1098,14 +1098,14 @@ export default function UnmanagedAppsPage() {
 
           <div className="flex items-center gap-2">
             {/* View mode toggle */}
-            <div className="flex items-center bg-white/[0.03] rounded-lg p-1">
+            <div className="flex items-center bg-black/[0.03] rounded-lg p-1">
               <button
                 onClick={() => setViewMode('grid')}
                 className={cn(
                   "p-2 rounded-md transition-all",
                   viewMode === 'grid'
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-white"
+                    ? "bg-black/10 text-text-primary"
+                    : "text-text-muted hover:text-text-primary"
                 )}
               >
                 <LayoutGrid className="w-5 h-5" />
@@ -1115,8 +1115,8 @@ export default function UnmanagedAppsPage() {
                 className={cn(
                   "p-2 rounded-md transition-all",
                   viewMode === 'list'
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-white"
+                    ? "bg-black/10 text-text-primary"
+                    : "text-text-muted hover:text-text-primary"
                 )}
               >
                 <Rows3 className="w-5 h-5" />
@@ -1130,11 +1130,11 @@ export default function UnmanagedAppsPage() {
                 ...filters,
                 sortOrder: filters.sortOrder === 'desc' ? 'asc' : 'desc',
               })}
-              className="border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06]"
+              className="border-black/[0.06] bg-black/[0.03] hover:bg-black/[0.06]"
             >
               <ArrowUpDown className="w-4 h-4 mr-2" />
               {filters.sortBy === 'deviceCount' ? 'Devices' : 'Name'}
-              <span className="ml-1 text-zinc-500">
+              <span className="ml-1 text-text-muted">
                 ({filters.sortOrder === 'desc' ? 'High' : 'Low'})
               </span>
             </Button>
@@ -1143,7 +1143,7 @@ export default function UnmanagedAppsPage() {
 
         {/* Status Filter Chips */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-zinc-500 uppercase tracking-wider mr-2">Filter:</span>
+          <span className="text-xs text-text-muted uppercase tracking-wider mr-2">Filter:</span>
           <FilterChip
             active={filters.matchStatus === 'all'}
             onClick={() => setFilters({ ...filters, matchStatus: 'all' })}
@@ -1180,7 +1180,7 @@ export default function UnmanagedAppsPage() {
             Unmatched
           </FilterChip>
 
-          <div className="h-6 w-px bg-white/10 mx-2" />
+          <div className="h-6 w-px bg-black/10 mx-2" />
 
           <FilterChip
             active={!filters.showClaimed}
@@ -1194,9 +1194,9 @@ export default function UnmanagedAppsPage() {
 
       {/* Results count */}
       <div className={cn("flex items-center justify-between", mounted ? 'animate-fade-up stagger-4' : 'opacity-0')}>
-        <p className="text-sm text-zinc-500">
-          Showing <span className="text-white font-medium">{filteredApps.length}</span> of{' '}
-          <span className="text-white font-medium">{apps.length}</span> unmanaged apps
+        <p className="text-sm text-text-muted">
+          Showing <span className="text-text-primary font-medium">{filteredApps.length}</span> of{' '}
+          <span className="text-text-primary font-medium">{apps.length}</span> unmanaged apps
         </p>
         {filteredApps.length > 0 && filters.matchStatus === 'matched' && (
           <div className="flex items-center gap-4">
@@ -1222,12 +1222,12 @@ export default function UnmanagedAppsPage() {
       {filteredApps.length === 0 ? (
         <div className={cn("text-center py-20", mounted ? 'animate-fade-up stagger-5' : 'opacity-0')}>
           <div className="relative w-20 h-20 mx-auto mb-6">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 flex items-center justify-center">
-              <Package className="w-10 h-10 text-zinc-600" />
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/5 to-black/10 flex items-center justify-center">
+              <Package className="w-10 h-10 text-text-muted" />
             </div>
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">No apps found</h3>
-          <p className="text-zinc-400 max-w-md mx-auto">
+          <h3 className="text-xl font-semibold text-text-primary mb-2">No apps found</h3>
+          <p className="text-text-secondary max-w-md mx-auto">
             {filters.search || filters.matchStatus !== 'all'
               ? 'Try adjusting your filters to see more results.'
               : 'No unmanaged apps were discovered in your tenant.'}
@@ -1236,7 +1236,7 @@ export default function UnmanagedAppsPage() {
             <Button
               variant="outline"
               onClick={() => setFilters(defaultFilters)}
-              className="mt-6 border-white/10"
+              className="mt-6 border-black/10"
             >
               Clear Filters
             </Button>

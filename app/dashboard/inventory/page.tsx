@@ -149,7 +149,7 @@ export default function InventoryPage() {
             variant="ghost"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="text-zinc-400 hover:text-white"
+            className="text-text-secondary hover:text-text-primary"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
             Refresh

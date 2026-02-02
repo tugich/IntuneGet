@@ -14,11 +14,11 @@ interface StatsCardProps {
 
 function StatsCard({ label, value, icon: Icon, color, bgColor }: StatsCardProps) {
   return (
-    <div className="glass-dark rounded-xl p-4">
+    <div className="glass-light rounded-xl p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-zinc-500 uppercase tracking-wide">{label}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
+          <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
+          <p className="text-2xl font-bold text-text-primary mt-1">{value}</p>
         </div>
         <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', bgColor)}>
           <Icon className={cn('w-5 h-5', color)} />
@@ -60,8 +60,8 @@ export function UnmanagedAppsStatsDisplay({ stats }: UnmanagedAppsStatsProps) {
         label="Unmatched"
         value={stats.unmatched.toLocaleString()}
         icon={HelpCircle}
-        color="text-zinc-400"
-        bgColor="bg-zinc-500/10"
+        color="text-text-muted"
+        bgColor="bg-black/5"
       />
       <StatsCard
         label="Claimed"

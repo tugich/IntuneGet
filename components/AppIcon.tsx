@@ -64,12 +64,12 @@ export function AppIcon({
     return (
       <div
         className={cn(
-          'rounded-lg bg-gradient-to-br from-bg-elevated to-bg-surface flex items-center justify-center flex-shrink-0 border border-white/5',
+          'rounded-lg bg-gradient-to-br from-bg-elevated to-bg-surface flex items-center justify-center flex-shrink-0 border border-black/5',
           sizeClasses[size],
           className
         )}
       >
-        <Package className={cn('text-zinc-500', iconSizeClasses[size])} />
+        <Package className={cn('text-text-muted', iconSizeClasses[size])} />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export function AppIcon({
   return (
     <div
       className={cn(
-        'rounded-lg bg-gradient-to-br from-bg-elevated to-bg-surface flex items-center justify-center flex-shrink-0 border border-white/5 overflow-hidden relative',
+        'rounded-lg bg-gradient-to-br from-bg-elevated to-bg-surface flex items-center justify-center flex-shrink-0 border border-black/5 overflow-hidden relative',
         sizeClasses[size],
         className
       )}
@@ -86,7 +86,7 @@ export function AppIcon({
       {(!imageLoaded || imageError) && showFallbackIcon && (
         <Package
           className={cn(
-            'text-zinc-500 absolute',
+            'text-text-muted absolute',
             iconSizeClasses[size],
             imageLoaded && !imageError ? 'opacity-0' : 'opacity-100'
           )}

@@ -143,13 +143,13 @@ export default function SettingsPage() {
           {/* Account section */}
           <motion.section
             variants={itemVariants}
-            className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+            className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors"
           >
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
                 <User className="w-5 h-5 text-accent-cyan" />
               </div>
-              <h2 className="text-lg font-semibold text-white">Account</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Account</h2>
             </div>
 
             <div className="space-y-1">
@@ -166,19 +166,19 @@ export default function SettingsPage() {
           {/* Intune connection section */}
           <motion.section
             variants={itemVariants}
-            className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+            className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors"
           >
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-lg bg-accent-violet/10 flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-accent-violet" />
               </div>
-              <h2 className="text-lg font-semibold text-white">Intune Connection</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Intune Connection</h2>
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center justify-between py-3 border-b border-white/5">
+              <div className="flex items-center justify-between py-3 border-b border-black/5">
                 <div>
-                  <p className="text-zinc-400 text-sm">Status</p>
+                  <p className="text-text-secondary text-sm">Status</p>
                   <div className="flex items-center gap-2 mt-1">
                     <CheckCircle2 className="w-4 h-4 text-status-success" />
                     <p className="text-status-success">Connected</p>
@@ -194,7 +194,7 @@ export default function SettingsPage() {
 
               <div className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-zinc-400 text-sm">Intune Portal</p>
+                  <p className="text-text-secondary text-sm">Intune Portal</p>
                   <a
                     href="https://intune.microsoft.com"
                     target="_blank"
@@ -213,21 +213,21 @@ export default function SettingsPage() {
         {/* Permissions section - full width */}
         <motion.section
           variants={itemVariants}
-          className="glass-dark rounded-xl p-6 border border-white/5 hover:border-accent-cyan/20 transition-colors"
+          className="glass-light rounded-xl p-6 border border-black/5 hover:border-accent-cyan/20 transition-colors"
         >
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-accent-cyan/10 flex items-center justify-center">
                 <Shield className="w-5 h-5 text-accent-cyan" />
               </div>
-              <h2 className="text-lg font-semibold text-white">API Permissions</h2>
+              <h2 className="text-lg font-semibold text-text-primary">API Permissions</h2>
             </div>
             <Button
               onClick={handleCheckPermissions}
               disabled={isChecking}
               variant="outline"
               size="sm"
-              className="border-white/10 hover:border-accent-cyan/50 w-full sm:w-auto"
+              className="border-black/10 hover:border-accent-cyan/50 w-full sm:w-auto"
             >
               {isChecking ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -238,7 +238,7 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          <p className="text-zinc-400 text-sm mb-4">
+          <p className="text-text-secondary text-sm mb-4">
             IntuneGet requires the following permissions to deploy applications:
           </p>
 
@@ -271,7 +271,7 @@ export default function SettingsPage() {
           </div>
 
           {permissionStatus?.lastChecked && (
-            <p className="text-xs text-zinc-500 mt-3">
+            <p className="text-xs text-text-muted mt-3">
               Last checked: {permissionStatus.lastChecked.toLocaleString()}
             </p>
           )}
@@ -306,8 +306,8 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <div className="mt-6 p-4 bg-bg-elevated rounded-lg border border-white/5">
-            <p className="text-zinc-400 text-sm">
+          <div className="mt-6 p-4 bg-bg-elevated rounded-lg border border-black/5">
+            <p className="text-text-secondary text-sm">
               To modify permissions, visit your{' '}
               <a
                 href="https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview"
@@ -355,12 +355,12 @@ function SettingRow({
     <div
       className={cn(
         'flex items-center justify-between py-3',
-        !noBorder && 'border-b border-white/5'
+        !noBorder && 'border-b border-black/5'
       )}
     >
       <div>
-        <p className="text-zinc-400 text-sm">{label}</p>
-        <p className={cn('text-white mt-0.5', mono && 'font-mono text-sm')}>
+        <p className="text-text-secondary text-sm">{label}</p>
+        <p className={cn('text-text-primary mt-0.5', mono && 'font-mono text-sm')}>
           {value}
         </p>
       </div>
@@ -381,7 +381,7 @@ function PermissionItem({
 }) {
   const renderIcon = () => {
     if (checking) {
-      return <Loader2 className="w-5 h-5 text-zinc-400 flex-shrink-0 mt-0.5 animate-spin" />;
+      return <Loader2 className="w-5 h-5 text-text-secondary flex-shrink-0 mt-0.5 animate-spin" />;
     }
     if (granted === true) {
       return <CheckCircle2 className="w-5 h-5 text-status-success flex-shrink-0 mt-0.5" />;
@@ -389,12 +389,12 @@ function PermissionItem({
     if (granted === false) {
       return <XCircle className="w-5 h-5 text-status-error flex-shrink-0 mt-0.5" />;
     }
-    return <HelpCircle className="w-5 h-5 text-zinc-500 flex-shrink-0 mt-0.5" />;
+    return <HelpCircle className="w-5 h-5 text-text-muted flex-shrink-0 mt-0.5" />;
   };
 
   const renderStatus = () => {
     if (checking) {
-      return <span className="text-zinc-400 text-xs ml-2">Checking...</span>;
+      return <span className="text-text-secondary text-xs ml-2">Checking...</span>;
     }
     if (granted === true) {
       return <span className="text-status-success text-xs ml-2">Granted</span>;
@@ -402,21 +402,21 @@ function PermissionItem({
     if (granted === false) {
       return <span className="text-status-error text-xs ml-2">Missing</span>;
     }
-    return <span className="text-zinc-500 text-xs ml-2">Not checked</span>;
+    return <span className="text-text-muted text-xs ml-2">Not checked</span>;
   };
 
   return (
     <div className={cn(
       "flex items-start gap-3 p-3 bg-bg-elevated rounded-lg border",
-      granted === false ? "border-status-error/30" : "border-white/5"
+      granted === false ? "border-status-error/30" : "border-black/5"
     )}>
       {renderIcon()}
       <div className="flex-1">
         <div className="flex items-center">
-          <p className="text-white font-mono text-sm">{name}</p>
+          <p className="text-text-primary font-mono text-sm">{name}</p>
           {renderStatus()}
         </div>
-        <p className="text-zinc-500 text-sm mt-0.5">{description}</p>
+        <p className="text-text-muted text-sm mt-0.5">{description}</p>
       </div>
     </div>
   );

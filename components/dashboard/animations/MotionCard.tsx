@@ -72,7 +72,7 @@ export const MotionCard = forwardRef<HTMLDivElement, MotionCardProps>(
     const baseClasses = cn(
       'rounded-xl p-6 transition-colors contain-layout',
       glass && 'backdrop-blur-md',
-      border && 'border border-white/5',
+      border && 'border border-black/5',
       bgOpacityClasses[bgOpacity],
       !prefersReducedMotion && glowColorClasses[glowColor],
       className
@@ -160,7 +160,7 @@ export const MotionContainer = forwardRef<HTMLDivElement, MotionContainerProps>(
     const baseClasses = cn(
       'rounded-xl p-6 transition-colors',
       glass && 'backdrop-blur-md',
-      border && 'border border-white/5',
+      border && 'border border-black/5',
       bgOpacityClasses[bgOpacity],
       className
     );

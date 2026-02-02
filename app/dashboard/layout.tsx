@@ -145,7 +145,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-bg-deepest bg-grid-dark">
+    <div className="min-h-screen bg-bg-deepest bg-grid-light">
       {/* Ambient glow elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-accent-cyan/8 rounded-full blur-3xl" />
@@ -172,7 +172,7 @@ export default function DashboardLayout({
 
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4 border-b border-white/5">
+          <div className="flex items-center justify-between h-16 px-4 border-b border-black/5">
             <Link href="/dashboard" className="group flex items-center gap-3">
               <div className="relative w-9 h-9 rounded-lg overflow-hidden shadow-glow-cyan transition-shadow duration-300 group-hover:shadow-glow-cyan-lg">
                 <Image
@@ -183,11 +183,11 @@ export default function DashboardLayout({
                   className="w-full h-full"
                 />
               </div>
-              <span className="text-xl font-bold text-white tracking-tight">IntuneGet</span>
+              <span className="text-xl font-bold text-text-primary tracking-tight">IntuneGet</span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-zinc-400 hover:text-white transition-colors"
+              className="lg:hidden text-text-secondary hover:text-text-primary transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
@@ -205,8 +205,8 @@ export default function DashboardLayout({
                   className={cn(
                     'group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
                     isActive
-                      ? 'text-white'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      ? 'text-text-primary'
+                      : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
                   )}
                   style={mounted ? { animationDelay: `${index * 50}ms` } : undefined}
                 >
@@ -233,35 +233,35 @@ export default function DashboardLayout({
           </nav>
 
           {/* User section */}
-          <div className="p-4 border-t border-white/5">
+          <div className="p-4 border-t border-black/5">
             <Link
               href="/dashboard/account"
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 mb-4 group rounded-lg p-2 -m-2 hover:bg-white/5 transition-colors"
+              className="flex items-center gap-3 mb-4 group rounded-lg p-2 -m-2 hover:bg-black/5 transition-colors"
             >
               {/* Avatar with gradient ring */}
               <div className="relative">
                 <div className="absolute -inset-0.5 bg-gradient-to-br from-accent-cyan to-accent-violet rounded-full opacity-75 group-hover:opacity-100 transition-opacity" />
                 <div className="relative w-10 h-10 rounded-full bg-bg-elevated flex items-center justify-center">
-                  <span className="text-sm font-semibold text-white">
+                  <span className="text-sm font-semibold text-text-primary">
                     {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                   </span>
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate group-hover:text-accent-cyan-bright transition-colors">
+                <p className="text-sm font-medium text-text-primary truncate group-hover:text-accent-cyan-bright transition-colors">
                   {user?.name || 'User'}
                 </p>
-                <p className="text-xs text-zinc-500 truncate">
+                <p className="text-xs text-text-muted truncate">
                   {user?.email}
                 </p>
               </div>
-              <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-accent-cyan transition-colors opacity-0 group-hover:opacity-100" />
+              <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-accent-cyan transition-colors opacity-0 group-hover:opacity-100" />
             </Link>
             <Button
               variant="ghost"
               onClick={handleSignOut}
-              className="w-full justify-start text-zinc-400 hover:text-white hover:bg-white/5"
+              className="w-full justify-start text-text-secondary hover:text-text-primary hover:bg-black/5"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Sign out
@@ -273,11 +273,11 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-16 glass-dark">
+        <header className="sticky top-0 z-30 h-16 glass-light">
           <div className="flex items-center justify-between h-full px-4 lg:px-6">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-zinc-400 hover:text-white transition-colors"
+              className="lg:hidden text-text-secondary hover:text-text-primary transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -292,11 +292,11 @@ export default function DashboardLayout({
               <Button
                 variant="ghost"
                 onClick={toggleCart}
-                className="relative text-zinc-400 hover:text-white hover:bg-white/5 transition-all"
+                className="relative text-text-secondary hover:text-text-primary hover:bg-black/5 transition-all"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-accent-cyan to-accent-violet text-white text-xs font-medium rounded-full flex items-center justify-center shadow-glow-cyan animate-scale-in">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-accent-cyan to-accent-violet text-bg-elevated text-xs font-medium rounded-full flex items-center justify-center shadow-glow-cyan animate-scale-in">
                     {cartItemCount}
                   </span>
                 )}
