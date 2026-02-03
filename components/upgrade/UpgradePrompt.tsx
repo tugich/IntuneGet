@@ -71,7 +71,6 @@ export function UpgradePrompt({
               size="sm"
               className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white"
               onClick={() => {
-                // TODO: Redirect to pricing/upgrade page
                 window.open('/pricing', '_blank');
               }}
             >

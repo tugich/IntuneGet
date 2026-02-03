@@ -63,8 +63,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Get actor's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: actorMembership, error: actorError } = await (supabase as any)
+    const { data: actorMembership, error: actorError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -77,7 +76,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const actorRole = actorMembership.role as MspRole;
+    const actorRole = actorMembership.role;
 
     // Check if actor has permission to change roles
     if (!hasPermission(actorRole, 'change_roles')) {
@@ -88,8 +87,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get target member
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: targetMember, error: targetError } = await (supabase as any)
+    const { data: targetMember, error: targetError } = await supabase
       .from('msp_user_memberships')
       .select('id, user_id, user_email, role, msp_organization_id')
       .eq('id', memberId)
@@ -119,7 +117,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if actor can modify the target's current role
-    if (!canModifyRole(actorRole, targetMember.role as MspRole)) {
+    if (!canModifyRole(actorRole, targetMember.role)) {
       return NextResponse.json(
         { error: 'You cannot modify a user with equal or higher privileges' },
         { status: 403 }
@@ -127,7 +125,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if actor can assign the new role
-    if (!canModifyRole(actorRole, newRole as MspRole)) {
+    if (!canModifyRole(actorRole, newRole)) {
       return NextResponse.json(
         { error: 'You cannot assign a role equal to or higher than your own' },
         { status: 403 }
@@ -143,8 +141,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Update the role
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('msp_user_memberships')
       .update({
         role: newRole,
@@ -153,7 +150,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .eq('id', memberId);
 
     if (updateError) {
-      console.error('Error updating member role:', updateError);
       return NextResponse.json(
         { error: 'Failed to update member role' },
         { status: 500 }
@@ -176,10 +172,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         newRole
       );
     } catch (auditError) {
-      console.error('Failed to log role change:', auditError);
+      // Audit logging failed - continue
     }
-
-    console.log(`[Member] ${user.userEmail} changed ${targetMember.user_email}'s role from ${targetMember.role} to ${newRole}`);
 
     return NextResponse.json({
       success: true,
@@ -189,7 +183,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('Member PATCH error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -223,8 +216,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Get actor's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: actorMembership, error: actorError } = await (supabase as any)
+    const { data: actorMembership, error: actorError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -237,7 +229,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const actorRole = actorMembership.role as MspRole;
+    const actorRole = actorMembership.role;
 
     // Check if actor has permission to remove members
     if (!hasPermission(actorRole, 'remove_members')) {
@@ -248,8 +240,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get target member
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: targetMember, error: targetError } = await (supabase as any)
+    const { data: targetMember, error: targetError } = await supabase
       .from('msp_user_memberships')
       .select('id, user_id, user_email, role, msp_organization_id')
       .eq('id', memberId)
@@ -287,7 +278,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if actor can modify the target's role
-    if (!canModifyRole(actorRole, targetMember.role as MspRole)) {
+    if (!canModifyRole(actorRole, targetMember.role)) {
       return NextResponse.json(
         { error: 'You cannot remove a user with equal or higher privileges' },
         { status: 403 }
@@ -295,14 +286,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Remove the member
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError } = await (supabase as any)
+    const { error: deleteError } = await supabase
       .from('msp_user_memberships')
       .delete()
       .eq('id', memberId);
 
     if (deleteError) {
-      console.error('Error removing member:', deleteError);
       return NextResponse.json(
         { error: 'Failed to remove member' },
         { status: 500 }
@@ -323,13 +312,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         targetMember.user_email
       );
     } catch (auditError) {
-      console.error('Failed to log member removal:', auditError);
+      // Audit logging failed - continue
     }
 
     // Send in-app notification to the removed member
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: org } = await (supabase as any)
+      const { data: org } = await supabase
         .from('msp_organizations')
         .select('name')
         .eq('id', actorMembership.msp_organization_id)
@@ -344,17 +332,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         );
       }
     } catch (notifyError) {
-      console.error('Failed to send member removal notification:', notifyError);
+      // Notification failed - continue
     }
-
-    console.log(`[Member] ${user.userEmail} removed ${targetMember.user_email} from organization`);
 
     return NextResponse.json({
       success: true,
       removed_member_email: targetMember.user_email,
     });
   } catch (error) {
-    console.error('Member DELETE error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

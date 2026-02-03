@@ -32,8 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -47,8 +46,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get batch deployment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: batchError } = await (supabase as any)
+    const { data: batch, error: batchError } = await supabase
       .from('msp_batch_deployments')
       .select('*')
       .eq('id', id)
@@ -63,8 +61,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get batch deployment items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: items } = await (supabase as any)
+    const { data: items } = await supabase
       .from('msp_batch_deployment_items')
       .select('*')
       .eq('batch_id', id)
@@ -77,7 +74,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       },
     });
   } catch (error) {
-    console.error('Batch deployment GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -103,8 +99,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -126,8 +121,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Get batch deployment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: batchError } = await (supabase as any)
+    const { data: batch, error: batchError } = await supabase
       .from('msp_batch_deployments')
       .select('*')
       .eq('id', id)
@@ -150,8 +144,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Update batch status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from('msp_batch_deployments')
       .update({
         status: 'cancelled',
@@ -161,7 +154,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       .eq('id', id);
 
     if (updateError) {
-      console.error('Error cancelling batch deployment:', updateError);
       return NextResponse.json(
         { error: 'Failed to cancel batch deployment' },
         { status: 500 }
@@ -169,8 +161,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Update pending items to skipped
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from('msp_batch_deployment_items')
       .update({ status: 'skipped' })
       .eq('batch_id', id)
@@ -197,7 +188,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       message: 'Batch deployment cancelled',
     });
   } catch (error) {
-    console.error('Batch deployment DELETE error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

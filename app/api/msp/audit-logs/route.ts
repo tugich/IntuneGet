@@ -9,6 +9,13 @@ import { parseAccessToken } from '@/lib/auth-utils';
 import { queryAuditLogs } from '@/lib/audit-logger';
 import { auditLogQuerySchema, validateMspInput } from '@/lib/validators/msp';
 import { hasPermission, type MspRole } from '@/lib/msp-permissions';
+import type { Database } from '@/types/database';
+
+// Type alias for Supabase query results
+type MspUserMembershipRow = Database['public']['Tables']['msp_user_memberships']['Row'];
+
+// Type for membership query result
+type MembershipQueryResult = Pick<MspUserMembershipRow, 'msp_organization_id' | 'role'>;
 
 /**
  * GET /api/msp/audit-logs
@@ -27,12 +34,11 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and verify they belong to an organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
-      .single();
+      .single() as { data: MembershipQueryResult | null; error: Error | null };
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -77,7 +83,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Audit logs GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

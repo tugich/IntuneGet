@@ -39,7 +39,6 @@ async function getCachedPopularPackages(limit: number, offset: number = 0, categ
   );
 
   if (curatedError) {
-    console.error('Cache popular packages error:', curatedError);
     return null;
   }
 
@@ -93,8 +92,7 @@ export async function GET(request: NextRequest) {
       packages,
       source: 'api',
     });
-  } catch (error) {
-    console.error('Popular packages fetch error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch popular packages' },
       { status: 500 }

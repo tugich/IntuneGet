@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Mark notifications as read, but only if they belong to the user
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('user_notifications')
       .update({ read_at: new Date().toISOString() })
       .in('id', notification_ids)
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest) {
       .is('read_at', null);
 
     if (error) {
-      console.error('Error marking notifications as read:', error);
       return NextResponse.json(
         { error: 'Failed to mark notifications as read' },
         { status: 500 }
@@ -63,8 +61,7 @@ export async function POST(request: NextRequest) {
       success: true,
       marked_count: notification_ids.length,
     });
-  } catch (error) {
-    console.error('Mark read POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

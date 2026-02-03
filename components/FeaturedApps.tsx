@@ -107,7 +107,7 @@ function FeaturedMainCardComponent({ package: pkg, onSelect }: FeaturedCardProps
           psadtConfig: {
             ...DEFAULT_PSADT_CONFIG,
             processesToClose,
-            detectionRules: detectionRules as any,
+            detectionRules,
           },
         });
       }
@@ -269,7 +269,7 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect }: FeaturedCard
           psadtConfig: {
             ...DEFAULT_PSADT_CONFIG,
             processesToClose,
-            detectionRules: detectionRules as any,
+            detectionRules,
           },
         });
       }

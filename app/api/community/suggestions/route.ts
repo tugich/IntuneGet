@@ -53,8 +53,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Build query
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
+    let query = supabase
       .from('app_suggestions')
       .select('*', { count: 'exact' });
 
@@ -83,7 +82,6 @@ export async function GET(request: NextRequest) {
     const { data: suggestions, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching suggestions:', error);
       return NextResponse.json(
         { error: 'Failed to fetch suggestions' },
         { status: 500 }
@@ -95,16 +93,15 @@ export async function GET(request: NextRequest) {
     let userVotes: string[] = [];
 
     if (user && suggestions && suggestions.length > 0) {
-      const suggestionIds = suggestions.map((s: { id: string }) => s.id);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: votes } = await (supabase as any)
+      const suggestionIds = suggestions.map((s) => s.id);
+      const { data: votes } = await supabase
         .from('app_suggestion_votes')
         .select('suggestion_id')
         .eq('user_id', user.userId)
         .in('suggestion_id', suggestionIds);
 
       if (votes) {
-        userVotes = votes.map((v: { suggestion_id: string }) => v.suggestion_id);
+        userVotes = votes.map((v) => v.suggestion_id);
       }
     }
 
@@ -118,8 +115,7 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil((count || 0) / limit),
       },
     });
-  } catch (error) {
-    console.error('Suggestions GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -164,8 +160,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Check if this WinGet ID was already suggested
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
       .from('app_suggestions')
       .select('id, status')
       .eq('winget_id', winget_id)
@@ -184,8 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if app already exists in curated_apps
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingApp } = await (supabase as any)
+    const { data: existingApp } = await supabase
       .from('curated_apps')
       .select('id')
       .eq('winget_id', winget_id)
@@ -199,8 +193,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the suggestion
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: suggestion, error: insertError } = await (supabase as any)
+    const { data: suggestion, error: insertError } = await supabase
       .from('app_suggestions')
       .insert({
         winget_id,
@@ -214,7 +207,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('Error creating suggestion:', insertError);
       return NextResponse.json(
         { error: 'Failed to create suggestion' },
         { status: 500 }
@@ -222,8 +214,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Auto-vote for the suggestion by the submitter
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from('app_suggestion_votes')
       .insert({
         suggestion_id: suggestion.id,
@@ -235,8 +226,7 @@ export async function POST(request: NextRequest) {
       { suggestion },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Suggestions POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

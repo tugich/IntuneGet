@@ -21,8 +21,8 @@ export function ClaimAppModal({ app, isOpen, onClose, onConfirm }: ClaimAppModal
     try {
       await onConfirm(app);
       onClose();
-    } catch (error) {
-      console.error('Claim error:', error);
+    } catch {
+      // Error handled by parent
     } finally {
       setIsLoading(false);
     }
@@ -39,10 +39,15 @@ export function ClaimAppModal({ app, isOpen, onClose, onConfirm }: ClaimAppModal
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="claim-modal-title"
+        className="relative w-full max-w-lg mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-black/5">
-          <h2 className="text-lg font-semibold text-text-primary">Claim Unmanaged App</h2>
+          <h2 id="claim-modal-title" className="text-lg font-semibold text-text-primary">Claim Unmanaged App</h2>
           <button
             onClick={onClose}
             className="text-text-secondary hover:text-text-primary transition-colors p-1"

@@ -48,8 +48,7 @@ export async function queueWebhookDelivery(
     const supabase = createServerClient();
 
     // Get all enabled webhooks for this organization that subscribe to this event
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhooks, error: webhooksError } = await (supabase as any)
+    const { data: webhooks, error: webhooksError } = await supabase
       .from('msp_webhook_configurations')
       .select('*')
       .eq('organization_id', organizationId)
@@ -70,16 +69,22 @@ export async function queueWebhookDelivery(
     const payloadString = JSON.stringify(payload);
 
     // Create delivery records for each webhook
+    // Convert payload to Record<string, unknown> for database storage
+    const payloadForDb: Record<string, unknown> = {
+      event_type: payload.event_type,
+      timestamp: payload.timestamp,
+      organization_id: payload.organization_id,
+      data: payload.data,
+    };
     const deliveries = (webhooks as WebhookConfiguration[]).map((webhook) => ({
       webhook_id: webhook.id,
       event_type: eventType,
-      payload,
-      status: 'pending',
+      payload: payloadForDb,
+      status: 'pending' as const,
       next_retry_at: new Date().toISOString(),
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from('msp_webhook_deliveries')
       .insert(deliveries);
 
@@ -105,8 +110,7 @@ async function deliverWebhook(
   const supabase = createServerClient();
 
   // Get the pending delivery for this webhook
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: delivery, error: deliveryError } = await (supabase as any)
+  const { data: delivery, error: deliveryError } = await supabase
     .from('msp_webhook_deliveries')
     .select('*')
     .eq('webhook_id', webhook.id)
@@ -142,8 +146,7 @@ async function deliverWebhook(
 
     if (response.ok) {
       // Success - update delivery record
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await supabase
         .from('msp_webhook_deliveries')
         .update({
           status: 'success',
@@ -155,8 +158,7 @@ async function deliverWebhook(
         .eq('id', delivery.id);
 
       // Update webhook success timestamp
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any)
+      await supabase
         .from('msp_webhook_configurations')
         .update({
           failure_count: 0,
@@ -187,13 +189,20 @@ async function deliverWebhook(
 }
 
 /**
+ * Webhook delivery record type
+ */
+interface WebhookDelivery {
+  id: string;
+  attempts: number;
+  max_attempts?: number;
+}
+
+/**
  * Handle a failed webhook delivery
  */
 async function handleDeliveryFailure(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  delivery: any,
+  supabase: ReturnType<typeof createServerClient>,
+  delivery: WebhookDelivery,
   webhook: WebhookConfiguration,
   errorMessage: string,
   responseStatus?: number

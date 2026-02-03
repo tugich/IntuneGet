@@ -47,8 +47,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -70,15 +69,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get webhooks
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhooks, error } = await (supabase as any)
+    const { data: webhooks, error } = await supabase
       .from('msp_webhook_configurations')
       .select('id, name, url, event_types, headers, is_enabled, failure_count, last_success_at, last_failure_at, created_at, created_by_email')
       .eq('organization_id', membership.msp_organization_id)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching webhooks:', error);
       return NextResponse.json(
         { error: 'Failed to fetch webhooks' },
         { status: 500 }
@@ -88,8 +85,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       webhooks: webhooks || [],
     });
-  } catch (error) {
-    console.error('Webhooks GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -114,8 +110,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -137,13 +132,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Check webhook limit (max 5 per organization)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count: existingCount } = await (supabase as any)
+    const { count: existingCount } = await supabase
       .from('msp_webhook_configurations')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', membership.msp_organization_id);
 
-    if (existingCount >= 5) {
+    if (existingCount !== null && existingCount >= 5) {
       return NextResponse.json(
         { error: 'Maximum 5 webhooks per organization' },
         { status: 400 }
@@ -196,8 +190,7 @@ export async function POST(request: NextRequest) {
     const secret = body.generate_secret ? generateWebhookSecret() : null;
 
     // Create webhook
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error: createError } = await (supabase as any)
+    const { data: webhook, error: createError } = await supabase
       .from('msp_webhook_configurations')
       .insert({
         organization_id: membership.msp_organization_id,
@@ -212,7 +205,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating webhook:', createError);
       return NextResponse.json(
         { error: 'Failed to create webhook' },
         { status: 500 }
@@ -241,8 +233,7 @@ export async function POST(request: NextRequest) {
         secret: secret, // Only include secret on creation
       },
     });
-  } catch (error) {
-    console.error('Webhooks POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -23,15 +23,13 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count, error } = await (supabase as any)
+    const { count, error } = await supabase
       .from('user_notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.userId)
       .is('read_at', null);
 
     if (error) {
-      console.error('Error fetching unread count:', error);
       return NextResponse.json(
         { error: 'Failed to fetch unread count' },
         { status: 500 }
@@ -41,8 +39,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       unread_count: count || 0,
     });
-  } catch (error) {
-    console.error('Unread count GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

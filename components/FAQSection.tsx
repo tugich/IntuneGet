@@ -80,9 +80,11 @@ export function FAQSection() {
             >
               <button
                 onClick={() => toggleFAQ(index)}
+                aria-expanded={openIndex === index}
+                aria-controls={`faq-answer-${index}`}
                 className="w-full px-6 py-6 text-left flex items-center justify-between hover:bg-gray-50/50 rounded-2xl transition-colors duration-200"
               >
-                <h3 className="text-lg font-semibold text-gray-900 pr-4">
+                <h3 id={`faq-question-${index}`} className="text-lg font-semibold text-gray-900 pr-4">
                   {faq.question}
                 </h3>
                 <div
@@ -95,6 +97,9 @@ export function FAQSection() {
               </button>
 
               <div
+                id={`faq-answer-${index}`}
+                role="region"
+                aria-labelledby={`faq-question-${index}`}
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
                   openIndex === index
                     ? "max-h-96 opacity-100"

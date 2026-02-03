@@ -53,8 +53,7 @@ export async function createNotification(input: NotificationInput): Promise<void
   try {
     const supabase = createServerClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('user_notifications')
       .insert({
         user_id: input.user_id,
@@ -91,8 +90,7 @@ export async function createBulkNotifications(
       data: n.data || null,
     }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('user_notifications')
       .insert(rows);
 
@@ -264,8 +262,7 @@ export async function getUserNotifications(
 ): Promise<NotificationQueryResult> {
   const supabase = createServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = supabase
     .from('user_notifications')
     .select('*')
     .eq('user_id', userId)
@@ -284,15 +281,14 @@ export async function getUserNotifications(
   }
 
   // Get unread count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: unreadCount } = await (supabase as any)
+  const { count: unreadCount } = await supabase
     .from('user_notifications')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .is('read_at', null);
 
   return {
-    notifications: notifications || [],
+    notifications: (notifications || []) as Notification[],
     unread_count: unreadCount || 0,
   };
 }
@@ -305,8 +301,7 @@ export async function markNotificationsAsRead(
 ): Promise<void> {
   const supabase = createServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('user_notifications')
     .update({ read_at: new Date().toISOString() })
     .in('id', notificationIds);
@@ -322,8 +317,7 @@ export async function markNotificationsAsRead(
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
   const supabase = createServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from('user_notifications')
     .update({ read_at: new Date().toISOString() })
     .eq('user_id', userId)

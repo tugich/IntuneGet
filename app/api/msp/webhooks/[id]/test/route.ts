@@ -31,8 +31,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -54,8 +53,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Get webhook
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error: webhookError } = await (supabase as any)
+    const { data: webhook, error: webhookError } = await supabase
       .from('msp_webhook_configurations')
       .select('*')
       .eq('id', id)
@@ -74,7 +72,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Webhook test POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

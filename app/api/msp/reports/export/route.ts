@@ -25,8 +25,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and verify they belong to an organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -62,8 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get managed tenants for this organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenants } = await (supabase as any)
+    const { data: tenants } = await supabase
       .from('msp_managed_tenants')
       .select('tenant_id, display_name')
       .eq('msp_organization_id', membership.msp_organization_id)
@@ -81,15 +79,14 @@ export async function GET(request: NextRequest) {
 
     const tenantIds = tenantId
       ? [tenantId]
-      : tenants.map((t: { tenant_id: string }) => t.tenant_id);
+      : tenants.filter(t => t.tenant_id !== null).map(t => t.tenant_id as string);
 
     const tenantNameMap = new Map(
-      tenants.map((t: { tenant_id: string; display_name: string }) => [t.tenant_id, t.display_name])
+      tenants.filter(t => t.tenant_id !== null).map(t => [t.tenant_id as string, t.display_name])
     );
 
     // Get deployment data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: jobs } = await (supabase as any)
+    const { data: jobs } = await supabase
       .from('packaging_jobs')
       .select('id, tenant_id, winget_id, display_name, version, status, created_at, completed_at, error_message')
       .in('tenant_id', tenantIds)
@@ -113,19 +110,9 @@ export async function GET(request: NextRequest) {
       'Error Message',
     ];
 
-    const rows = jobsList.map((job: {
-      id: string;
-      tenant_id: string;
-      winget_id: string;
-      display_name: string;
-      version: string;
-      status: string;
-      created_at: string;
-      completed_at: string | null;
-      error_message: string | null;
-    }) => [
+    const rows = jobsList.map(job => [
       job.id,
-      tenantNameMap.get(job.tenant_id) || job.tenant_id,
+      tenantNameMap.get(job.tenant_id || '') || job.tenant_id || '',
       job.winget_id,
       job.display_name,
       job.version,
@@ -159,7 +146,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Export GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

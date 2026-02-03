@@ -14,6 +14,19 @@ import {
 } from '@/lib/rate-limit';
 import { logMemberJoined } from '@/lib/audit-logger';
 import { notifyMemberJoined } from '@/lib/notification-service';
+import type { Database } from '@/types/database';
+
+// Type for invitation with joined organization data
+type MspInvitationRow = Database['public']['Tables']['msp_invitations']['Row'];
+type MspOrganizationRow = Database['public']['Tables']['msp_organizations']['Row'];
+
+interface InvitationWithOrganization extends MspInvitationRow {
+  msp_organizations: MspOrganizationRow;
+}
+
+interface InvitationWithOrgName extends Pick<MspInvitationRow, 'email' | 'role' | 'expires_at' | 'accepted_at'> {
+  msp_organizations: { name: string } | null;
+}
 
 /**
  * POST /api/msp/invitations/accept
@@ -49,13 +62,15 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Find the invitation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invitation, error: invitationError } = await (supabase as any)
+    const { data: invitationData, error: invitationError } = await supabase
       .from('msp_invitations')
       .select('*, msp_organizations!inner(*)')
       .eq('token', token)
       .is('accepted_at', null)
       .single();
+
+    // Cast to proper type since Supabase types don't know about the relationship
+    const invitation = invitationData as unknown as InvitationWithOrganization | null;
 
     if (invitationError || !invitation) {
       return NextResponse.json(
@@ -97,8 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is already a member of any organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingMembership } = await (supabase as any)
+    const { data: existingMembership } = await supabase
       .from('msp_user_memberships')
       .select('id, msp_organization_id')
       .eq('user_id', user.userId)
@@ -119,8 +133,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Add user to organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .insert({
         msp_organization_id: invitation.organization_id,
@@ -134,7 +147,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (membershipError) {
-      console.error('Error creating membership:', membershipError);
       return NextResponse.json(
         { error: 'Failed to join organization' },
         { status: 500 }
@@ -142,8 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Mark invitation as accepted
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from('msp_invitations')
       .update({ accepted_at: new Date().toISOString() })
       .eq('id', invitation.id);
@@ -160,17 +171,15 @@ export async function POST(request: NextRequest) {
         },
         membership.id,
         invitation.role,
-        invitation.invited_by_email
+        invitation.invited_by_email ?? 'unknown'
       );
     } catch (auditError) {
-      console.error('Failed to log member joined:', auditError);
       // Don't fail the request if audit logging fails
     }
 
     // Send in-app notifications to other org members
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: otherMembers } = await (supabase as any)
+      const { data: otherMembers } = await supabase
         .from('msp_user_memberships')
         .select('user_id, user_email')
         .eq('msp_organization_id', invitation.organization_id)
@@ -184,11 +193,8 @@ export async function POST(request: NextRequest) {
         );
       }
     } catch (notifyError) {
-      console.error('Failed to send member joined notifications:', notifyError);
       // Don't fail the request if notification fails
     }
-
-    console.log(`[Invitation] ${user.userEmail} accepted invitation to ${organization.name} as ${invitation.role}`);
 
     return NextResponse.json({
       success: true,
@@ -204,7 +210,6 @@ export async function POST(request: NextRequest) {
       message: `Welcome to ${organization.name}!`,
     });
   } catch (error) {
-    console.error('Invitation accept error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -240,12 +245,14 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Find the invitation (without requiring auth)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invitation, error: invitationError } = await (supabase as any)
+    const { data: invitationData, error: invitationError } = await supabase
       .from('msp_invitations')
       .select('email, role, expires_at, accepted_at, msp_organizations(name)')
       .eq('token', token)
       .single();
+
+    // Cast to proper type since Supabase types don't know about the relationship
+    const invitation = invitationData as unknown as InvitationWithOrgName | null;
 
     if (invitationError || !invitation) {
       return NextResponse.json(
@@ -279,7 +286,6 @@ export async function GET(request: NextRequest) {
       expires_at: invitation.expires_at,
     });
   } catch (error) {
-    console.error('Invitation validation error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

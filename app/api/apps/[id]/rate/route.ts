@@ -24,6 +24,15 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+/** Rating data returned from database queries */
+interface RatingQueryResult {
+  id: string;
+  rating: number;
+  comment: string | null;
+  deployment_success: boolean | null;
+  created_at: string;
+}
+
 /**
  * GET /api/apps/[id]/rate
  * Get ratings for an app
@@ -42,37 +51,37 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Get all ratings for the app
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ratings, error } = await (supabase as any)
+    const { data: ratings, error } = await supabase
       .from('app_ratings')
       .select('id, rating, comment, deployment_success, created_at')
       .eq('app_id', decodedAppId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching ratings:', error);
       return NextResponse.json(
         { error: 'Failed to fetch ratings' },
         { status: 500 }
       );
     }
 
+    const typedRatings = ratings as RatingQueryResult[] | null;
+
     // Calculate aggregates
-    const totalRatings = ratings?.length || 0;
+    const totalRatings = typedRatings?.length || 0;
     const averageRating = totalRatings > 0
-      ? ratings.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / totalRatings
+      ? typedRatings!.reduce((sum, r) => sum + r.rating, 0) / totalRatings
       : 0;
-    const successfulDeployments = ratings?.filter(
-      (r: { deployment_success: boolean | null }) => r.deployment_success === true
+    const successfulDeployments = typedRatings?.filter(
+      (r) => r.deployment_success === true
     ).length || 0;
-    const failedDeployments = ratings?.filter(
-      (r: { deployment_success: boolean | null }) => r.deployment_success === false
+    const failedDeployments = typedRatings?.filter(
+      (r) => r.deployment_success === false
     ).length || 0;
 
     // Rating distribution
     const distribution = [1, 2, 3, 4, 5].map(star => ({
       rating: star,
-      count: ratings?.filter((r: { rating: number }) => r.rating === star).length || 0,
+      count: typedRatings?.filter((r) => r.rating === star).length || 0,
     }));
 
     // Get user's rating if authenticated
@@ -80,8 +89,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     let userRating = null;
 
     if (user) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: userRatingData } = await (supabase as any)
+      const { data: userRatingData } = await supabase
         .from('app_ratings')
         .select('*')
         .eq('app_id', decodedAppId)
@@ -103,11 +111,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           : null,
       },
       distribution,
-      ratings: ratings?.slice(0, 10) || [], // Return first 10 ratings
+      ratings: typedRatings?.slice(0, 10) || [], // Return first 10 ratings
       user_rating: userRating,
     });
-  } catch (error) {
-    console.error('Ratings GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -155,8 +162,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Verify the app exists
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingApp } = await (supabase as any)
+    const { data: existingApp } = await supabase
       .from('curated_apps')
       .select('id, winget_id')
       .eq('winget_id', decodedAppId)
@@ -170,8 +176,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Upsert the rating (update if exists, create if not)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ratingData, error: upsertError } = await (supabase as any)
+    const { data: ratingData, error: upsertError } = await supabase
       .from('app_ratings')
       .upsert(
         {
@@ -191,7 +196,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (upsertError) {
-      console.error('Error upserting rating:', upsertError);
       return NextResponse.json(
         { error: 'Failed to save rating' },
         { status: 500 }
@@ -202,8 +206,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       rating: ratingData,
       message: 'Rating saved successfully',
     });
-  } catch (error) {
-    console.error('Ratings POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

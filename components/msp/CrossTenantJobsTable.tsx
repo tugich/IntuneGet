@@ -182,7 +182,7 @@ export function CrossTenantJobsTable({ jobs: initialJobs, isLoading: externalLoa
       {/* Jobs table */}
       {jobs.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px]">
+          <table className="w-full min-w-[640px] md:min-w-0">
             <thead>
               <tr className="border-b border-black/5">
                 <th className="text-left text-xs font-medium text-text-muted uppercase tracking-wider px-4 py-3">

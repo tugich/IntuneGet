@@ -35,8 +35,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -57,22 +56,20 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
+    let query = supabase
       .from('msp_batch_deployments')
       .select('*', { count: 'exact' })
       .eq('organization_id', membership.msp_organization_id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (status) {
-      query = query.eq('status', status);
+    if (status && ['pending', 'in_progress', 'completed', 'cancelled'].includes(status)) {
+      query = query.eq('status', status as 'pending' | 'in_progress' | 'completed' | 'cancelled');
     }
 
     const { data: batches, error, count } = await query;
 
     if (error) {
-      console.error('Error fetching batch deployments:', error);
       return NextResponse.json(
         { error: 'Failed to fetch batch deployments' },
         { status: 500 }
@@ -89,7 +86,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Batch deployments GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -114,8 +110,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -163,8 +158,7 @@ export async function POST(request: NextRequest) {
     const concurrencyLimit = Math.min(10, Math.max(1, body.concurrency_limit || 3));
 
     // Verify all tenant_ids belong to this organization and have consent
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenants } = await (supabase as any)
+    const { data: tenants } = await supabase
       .from('msp_managed_tenants')
       .select('tenant_id, display_name')
       .eq('msp_organization_id', membership.msp_organization_id)
@@ -179,7 +173,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTenantIds = new Set(tenants.map((t: { tenant_id: string }) => t.tenant_id));
+    const validTenantIds = new Set(tenants.filter(t => t.tenant_id !== null).map(t => t.tenant_id as string));
     const invalidTenants = body.tenant_ids.filter(id => !validTenantIds.has(id));
 
     if (invalidTenants.length > 0) {
@@ -190,8 +184,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create batch deployment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: batch, error: batchError } = await (supabase as any)
+    const { data: batch, error: batchError } = await supabase
       .from('msp_batch_deployments')
       .insert({
         organization_id: membership.msp_organization_id,
@@ -207,7 +200,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (batchError) {
-      console.error('Error creating batch deployment:', batchError);
       return NextResponse.json(
         { error: 'Failed to create batch deployment' },
         { status: 500 }
@@ -215,22 +207,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create batch deployment items
-    const items = tenants.map((tenant: { tenant_id: string; display_name: string }) => ({
-      batch_id: batch.id,
-      tenant_id: tenant.tenant_id,
-      tenant_display_name: tenant.display_name,
-    }));
+    const items = tenants
+      .filter(tenant => tenant.tenant_id !== null)
+      .map(tenant => ({
+        batch_id: batch.id,
+        tenant_id: tenant.tenant_id as string,
+        tenant_display_name: tenant.display_name,
+      }));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: itemsError } = await (supabase as any)
+    const { error: itemsError } = await supabase
       .from('msp_batch_deployment_items')
       .insert(items);
 
     if (itemsError) {
-      console.error('Error creating batch deployment items:', itemsError);
       // Clean up the batch if items failed
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('msp_batch_deployments').delete().eq('id', batch.id);
+      await supabase.from('msp_batch_deployments').delete().eq('id', batch.id);
       return NextResponse.json(
         { error: 'Failed to create batch deployment items' },
         { status: 500 }
@@ -263,7 +254,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Batch deployments POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

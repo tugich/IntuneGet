@@ -33,14 +33,11 @@ export async function POST(request: NextRequest) {
     // Verify HMAC signature
     if (callbackSecret) {
       if (!verifyCallbackSignature(body, signature, callbackSecret)) {
-        console.error('Invalid callback signature');
         return NextResponse.json(
           { error: 'Invalid signature' },
           { status: 401 }
         );
       }
-    } else {
-      console.warn('CALLBACK_SECRET not configured - signature verification disabled');
     }
 
     // Parse the verified body
@@ -60,8 +57,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    console.log(`Received callback for job ${data.jobId}: ${data.status}`);
 
     const db = getDatabase();
 
@@ -90,8 +85,6 @@ export async function POST(request: NextRequest) {
       updateData.completed_at = new Date().toISOString();
       updateData.progress_percent = 100;
 
-      console.log(`Job ${data.jobId} deployed successfully to Intune: ${data.intuneAppId}`);
-
       // Get job details for upload history
       const job = await db.jobs.getById(data.jobId);
 
@@ -116,15 +109,12 @@ export async function POST(request: NextRequest) {
       updateData.error_message = data.message || 'Unknown error';
       updateData.completed_at = new Date().toISOString();
       updateData.progress_percent = 0;
-
-      console.error(`Job ${data.jobId} failed: ${data.message}`);
     }
 
     // Update the job in database
     const updatedJob = await db.jobs.update(data.jobId, updateData);
 
     if (!updatedJob) {
-      console.error('Failed to update job');
       return NextResponse.json(
         { error: 'Failed to update job status' },
         { status: 500 }
@@ -135,8 +125,7 @@ export async function POST(request: NextRequest) {
       success: true,
       job: updatedJob,
     });
-  } catch (error) {
-    console.error('Callback API error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -53,7 +53,6 @@ async function verifyTenantConsent(tenantId: string): Promise<ConsentVerifyResul
 
   // If credentials not configured, skip check (allows local/dev mode)
   if (!clientId || !clientSecret) {
-    console.warn('Consent verification skipped: credentials not configured');
     return { verified: true };
   }
 
@@ -87,7 +86,6 @@ async function verifyTenantConsent(tenantId: string): Promise<ConsentVerifyResul
       const roles: string[] = tokenPayload.roles || [];
 
       if (!roles.includes('DeviceManagementApps.ReadWrite.All')) {
-        console.error(`Deployment blocked: Token missing DeviceManagementApps.ReadWrite.All. Found: ${roles.join(', ')}`);
         return { verified: false, error: 'insufficient_intune_permissions' };
       }
     } catch {
@@ -107,7 +105,6 @@ async function verifyTenantConsent(tenantId: string): Promise<ConsentVerifyResul
     );
 
     if (intuneTestResponse.status === 403) {
-      console.error(`Intune API access denied for tenant ${tenantId} - DeviceManagementApps.ReadWrite.All not granted`);
       return { verified: false, error: 'insufficient_intune_permissions' };
     }
 
@@ -116,8 +113,7 @@ async function verifyTenantConsent(tenantId: string): Promise<ConsentVerifyResul
     }
 
     return { verified: true };
-  } catch (error) {
-    console.error('Error verifying tenant consent:', error);
+  } catch {
     return { verified: false, error: 'network_error' };
   }
 }
@@ -176,8 +172,7 @@ export async function POST(request: NextRequest) {
       const supabaseValidation = createServerClient();
 
       // Check if user is a member of an MSP organization
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: membership } = await (supabaseValidation as any)
+      const { data: membership } = await supabaseValidation
         .from('msp_user_memberships')
         .select('msp_organization_id')
         .eq('user_id', userId)
@@ -191,8 +186,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if the target tenant is managed by this MSP organization
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: managedTenant } = await (supabaseValidation as any)
+      const { data: managedTenant } = await supabaseValidation
         .from('msp_managed_tenants')
         .select('id')
         .eq('msp_organization_id', membership.msp_organization_id)
@@ -311,7 +305,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (!jobRecord) {
-          console.error('Failed to create job record');
           errors.push({ wingetId: item.wingetId, error: 'Failed to create job record' });
           continue;
         }
@@ -330,8 +323,6 @@ export async function POST(request: NextRequest) {
             package_config: item,
             created_at: jobRecord?.created_at || new Date().toISOString(),
           });
-
-          console.log(`Job queued for local packager: ${item.wingetId}`);
           continue;
         }
 
@@ -384,10 +375,7 @@ export async function POST(request: NextRequest) {
           package_config: item,
           created_at: jobRecord?.created_at || new Date().toISOString(),
         });
-
-        console.log(`GitHub Actions workflow triggered for ${item.wingetId}`);
       } catch (error) {
-        console.error(`Failed to process ${item.wingetId}:`, error);
         errors.push({
           wingetId: item.wingetId,
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -404,8 +392,7 @@ export async function POST(request: NextRequest) {
         ? `${jobs.length} job(s) queued, ${errors.length} failed`
         : `${jobs.length} job(s) queued successfully`,
     });
-  } catch (error) {
-    console.error('Package API error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -486,8 +473,7 @@ export async function GET(request: NextRequest) {
     const jobs = await db.jobs.getByUserId(userId!, 50);
 
     return NextResponse.json({ jobs });
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to fetch jobs' },
       { status: 500 }

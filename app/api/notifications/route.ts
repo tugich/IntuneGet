@@ -31,8 +31,7 @@ export async function GET(request: NextRequest) {
       notifications: result.notifications,
       unread_count: result.unread_count,
     });
-  } catch (error) {
-    console.error('Notifications GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

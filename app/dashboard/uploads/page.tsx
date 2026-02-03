@@ -631,8 +631,6 @@ function UploadJobCard({
                   size="sm"
                   className="bg-status-success hover:bg-status-success/90 text-white"
                   onClick={() => {
-                    // TODO: Trigger Intune upload
-                    console.log('Upload to Intune:', job.id);
                   }}
                 >
                   <Play className="w-3 h-3 mr-1" />

@@ -16,6 +16,10 @@ import {
   getUserKey,
   COMMUNITY_RATE_LIMIT,
 } from '@/lib/rate-limit';
+import type { Database } from '@/types/database';
+
+type DetectionRuleFeedbackRow = Database['public']['Tables']['detection_rule_feedback']['Row'];
+type DetectionRuleFeedbackInsert = Database['public']['Tables']['detection_rule_feedback']['Insert'];
 
 /**
  * POST /api/community/detection-feedback
@@ -54,8 +58,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Verify the app exists in curated_apps
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingApp } = await (supabase as any)
+    const { data: existingApp } = await supabase
       .from('curated_apps')
       .select('id, winget_id, name')
       .eq('winget_id', app_id)
@@ -69,22 +72,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the feedback
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: feedback, error: insertError } = await (supabase as any)
+    const insertData: DetectionRuleFeedbackInsert = {
+      app_id,
+      user_id: user.userId,
+      user_email: user.userEmail,
+      feedback_type: feedback_type as DetectionRuleFeedbackInsert['feedback_type'],
+      description: sanitizeText(description),
+      environment_info: (environment_info as DetectionRuleFeedbackInsert['environment_info']) || null,
+    };
+
+    const { data: feedback, error: insertError } = await supabase
       .from('detection_rule_feedback')
-      .insert({
-        app_id,
-        user_id: user.userId,
-        user_email: user.userEmail,
-        feedback_type,
-        description: sanitizeText(description),
-        environment_info: environment_info || null,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (insertError) {
-      console.error('Error creating feedback:', insertError);
       return NextResponse.json(
         { error: 'Failed to submit feedback' },
         { status: 500 }
@@ -98,8 +101,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Detection feedback POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -134,8 +136,7 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase as any)
+    let query = supabase
       .from('detection_rule_feedback')
       .select('*')
       .eq('app_id', appId)
@@ -149,7 +150,6 @@ export async function GET(request: NextRequest) {
     const { data: feedback, error } = await query;
 
     if (error) {
-      console.error('Error fetching feedback:', error);
       return NextResponse.json(
         { error: 'Failed to fetch feedback' },
         { status: 500 }
@@ -157,13 +157,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter to only show user's own feedback for non-admins
-    const filteredFeedback = feedback?.filter(
-      (f: { user_id: string }) => f.user_id === user.userId
+    const filteredFeedback = (feedback as DetectionRuleFeedbackRow[] | null)?.filter(
+      (f) => f.user_id === user.userId
     ) || [];
 
     return NextResponse.json({ feedback: filteredFeedback });
-  } catch (error) {
-    console.error('Detection feedback GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

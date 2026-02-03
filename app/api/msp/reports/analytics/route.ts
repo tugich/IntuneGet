@@ -7,6 +7,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { parseAccessToken } from '@/lib/auth-utils';
 import { hasPermission, type MspRole } from '@/lib/msp-permissions';
+import type { Database } from '@/types/database';
+
+// Type aliases for Supabase query results
+type MspUserMembershipRow = Database['public']['Tables']['msp_user_memberships']['Row'];
+type MspManagedTenantRow = Database['public']['Tables']['msp_managed_tenants']['Row'];
+
+// Type for membership query result
+type MembershipQueryResult = Pick<MspUserMembershipRow, 'msp_organization_id' | 'role'>;
+
+// Type for managed tenant query result (tenant_id can be null in DB but we filter for granted consent)
+interface ManagedTenantQueryResult {
+  tenant_id: string;
+  display_name: string;
+}
+
+// Type for job query result
+interface JobQueryResult {
+  id: string;
+  tenant_id: string | null;
+  status: string;
+  winget_id: string;
+  display_name: string;
+  created_at: string;
+}
 
 interface DeploymentsByTenant {
   tenant_id: string;
@@ -68,12 +92,11 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and verify they belong to an organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
-      .single();
+      .single() as { data: MembershipQueryResult | null; error: Error | null };
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -97,13 +120,12 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenant_id');
 
     // Get managed tenants for this organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tenants } = await (supabase as any)
+    const { data: tenants } = await supabase
       .from('msp_managed_tenants')
       .select('tenant_id, display_name')
       .eq('msp_organization_id', membership.msp_organization_id)
       .eq('is_active', true)
-      .eq('consent_status', 'granted');
+      .eq('consent_status', 'granted') as { data: ManagedTenantQueryResult[] | null };
 
     if (!tenants || tenants.length === 0) {
       return NextResponse.json({
@@ -125,34 +147,33 @@ export async function GET(request: NextRequest) {
 
     const tenantIds = tenantId
       ? [tenantId]
-      : tenants.map((t: { tenant_id: string }) => t.tenant_id);
+      : tenants.map((t: ManagedTenantQueryResult) => t.tenant_id);
 
     const tenantNameMap = new Map(
-      tenants.map((t: { tenant_id: string; display_name: string }) => [t.tenant_id, t.display_name])
+      tenants.map((t: ManagedTenantQueryResult) => [t.tenant_id, t.display_name])
     );
 
     // Get deployment stats by tenant
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: jobs } = await (supabase as any)
+    const { data: jobs } = await supabase
       .from('packaging_jobs')
       .select('id, tenant_id, status, winget_id, display_name, created_at')
       .in('tenant_id', tenantIds)
       .gte('created_at', `${startDate}T00:00:00Z`)
-      .lte('created_at', `${endDate}T23:59:59Z`);
+      .lte('created_at', `${endDate}T23:59:59Z`) as { data: JobQueryResult[] | null };
 
     const jobsList = jobs || [];
 
     // Calculate summary
     const summary = {
       total_deployments: jobsList.length,
-      completed_deployments: jobsList.filter((j: { status: string }) => j.status === 'deployed' || j.status === 'completed').length,
-      failed_deployments: jobsList.filter((j: { status: string }) => j.status === 'failed').length,
-      pending_deployments: jobsList.filter((j: { status: string }) =>
+      completed_deployments: jobsList.filter((j: JobQueryResult) => j.status === 'deployed' || j.status === 'completed').length,
+      failed_deployments: jobsList.filter((j: JobQueryResult) => j.status === 'failed').length,
+      pending_deployments: jobsList.filter((j: JobQueryResult) =>
         ['queued', 'packaging', 'uploading'].includes(j.status)
       ).length,
       success_rate: 0,
       total_tenants: tenants.length,
-      active_tenants: new Set(jobsList.map((j: { tenant_id: string }) => j.tenant_id)).size,
+      active_tenants: new Set(jobsList.map((j: JobQueryResult) => j.tenant_id)).size,
     };
 
     const finishedJobs = summary.completed_deployments + summary.failed_deployments;
@@ -174,6 +195,7 @@ export async function GET(request: NextRequest) {
     }
 
     for (const job of jobsList) {
+      if (!job.tenant_id) continue;
       const stat = tenantStats.get(job.tenant_id);
       if (stat) {
         stat.total++;
@@ -248,7 +270,6 @@ export async function GET(request: NextRequest) {
       top_apps: topApps,
     } as AnalyticsResponse);
   } catch (error) {
-    console.error('Analytics GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

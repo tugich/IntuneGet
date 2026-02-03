@@ -27,15 +27,13 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get leaderboard from materialized view
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: leaderboard, error } = await (supabase as any)
+    const { data: leaderboard, error } = await supabase
       .from('community_leaderboard')
       .select('*')
       .order('score', { ascending: false })
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching leaderboard:', error);
       return NextResponse.json(
         { error: 'Failed to fetch leaderboard' },
         { status: 500 }
@@ -43,14 +41,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Anonymize emails (show first part only)
-    const anonymizedLeaderboard = leaderboard?.map((entry: {
-      user_email: string;
-      suggestions_count: number;
-      votes_cast: number;
-      feedback_count: number;
-      ratings_count: number;
-      score: number;
-    }, index: number) => ({
+    const anonymizedLeaderboard = leaderboard?.map((entry, index) => ({
       rank: index + 1,
       username: entry.user_email.split('@')[0],
       suggestions_count: entry.suggestions_count,
@@ -61,16 +52,11 @@ export async function GET(request: NextRequest) {
     }));
 
     // Get community stats
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [suggestionsResult, votesResult, feedbackResult, ratingsResult] = await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from('app_suggestions').select('*', { count: 'exact', head: true }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from('app_suggestion_votes').select('*', { count: 'exact', head: true }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from('detection_rule_feedback').select('*', { count: 'exact', head: true }),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (supabase as any).from('app_ratings').select('*', { count: 'exact', head: true }),
+      supabase.from('app_suggestions').select('*', { count: 'exact', head: true }),
+      supabase.from('app_suggestion_votes').select('*', { count: 'exact', head: true }),
+      supabase.from('detection_rule_feedback').select('*', { count: 'exact', head: true }),
+      supabase.from('app_ratings').select('*', { count: 'exact', head: true }),
     ]);
 
     const communityStats = {
@@ -85,8 +71,7 @@ export async function GET(request: NextRequest) {
       leaderboard: anonymizedLeaderboard || [],
       stats: communityStats,
     });
-  } catch (error) {
-    console.error('Leaderboard GET error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -36,6 +36,8 @@ export const metadata: Metadata = {
     "Cloud Deployment",
     "Enterprise Software",
     "Application Management",
+    "macOS Intune deployment",
+    "cross-platform Intune",
   ],
   authors: [{ name: "Ugur Koc" }],
   creator: "Ugur Koc",
@@ -105,7 +107,7 @@ const organizationJsonLd = {
   logo: "https://intuneget.com/logo-512.png",
   description:
     "IntuneGet streamlines Microsoft Intune app deployment with Winget integration. Package and upload applications effortlessly.",
-  sameAs: ["https://github.com/ugurkocde/IntuneGet"],
+  sameAs: ["https://github.com/ugurkocde/IntuneGet", "https://intunebrew.com"],
 };
 
 export default function RootLayout({

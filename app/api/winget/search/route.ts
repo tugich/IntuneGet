@@ -43,7 +43,6 @@ async function searchCachedPackages(
   );
 
   if (curatedError) {
-    console.error('Cache search error:', curatedError);
     return null;
   }
 
@@ -112,8 +111,7 @@ export async function GET(request: NextRequest) {
       packages: [],
       source: 'curated',
     });
-  } catch (error) {
-    console.error('Search error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Failed to search packages' },
       { status: 500 }

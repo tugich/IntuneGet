@@ -24,8 +24,7 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and verify they belong to an organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: userMembership, error: membershipError } = await (supabase as any)
+    const { data: userMembership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -39,15 +38,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all members of the organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: members, error: membersError } = await (supabase as any)
+    const { data: members, error: membersError } = await supabase
       .from('msp_user_memberships')
       .select('id, user_id, user_email, user_name, role, created_at')
       .eq('msp_organization_id', userMembership.msp_organization_id)
       .order('created_at', { ascending: true });
 
     if (membersError) {
-      console.error('Error fetching members:', membersError);
       return NextResponse.json(
         { error: 'Failed to fetch members' },
         { status: 500 }
@@ -65,7 +62,6 @@ export async function GET(request: NextRequest) {
       current_user_role: userMembership.role,
     });
   } catch (error) {
-    console.error('Members GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

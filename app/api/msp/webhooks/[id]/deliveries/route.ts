@@ -30,8 +30,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -53,8 +52,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Verify webhook exists and belongs to this org
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error: webhookError } = await (supabase as any)
+    const { data: webhook, error: webhookError } = await supabase
       .from('msp_webhook_configurations')
       .select('id')
       .eq('id', id)
@@ -73,8 +71,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
 
     // Get deliveries
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: deliveries, error } = await (supabase as any)
+    const { data: deliveries, error } = await supabase
       .from('msp_webhook_deliveries')
       .select('id, event_type, status, attempts, response_status, error_message, created_at, delivered_at')
       .eq('webhook_id', id)
@@ -82,7 +79,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching deliveries:', error);
       return NextResponse.json(
         { error: 'Failed to fetch deliveries' },
         { status: 500 }
@@ -93,7 +89,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       deliveries: deliveries || [],
     });
   } catch (error) {
-    console.error('Webhook deliveries GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

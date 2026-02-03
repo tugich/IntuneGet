@@ -71,7 +71,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
           psadtConfig: {
             ...DEFAULT_PSADT_CONFIG,
             processesToClose,
-            detectionRules: detectionRules as any,
+            detectionRules,
           },
         });
       } else {

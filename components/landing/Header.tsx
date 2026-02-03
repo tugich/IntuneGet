@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform, useReducedMotion } from "framer-motion";
-import { Menu, X, Github, Star } from "lucide-react";
+import { Menu, X, Github, Star, Apple, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -54,7 +54,7 @@ export function Header() {
       <div className="container relative mx-auto max-w-7xl px-4 md:px-6">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="#" className="flex items-center gap-2 group z-10">
+          <Link href="/" className="flex items-center gap-2 group z-10">
             <motion.div
               className="relative"
               whileHover={
@@ -89,6 +89,17 @@ export function Header() {
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-accent-cyan transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
+            <a
+              href="https://intunebrew.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors duration-200 group inline-flex items-center gap-1.5"
+            >
+              <Apple className="h-4 w-4" />
+              <span>macOS</span>
+              <ExternalLink className="h-3 w-3 opacity-50" />
+              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-accent-cyan transition-all duration-300 group-hover:w-full" />
+            </a>
             <a
               href="https://github.com/ugurkocde/IntuneGet"
               target="_blank"
@@ -155,6 +166,17 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <a
+            href="https://intunebrew.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setIsMenuOpen(false)}
+            className="inline-flex items-center gap-2 text-lg font-medium text-stone-700 hover:text-accent-cyan transition-colors py-3"
+          >
+            <Apple className="h-5 w-5" />
+            <span>macOS Apps</span>
+            <ExternalLink className="h-4 w-4 opacity-50" />
+          </a>
           <a
             href="https://github.com/ugurkocde/IntuneGet"
             target="_blank"

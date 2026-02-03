@@ -120,9 +120,11 @@ export function FAQSectionAnimated() {
               >
                 <button
                   onClick={() => toggleFAQ(index)}
+                  aria-expanded={openIndex === index}
+                  aria-controls={`faq-answer-animated-${index}`}
                   className="w-full px-6 py-5 text-left flex items-center justify-between gap-4"
                 >
-                  <h3 className="text-base sm:text-lg font-semibold text-stone-900 pr-4">
+                  <h3 id={`faq-question-animated-${index}`} className="text-base sm:text-lg font-semibold text-stone-900 pr-4">
                     {faq.question}
                   </h3>
                   <motion.div
@@ -141,6 +143,9 @@ export function FAQSectionAnimated() {
                 <AnimatePresence initial={false}>
                   {openIndex === index && (
                     <motion.div
+                      id={`faq-answer-animated-${index}`}
+                      role="region"
+                      aria-labelledby={`faq-question-animated-${index}`}
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}

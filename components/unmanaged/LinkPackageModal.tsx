@@ -52,8 +52,8 @@ export function LinkPackageModal({ app, isOpen, onClose, onLink }: LinkPackageMo
           const data = await response.json();
           setSearchResults(data.packages || []);
         }
-      } catch (error) {
-        console.error('Search error:', error);
+      } catch {
+        // Search error - silently ignore
       } finally {
         setIsSearching(false);
       }
@@ -88,11 +88,16 @@ export function LinkPackageModal({ app, isOpen, onClose, onLink }: LinkPackageMo
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="link-modal-title"
+        className="relative w-full max-w-2xl mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-black/5">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Link WinGet Package</h2>
+            <h2 id="link-modal-title" className="text-lg font-semibold text-text-primary">Link WinGet Package</h2>
             <p className="text-sm text-text-secondary mt-1">
               Search for a WinGet package to link with "{app.displayName}"
             </p>

@@ -233,7 +233,7 @@ function CollectionCardComponent({ package: pkg, onSelect }: CollectionCardProps
           psadtConfig: {
             ...DEFAULT_PSADT_CONFIG,
             processesToClose,
-            detectionRules: detectionRules as any,
+            detectionRules,
           },
         });
       }

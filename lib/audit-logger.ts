@@ -68,6 +68,21 @@ export interface AuditLogRecord extends AuditLogEntry {
   created_at: string;
 }
 
+// Database row type - action comes as string from DB
+interface AuditLogDbRow {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  user_email: string;
+  action: string;
+  resource_type: string | null;
+  resource_id: string | null;
+  details: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
 // ============================================
 // Logging Functions
 // ============================================
@@ -79,8 +94,7 @@ export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
   try {
     const supabase = createServerClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from('msp_audit_logs')
       .insert({
         organization_id: entry.organization_id,
@@ -361,8 +375,7 @@ export async function queryAuditLogs(query: AuditLogQuery): Promise<AuditLogResu
   const limit = Math.min(query.limit || 50, 100);
   const offset = (page - 1) * limit;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let dbQuery = (supabase as any)
+  let dbQuery = supabase
     .from('msp_audit_logs')
     .select('*', { count: 'exact' })
     .eq('organization_id', query.organization_id);
@@ -398,8 +411,24 @@ export async function queryAuditLogs(query: AuditLogQuery): Promise<AuditLogResu
     throw new Error('Failed to query audit logs');
   }
 
+  // Map database rows to typed records
+  // The action field is stored as string in DB but we know it's a valid AuditAction
+  const typedLogs: AuditLogRecord[] = ((logs || []) as AuditLogDbRow[]).map((row) => ({
+    id: row.id,
+    organization_id: row.organization_id,
+    user_id: row.user_id,
+    user_email: row.user_email,
+    action: row.action as AuditAction,
+    resource_type: row.resource_type as ResourceType | undefined,
+    resource_id: row.resource_id ?? undefined,
+    details: row.details ?? undefined,
+    ip_address: row.ip_address ?? undefined,
+    user_agent: row.user_agent ?? undefined,
+    created_at: row.created_at,
+  }));
+
   return {
-    logs: logs || [],
+    logs: typedLogs,
     total: count || 0,
     page,
     limit,

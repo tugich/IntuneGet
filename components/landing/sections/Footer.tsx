@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Github, Twitter, Linkedin, MessageCircle, Mail, ArrowRight, ExternalLink } from "lucide-react";
+import { Github, Twitter, Linkedin, MessageCircle, Mail, ArrowRight, ExternalLink, Apple } from "lucide-react";
 import { FadeIn } from "../animations/FadeIn";
 import { useState } from "react";
 
@@ -13,21 +13,16 @@ const footerLinks = {
     { label: "Demo", href: "#demo" },
     { label: "Pricing", href: "#", badge: "Free" },
   ],
-  resources: [
-    { label: "Documentation", href: "https://github.com/ugurkocde/IntuneGet#readme", external: true },
-    { label: "API Reference", href: "https://github.com/ugurkocde/IntuneGet/wiki", external: true },
-    { label: "Community", href: "https://github.com/ugurkocde/IntuneGet/discussions", external: true },
-    { label: "Changelog", href: "https://github.com/ugurkocde/IntuneGet/releases", external: true },
-  ],
   company: [
     { label: "About", href: "https://ugurlabs.com", external: true },
-    { label: "Blog", href: "https://ugurlabs.com/blog", external: true },
     { label: "Contact", href: "mailto:hello@ugurlabs.com" },
   ],
   legal: [
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
-    { label: "License (MIT)", href: "https://github.com/ugurkocde/IntuneGet/blob/main/LICENSE", external: true },
+  ],
+  ecosystem: [
+    { label: "IntuneBrew", description: "macOS App Deployment", href: "https://intunebrew.com", external: true },
   ],
 };
 
@@ -141,26 +136,6 @@ export function Footer() {
               </ul>
             </div>
 
-            {/* Resources links */}
-            <div>
-              <h4 className="text-sm font-semibold text-stone-900 mb-4">Resources</h4>
-              <ul className="space-y-3">
-                {footerLinks.resources.map((link) => (
-                  <li key={link.label}>
-                    <a
-                      href={link.href}
-                      target={link.external ? "_blank" : undefined}
-                      rel={link.external ? "noopener noreferrer" : undefined}
-                      className="text-sm text-stone-500 hover:text-stone-900 transition-colors inline-flex items-center gap-1"
-                    >
-                      {link.label}
-                      {link.external && <ExternalLink className="w-3 h-3" />}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
             {/* Company links */}
             <div>
               <h4 className="text-sm font-semibold text-stone-900 mb-4">Company</h4>
@@ -195,6 +170,32 @@ export function Footer() {
                     >
                       {link.label}
                       {link.external && <ExternalLink className="w-3 h-3" />}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Ecosystem links */}
+            <div>
+              <h4 className="text-sm font-semibold text-stone-900 mb-4">Ecosystem</h4>
+              <ul className="space-y-3">
+                {footerLinks.ecosystem.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      target={link.external ? "_blank" : undefined}
+                      rel={link.external ? "noopener noreferrer" : undefined}
+                      className="group"
+                    >
+                      <span className="text-sm text-stone-500 hover:text-accent-cyan transition-colors inline-flex items-center gap-1.5">
+                        <Apple className="w-4 h-4" />
+                        {link.label}
+                        {link.external && <ExternalLink className="w-3 h-3" />}
+                      </span>
+                      <span className="block text-xs text-stone-400 mt-0.5 ml-5.5">
+                        {link.description}
+                      </span>
                     </a>
                   </li>
                 ))}

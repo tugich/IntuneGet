@@ -587,7 +587,7 @@ export default function UnmanagedAppsPage() {
         psadtConfig: {
           ...DEFAULT_PSADT_CONFIG,
           processesToClose,
-          detectionRules: detectionRules as any,
+          detectionRules,
         },
       });
 
@@ -691,7 +691,7 @@ export default function UnmanagedAppsPage() {
         psadtConfig: {
           ...DEFAULT_PSADT_CONFIG,
           processesToClose,
-          detectionRules: detectionRules as any,
+          detectionRules,
         },
       });
 

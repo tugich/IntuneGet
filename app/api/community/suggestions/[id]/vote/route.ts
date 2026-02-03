@@ -52,8 +52,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Check if suggestion exists and is voteable
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: suggestion, error: fetchError } = await (supabase as any)
+    const { data: suggestion, error: fetchError } = await supabase
       .from('app_suggestions')
       .select('id, status')
       .eq('id', suggestionId)
@@ -75,8 +74,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if user already voted
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingVote } = await (supabase as any)
+    const { data: existingVote } = await supabase
       .from('app_suggestion_votes')
       .select('id')
       .eq('suggestion_id', suggestionId)
@@ -91,8 +89,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Create the vote (trigger will update votes_count)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: voteError } = await (supabase as any)
+    const { error: voteError } = await supabase
       .from('app_suggestion_votes')
       .insert({
         suggestion_id: suggestionId,
@@ -109,7 +106,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
 
-      console.error('Error creating vote:', voteError);
       return NextResponse.json(
         { error: 'Failed to add vote' },
         { status: 500 }
@@ -117,8 +113,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get updated vote count
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedSuggestion } = await (supabase as any)
+    const { data: updatedSuggestion } = await supabase
       .from('app_suggestions')
       .select('votes_count')
       .eq('id', suggestionId)
@@ -128,8 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       success: true,
       votes_count: updatedSuggestion?.votes_count || 0,
     });
-  } catch (error) {
-    console.error('Vote POST error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -171,15 +165,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const supabase = createServerClient();
 
     // Delete the vote (trigger will update votes_count)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError, count } = await (supabase as any)
+    const { error: deleteError, count } = await supabase
       .from('app_suggestion_votes')
       .delete({ count: 'exact' })
       .eq('suggestion_id', suggestionId)
       .eq('user_id', user.userId);
 
     if (deleteError) {
-      console.error('Error removing vote:', deleteError);
       return NextResponse.json(
         { error: 'Failed to remove vote' },
         { status: 500 }
@@ -194,8 +186,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get updated vote count
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedSuggestion } = await (supabase as any)
+    const { data: updatedSuggestion } = await supabase
       .from('app_suggestions')
       .select('votes_count')
       .eq('id', suggestionId)
@@ -205,8 +196,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       success: true,
       votes_count: updatedSuggestion?.votes_count || 0,
     });
-  } catch (error) {
-    console.error('Vote DELETE error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -39,10 +39,16 @@ export function ClaimAllModal({ state, onClose }: ClaimAllModalProps) {
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="claim-all-modal-title"
+        aria-busy={!isComplete}
+        className="relative w-full max-w-md mx-4 bg-bg-surface rounded-2xl border border-black/10 shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-black/5">
-          <h2 className="text-lg font-semibold text-text-primary">
+          <h2 id="claim-all-modal-title" className="text-lg font-semibold text-text-primary">
             {isComplete ? 'Claim Complete' : `Claiming ${apps.length} apps...`}
           </h2>
           {isComplete && (

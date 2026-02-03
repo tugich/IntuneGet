@@ -58,27 +58,27 @@ export async function getOrganizationUsage(
   const supabase = createServerClient();
 
   // Get organization tier
+  // Note: subscription_tier column may not exist in all deployments
+  // Use dynamic query to avoid TypeScript errors
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: org } = await (supabase as any)
     .from('msp_organizations')
     .select('subscription_tier')
     .eq('id', organizationId)
-    .single();
+    .single() as { data: { subscription_tier?: string } | null };
 
   const tier = parseTier(org?.subscription_tier);
   const limits = getTierLimits(tier);
 
   // Get tenant count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: tenantCount } = await (supabase as any)
+  const { count: tenantCount } = await supabase
     .from('msp_managed_tenants')
     .select('*', { count: 'exact', head: true })
     .eq('msp_organization_id', organizationId)
     .eq('is_active', true);
 
   // Get member count
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count: memberCount } = await (supabase as any)
+  const { count: memberCount } = await supabase
     .from('msp_user_memberships')
     .select('*', { count: 'exact', head: true })
     .eq('msp_organization_id', organizationId);
@@ -89,8 +89,7 @@ export async function getOrganizationUsage(
     .toISOString()
     .split('T')[0];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: usageData } = await (supabase as any)
+  const { data: usageData } = await supabase
     .from('usage_metrics')
     .select('count')
     .eq('organization_id', organizationId)
@@ -222,8 +221,7 @@ export async function recordDeployment(
   const supabase = createServerClient();
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).rpc('increment_usage', {
+    await supabase.rpc('increment_usage', {
       p_org_id: organizationId,
       p_tenant_id: tenantId || null,
       p_metric_type: 'deployment',
@@ -242,8 +240,7 @@ export async function getUsageHistory(
 ): Promise<Array<{ period: string; deployments: number }>> {
   const supabase = createServerClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data } = await (supabase as any)
+  const { data } = await supabase
     .from('usage_metrics')
     .select('period_start, count')
     .eq('organization_id', organizationId)

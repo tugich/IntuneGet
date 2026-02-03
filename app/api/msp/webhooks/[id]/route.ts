@@ -11,6 +11,38 @@ import { parseAccessToken } from '@/lib/auth-utils';
 import { hasPermission, type MspRole } from '@/lib/msp-permissions';
 import { createAuditLog } from '@/lib/audit-logger';
 import { generateWebhookSecret } from '@/lib/msp/webhook-signatures';
+import type { Database } from '@/types/database';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+// Type aliases for Supabase table types
+type Tables = Database['public']['Tables'];
+type MspUserMembership = Tables['msp_user_memberships']['Row'];
+type MspWebhookConfiguration = Tables['msp_webhook_configurations']['Row'];
+type MspWebhookConfigurationUpdate = Tables['msp_webhook_configurations']['Update'];
+
+// Helper type for typed Supabase client operations
+// Used to work around Supabase type inference limitations
+type TypedSupabaseClient = SupabaseClient<Database>;
+
+// Query result types
+interface MembershipQueryResult {
+  msp_organization_id: MspUserMembership['msp_organization_id'];
+  role: MspUserMembership['role'];
+}
+
+interface WebhookQueryResult {
+  id: MspWebhookConfiguration['id'];
+  name: MspWebhookConfiguration['name'];
+  url: MspWebhookConfiguration['url'];
+  event_types: MspWebhookConfiguration['event_types'];
+  headers: MspWebhookConfiguration['headers'];
+  is_enabled: MspWebhookConfiguration['is_enabled'];
+  failure_count: MspWebhookConfiguration['failure_count'];
+  last_success_at: MspWebhookConfiguration['last_success_at'];
+  last_failure_at: MspWebhookConfiguration['last_failure_at'];
+  created_at: MspWebhookConfiguration['created_at'];
+  created_by_email: MspWebhookConfiguration['created_by_email'];
+}
 
 const VALID_EVENT_TYPES = [
   'deployment.completed',
@@ -54,12 +86,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membershipData, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
       .single();
+
+    const membership = membershipData as MembershipQueryResult | null;
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -77,13 +110,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Get webhook (excluding secret)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error } = await (supabase as any)
+    const { data: webhookData, error } = await supabase
       .from('msp_webhook_configurations')
       .select('id, name, url, event_types, headers, is_enabled, failure_count, last_success_at, last_failure_at, created_at, created_by_email')
       .eq('id', id)
       .eq('organization_id', membership.msp_organization_id)
       .single();
+
+    const webhook = webhookData as WebhookQueryResult | null;
 
     if (error || !webhook) {
       return NextResponse.json(
@@ -94,7 +128,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({ webhook });
   } catch (error) {
-    console.error('Webhook GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -120,12 +153,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membershipData, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
       .single();
+
+    const membership = membershipData as MembershipQueryResult | null;
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -143,8 +177,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     }
 
     // Verify webhook exists and belongs to this org
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing, error: existingError } = await (supabase as any)
+    const { data: existing, error: existingError } = await supabase
       .from('msp_webhook_configurations')
       .select('id')
       .eq('id', id)
@@ -222,17 +255,26 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       );
     }
 
-    // Update webhook
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error: updateError } = await (supabase as any)
+    // Update webhook - using typed client to ensure correct types
+    const webhookUpdates: MspWebhookConfigurationUpdate = {
+      ...(updates.name !== undefined && { name: updates.name as string }),
+      ...(updates.url !== undefined && { url: updates.url as string }),
+      ...(updates.event_types !== undefined && { event_types: updates.event_types as string[] }),
+      ...(updates.headers !== undefined && { headers: updates.headers as Record<string, string> }),
+      ...(updates.is_enabled !== undefined && { is_enabled: updates.is_enabled as boolean }),
+      ...(updates.secret !== undefined && { secret: updates.secret as string }),
+    };
+    const typedClient = supabase as TypedSupabaseClient;
+    const { data: webhookData, error: updateError } = await typedClient
       .from('msp_webhook_configurations')
-      .update(updates)
+      .update(webhookUpdates)
       .eq('id', id)
       .select('id, name, url, event_types, headers, is_enabled, failure_count, last_success_at, last_failure_at, created_at, created_by_email')
       .single();
 
+    const webhook = webhookData as WebhookQueryResult | null;
+
     if (updateError) {
-      console.error('Error updating webhook:', updateError);
       return NextResponse.json(
         { error: 'Failed to update webhook' },
         { status: 500 }
@@ -255,7 +297,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       new_secret: body.regenerate_secret ? updates.secret : undefined,
     });
   } catch (error) {
-    console.error('Webhook PUT error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -281,12 +322,13 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membershipData, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
       .single();
+
+    const membership = membershipData as MembershipQueryResult | null;
 
     if (membershipError || !membership) {
       return NextResponse.json(
@@ -304,13 +346,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Get webhook name for audit log
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: webhook, error: getError } = await (supabase as any)
+    const { data: webhookData, error: getError } = await supabase
       .from('msp_webhook_configurations')
       .select('name')
       .eq('id', id)
       .eq('organization_id', membership.msp_organization_id)
       .single();
+
+    const webhook = webhookData as Pick<MspWebhookConfiguration, 'name'> | null;
 
     if (getError || !webhook) {
       return NextResponse.json(
@@ -320,14 +363,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     // Delete webhook
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError } = await (supabase as any)
+    const { error: deleteError } = await supabase
       .from('msp_webhook_configurations')
       .delete()
       .eq('id', id);
 
     if (deleteError) {
-      console.error('Error deleting webhook:', deleteError);
       return NextResponse.json(
         { error: 'Failed to delete webhook' },
         { status: 500 }
@@ -350,7 +391,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       message: 'Webhook deleted',
     });
   } catch (error) {
-    console.error('Webhook DELETE error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

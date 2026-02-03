@@ -18,9 +18,57 @@ import {
 import { checkCanAddMember } from '@/lib/usage-limits';
 import { logMemberInvited } from '@/lib/audit-logger';
 import { sendTeamInvitationEmail, isEmailConfigured } from '@/lib/email/service';
+import type { Database } from '@/types/database';
 
 // Token expiry: 7 days
 const INVITATION_EXPIRY_DAYS = 7;
+
+// Type aliases for database tables
+type MspUserMembershipRow = Database['public']['Tables']['msp_user_memberships']['Row'];
+type MspOrganizationRow = Database['public']['Tables']['msp_organizations']['Row'];
+type MspInvitationInsert = Database['public']['Tables']['msp_invitations']['Insert'];
+
+// Joined query result types
+interface MembershipWithOrganization extends MspUserMembershipRow {
+  msp_organizations: MspOrganizationRow;
+}
+
+// Invitation list item type (selected fields)
+interface InvitationListItem {
+  id: string;
+  email: string;
+  role: MspRole;
+  invited_by_email: string | null;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+}
+
+// Created invitation type (selected fields)
+interface CreatedInvitation {
+  id: string;
+  email: string;
+  role: MspRole;
+  expires_at: string;
+  created_at: string;
+}
+
+// Membership for permission check
+interface MembershipForPermission {
+  msp_organization_id: string;
+  role: MspRole;
+}
+
+// Existing invitation check type
+interface ExistingInvitationCheck {
+  id: string;
+  expires_at: string;
+}
+
+// Existing member check type
+interface ExistingMemberCheck {
+  id: string;
+}
 
 /**
  * GET /api/msp/invitations
@@ -39,12 +87,10 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('*, msp_organizations!inner(*)')
       .eq('user_id', user.userId)
-      .eq('msp_organizations.is_active', true)
       .single();
 
     if (membershipError || !membership) {
@@ -54,8 +100,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Cast to our typed interface for proper type inference
+    const typedMembership = membership as unknown as MembershipWithOrganization;
+
     // Check permission
-    const userRole = membership.role as MspRole;
+    const userRole = typedMembership.role;
     if (!hasPermission(userRole, 'invite_members')) {
       return NextResponse.json(
         { error: 'You do not have permission to view invitations' },
@@ -64,33 +113,32 @@ export async function GET(request: NextRequest) {
     }
 
     // Get invitations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invitations, error: invitationsError } = await (supabase as any)
+    const { data: invitations, error: invitationsError } = await supabase
       .from('msp_invitations')
       .select('id, email, role, invited_by_email, expires_at, accepted_at, created_at')
-      .eq('organization_id', membership.msp_organization_id)
+      .eq('organization_id', typedMembership.msp_organization_id)
       .order('created_at', { ascending: false });
 
     if (invitationsError) {
-      console.error('Error fetching invitations:', invitationsError);
       return NextResponse.json(
         { error: 'Failed to fetch invitations' },
         { status: 500 }
       );
     }
 
+    // Cast to typed array
+    const typedInvitations = (invitations || []) as InvitationListItem[];
+
     // Separate pending and processed invitations
     const now = new Date();
-    const pending = invitations.filter(
-      (inv: { accepted_at: string | null; expires_at: string }) =>
-        !inv.accepted_at && new Date(inv.expires_at) > now
+    const pending = typedInvitations.filter(
+      (inv) => !inv.accepted_at && new Date(inv.expires_at) > now
     );
-    const expired = invitations.filter(
-      (inv: { accepted_at: string | null; expires_at: string }) =>
-        !inv.accepted_at && new Date(inv.expires_at) <= now
+    const expired = typedInvitations.filter(
+      (inv) => !inv.accepted_at && new Date(inv.expires_at) <= now
     );
-    const accepted = invitations.filter(
-      (inv: { accepted_at: string | null }) => inv.accepted_at
+    const accepted = typedInvitations.filter(
+      (inv) => inv.accepted_at
     );
 
     return NextResponse.json({
@@ -99,7 +147,6 @@ export async function GET(request: NextRequest) {
       accepted,
     });
   } catch (error) {
-    console.error('Invitations GET error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -144,12 +191,10 @@ export async function POST(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership and organization
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('*, msp_organizations!inner(*)')
       .eq('user_id', user.userId)
-      .eq('msp_organizations.is_active', true)
       .single();
 
     if (membershipError || !membership) {
@@ -159,8 +204,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Cast to our typed interface for proper type inference
+    const typedMembership = membership as unknown as MembershipWithOrganization;
+
     // Check permission
-    const userRole = membership.role as MspRole;
+    const userRole = typedMembership.role;
     if (!hasPermission(userRole, 'invite_members')) {
       return NextResponse.json(
         { error: 'You do not have permission to invite members' },
@@ -168,10 +216,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const organization = membership.msp_organizations;
+    const organization = typedMembership.msp_organizations;
 
     // Check member limit
-    const limitCheck = await checkCanAddMember(membership.msp_organization_id);
+    const limitCheck = await checkCanAddMember(typedMembership.msp_organization_id);
     if (!limitCheck.allowed) {
       return NextResponse.json(
         {
@@ -184,11 +232,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is already a member
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingMember } = await (supabase as any)
+    const { data: existingMember } = await supabase
       .from('msp_user_memberships')
       .select('id')
-      .eq('msp_organization_id', membership.msp_organization_id)
+      .eq('msp_organization_id', typedMembership.msp_organization_id)
       .ilike('user_email', email)
       .single();
 
@@ -200,16 +247,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if there's already a pending invitation for this email
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existingInvitation } = await (supabase as any)
+    const { data: existingInvitation } = await supabase
       .from('msp_invitations')
       .select('id, expires_at')
-      .eq('organization_id', membership.msp_organization_id)
+      .eq('organization_id', typedMembership.msp_organization_id)
       .ilike('email', email)
       .is('accepted_at', null)
       .single();
 
-    if (existingInvitation && new Date(existingInvitation.expires_at) > new Date()) {
+    const typedExistingInvitation = existingInvitation as ExistingInvitationCheck | null;
+    if (typedExistingInvitation && new Date(typedExistingInvitation.expires_at) > new Date()) {
       return NextResponse.json(
         { error: 'An invitation for this email is already pending' },
         { status: 409 }
@@ -223,24 +270,24 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + INVITATION_EXPIRY_DAYS);
 
-    // Create invitation
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invitation, error: insertError } = await (supabase as any)
+    // Create invitation with explicit type for insert data
+    const invitationData: MspInvitationInsert = {
+      organization_id: typedMembership.msp_organization_id,
+      email,
+      role: role as MspInvitationInsert['role'],
+      invited_by_user_id: user.userId,
+      invited_by_email: user.userEmail,
+      token,
+      expires_at: expiresAt.toISOString(),
+    };
+
+    const { data: invitation, error: insertError } = await supabase
       .from('msp_invitations')
-      .insert({
-        organization_id: membership.msp_organization_id,
-        email,
-        role,
-        invited_by_user_id: user.userId,
-        invited_by_email: user.userEmail,
-        token,
-        expires_at: expiresAt.toISOString(),
-      })
+      .insert(invitationData)
       .select('id, email, role, expires_at, created_at')
       .single();
 
     if (insertError) {
-      console.error('Error creating invitation:', insertError);
       return NextResponse.json(
         { error: 'Failed to create invitation' },
         { status: 500 }
@@ -260,11 +307,8 @@ export async function POST(request: NextRequest) {
           expires_at: expiresAt,
         });
         emailSent = emailResult.success;
-        if (!emailResult.success) {
-          console.error('Failed to send invitation email:', emailResult.error);
-        }
       } catch (emailError) {
-        console.error('Error sending invitation email:', emailError);
+        // Email sending failed - invitation still created
       }
     }
 
@@ -272,31 +316,31 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_URL || process.env.VERCEL_URL || 'http://localhost:3000';
     const acceptUrl = `${baseUrl.replace(/\/$/, '')}/msp/invite/accept?token=${token}`;
 
+    // Cast invitation to typed interface
+    const typedInvitation = invitation as CreatedInvitation;
+
     // Log the invitation to audit log
     try {
       await logMemberInvited(
         {
-          organization_id: membership.msp_organization_id,
+          organization_id: typedMembership.msp_organization_id,
           user_id: user.userId,
           user_email: user.userEmail,
           ip_address: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
           user_agent: request.headers.get('user-agent') || undefined,
         },
-        invitation.id,
+        typedInvitation.id,
         email,
         role
       );
     } catch (auditError) {
-      console.error('Failed to log invitation:', auditError);
       // Don't fail the request if audit logging fails
     }
-
-    console.log(`[Invitation] ${email} invited to ${organization.name} as ${role} (email sent: ${emailSent})`);
 
     return NextResponse.json(
       {
         invitation: {
-          ...invitation,
+          ...typedInvitation,
           organization_name: organization.name,
         },
         emailSent,
@@ -309,7 +353,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Invitations POST error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -344,8 +387,7 @@ export async function DELETE(request: NextRequest) {
     const supabase = createServerClient();
 
     // Get user's membership
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: membership, error: membershipError } = await (supabase as any)
+    const { data: membership, error: membershipError } = await supabase
       .from('msp_user_memberships')
       .select('msp_organization_id, role')
       .eq('user_id', user.userId)
@@ -358,8 +400,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Cast to typed interface for permission check
+    const typedMembership = membership as MembershipForPermission;
+
     // Check permission
-    if (!hasPermission(membership.role as MspRole, 'invite_members')) {
+    if (!hasPermission(typedMembership.role, 'invite_members')) {
       return NextResponse.json(
         { error: 'You do not have permission to cancel invitations' },
         { status: 403 }
@@ -367,16 +412,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the invitation (only if it belongs to user's org and is not accepted)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteError, count } = await (supabase as any)
+    const { error: deleteError, count } = await supabase
       .from('msp_invitations')
       .delete({ count: 'exact' })
       .eq('id', invitationId)
-      .eq('organization_id', membership.msp_organization_id)
+      .eq('organization_id', typedMembership.msp_organization_id)
       .is('accepted_at', null);
 
     if (deleteError) {
-      console.error('Error deleting invitation:', deleteError);
       return NextResponse.json(
         { error: 'Failed to cancel invitation' },
         { status: 500 }
@@ -392,7 +435,6 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Invitations DELETE error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
