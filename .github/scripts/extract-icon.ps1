@@ -303,66 +303,118 @@ function Extract-IconFromMsiResource {
         [string]$OutputDir
     )
 
-    # Try to extract embedded icon stream from MSI using Windows Installer API
+    # Use native msi.dll P/Invoke to read binary streams from MSI Icon table.
+    # COM interop's Record.ReadStream does not work from PowerShell.
+    $msiSignature = @"
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiOpenDatabase(string szDatabasePath, IntPtr szPersist, out IntPtr phDatabase);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiDatabaseOpenView(IntPtr hDatabase, string szQuery, out IntPtr phView);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiViewExecute(IntPtr hView, IntPtr hRecord);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiViewFetch(IntPtr hView, out IntPtr phRecord);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiRecordGetString(IntPtr hRecord, uint iField, System.Text.StringBuilder szValueBuf, ref uint pcchValueBuf);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiRecordDataSize(IntPtr hRecord, uint iField);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiRecordReadStream(IntPtr hRecord, uint iField, byte[] szDataBuf, ref uint pcbDataBuf);
+
+    [DllImport("msi.dll", CharSet = CharSet.Unicode)]
+    public static extern uint MsiCloseHandle(IntPtr hAny);
+"@
+
     try {
-        $installer = New-Object -ComObject WindowsInstaller.Installer
-        $database = $installer.OpenDatabase($MsiPath, 0)  # 0 = read-only
+        Add-Type -MemberDefinition $msiSignature -Name "MsiNative" -Namespace "Win32" -ErrorAction SilentlyContinue
+    } catch {
+        # Type might already be added
+    }
 
-        # Check for Icon table
-        $view = $database.OpenView("SELECT Name, Data FROM Icon")
-        $view.Execute()
+    try {
+        $hDatabase = [IntPtr]::Zero
+        # MSIDBOPEN_READONLY = 0
+        $result = [Win32.MsiNative]::MsiOpenDatabase($MsiPath, [IntPtr]::Zero, [ref]$hDatabase)
+        if ($result -ne 0) {
+            Write-Host "MsiOpenDatabase failed with error $result"
+            return $null
+        }
 
-        $record = $view.Fetch()
-        while ($record) {
+        $hView = [IntPtr]::Zero
+        $result = [Win32.MsiNative]::MsiDatabaseOpenView($hDatabase, "SELECT Name, Data FROM Icon", [ref]$hView)
+        if ($result -ne 0) {
+            Write-Host "No Icon table in MSI (error $result)"
+            [Win32.MsiNative]::MsiCloseHandle($hDatabase) | Out-Null
+            return $null
+        }
+
+        $result = [Win32.MsiNative]::MsiViewExecute($hView, [IntPtr]::Zero)
+        if ($result -ne 0) {
+            Write-Host "MsiViewExecute failed with error $result"
+            [Win32.MsiNative]::MsiCloseHandle($hView) | Out-Null
+            [Win32.MsiNative]::MsiCloseHandle($hDatabase) | Out-Null
+            return $null
+        }
+
+        $hRecord = [IntPtr]::Zero
+        while (([Win32.MsiNative]::MsiViewFetch($hView, [ref]$hRecord)) -eq 0) {
             try {
-                $iconName = $record.StringData(1)
+                # Read icon name (field 1)
+                $nameBufSize = [uint32]256
+                $nameBuf = New-Object System.Text.StringBuilder 256
+                [Win32.MsiNative]::MsiRecordGetString($hRecord, 1, $nameBuf, [ref]$nameBufSize) | Out-Null
+                $iconName = $nameBuf.ToString()
                 Write-Host "Found embedded icon: $iconName"
 
-                $iconPath = Join-Path $OutputDir "icon-original.ico"
-                $size = $record.DataSize(2)
-
-                if ($size -gt 0) {
-                    # Read binary stream from MSI record
-                    # Try 3-arg form first (msiReadStreamBytes), fall back to 2-arg with encoding
-                    try {
-                        $data = $record.ReadStream(2, $size, 2)
-                        [System.IO.File]::WriteAllBytes($iconPath, [byte[]]$data)
-                    } catch {
-                        Write-Host "ReadStream 3-arg failed, trying 2-arg with encoding..."
-                        $data = $record.ReadStream(2, $size)
-                        $bytes = [System.Text.Encoding]::GetEncoding(28591).GetBytes($data)
-                        [System.IO.File]::WriteAllBytes($iconPath, $bytes)
-                    }
-                    $written = (Get-Item $iconPath).Length
-                    Write-Host "Extracted embedded icon from MSI ($written bytes)"
-                    if ($written -lt 6) {
-                        Write-Warning "Icon file is suspiciously small ($written bytes), skipping"
-                        Remove-Item $iconPath -Force -ErrorAction SilentlyContinue
-                        $record = $view.Fetch()
-                        continue
-                    }
-                } else {
+                # Get stream size (field 2)
+                $streamSize = [Win32.MsiNative]::MsiRecordDataSize($hRecord, 2)
+                if ($streamSize -eq 0) {
                     Write-Host "Icon entry '$iconName' has empty data, trying next..."
-                    $record = $view.Fetch()
+                    [Win32.MsiNative]::MsiCloseHandle($hRecord) | Out-Null
                     continue
                 }
 
-                if (Test-Path $iconPath) {
-                    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($record) | Out-Null
-                    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($view) | Out-Null
-                    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($database) | Out-Null
-                    [System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer) | Out-Null
-                    return $iconPath
+                # Read the binary stream
+                $buffer = New-Object byte[] $streamSize
+                $bufSize = [uint32]$streamSize
+                $result = [Win32.MsiNative]::MsiRecordReadStream($hRecord, 2, $buffer, [ref]$bufSize)
+                if ($result -ne 0) {
+                    Write-Warning "MsiRecordReadStream failed with error $result"
+                    [Win32.MsiNative]::MsiCloseHandle($hRecord) | Out-Null
+                    continue
                 }
+
+                $iconPath = Join-Path $OutputDir "icon-original.ico"
+                [System.IO.File]::WriteAllBytes($iconPath, $buffer)
+                $written = (Get-Item $iconPath).Length
+                Write-Host "Extracted embedded icon from MSI ($written bytes)"
+
+                if ($written -lt 6) {
+                    Write-Warning "Icon file is suspiciously small ($written bytes), skipping"
+                    Remove-Item $iconPath -Force -ErrorAction SilentlyContinue
+                    [Win32.MsiNative]::MsiCloseHandle($hRecord) | Out-Null
+                    continue
+                }
+
+                # Success - clean up and return
+                [Win32.MsiNative]::MsiCloseHandle($hRecord) | Out-Null
+                [Win32.MsiNative]::MsiCloseHandle($hView) | Out-Null
+                [Win32.MsiNative]::MsiCloseHandle($hDatabase) | Out-Null
+                return $iconPath
             } catch {
                 Write-Warning "Failed to read icon data: $_"
             }
-            $record = $view.Fetch()
+            [Win32.MsiNative]::MsiCloseHandle($hRecord) | Out-Null
         }
 
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($view) | Out-Null
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($database) | Out-Null
-        [System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer) | Out-Null
+        [Win32.MsiNative]::MsiCloseHandle($hView) | Out-Null
+        [Win32.MsiNative]::MsiCloseHandle($hDatabase) | Out-Null
     } catch {
         Write-Host "Could not extract icon from MSI resource: $_"
     }
