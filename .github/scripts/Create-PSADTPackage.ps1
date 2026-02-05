@@ -68,13 +68,14 @@ New-Item -ItemType Directory -Path $filesDir -Force
 if (-not $env:INSTALLER_PATH) {
     throw "INSTALLER_PATH environment variable is not set"
 }
-if (-not (Test-Path $env:INSTALLER_PATH)) {
+if (-not (Test-Path -LiteralPath $env:INSTALLER_PATH)) {
     throw "Installer file not found: $env:INSTALLER_PATH"
 }
 if (-not $env:INSTALLER_FILENAME) {
     throw "INSTALLER_FILENAME environment variable is not set"
 }
-Copy-Item -Path "$env:INSTALLER_PATH" -Destination $filesDir
+# Use -LiteralPath to handle filenames with special characters like brackets
+Copy-Item -LiteralPath $env:INSTALLER_PATH -Destination $filesDir
 
 # Parse PSADT configuration
 $psadtConfig = @{}
