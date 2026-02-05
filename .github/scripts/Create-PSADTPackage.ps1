@@ -232,15 +232,26 @@ if ($allowDefer -or ($showClosePrompt -and $processesToClose.Count -gt 0)) {
     $welcomeParams = @(
         "-Title '$displayNameEscaped Installation'"
     )
-    if ($processesToClose.Count -gt 0) {
+
+    # Handle parameter sets correctly for PSADT v4
+    # When both deferrals AND close prompts are enabled, use -AllowDeferCloseProcesses
+    if ($processesToClose.Count -gt 0 -and $allowDefer) {
+        $welcomeParams += "-Subtitle 'The following applications must be closed before installation can proceed'"
+        $welcomeParams += '-CloseProcesses $script:ProcessesToClose'
+        $welcomeParams += '-AllowDeferCloseProcesses'
+        $welcomeParams += "-ForceCloseProcessesCountdown $closeCountdown"
+        $welcomeParams += "-DeferTimes $deferTimes"
+    } elseif ($processesToClose.Count -gt 0) {
+        # Only close prompts, no deferrals
         $welcomeParams += "-Subtitle 'The following applications must be closed before installation can proceed'"
         $welcomeParams += '-CloseProcesses $script:ProcessesToClose'
         $welcomeParams += "-CloseProcessesCountdown $closeCountdown"
-    }
-    if ($allowDefer) {
+    } elseif ($allowDefer) {
+        # Only deferrals, no close prompts
         $welcomeParams += '-AllowDefer'
         $welcomeParams += "-DeferTimes $deferTimes"
     }
+
     $welcomeCall = @(
         ''
         '    # Show installation welcome dialog (for deferrals and/or close prompts)'
@@ -313,6 +324,21 @@ $lines = @(
     $welcomeCall
 )
 
+# Add installer file existence check and progress display before install commands
+$lines += @(
+    ''
+    '    # Verify installer file exists before proceeding'
+    "    `$installerPath = Join-Path `$adtSession.DirFiles '$installerFileName'"
+    '    if (-not (Test-Path -LiteralPath $installerPath)) {'
+    '        Write-ADTLogEntry -Message "Installer file not found: $installerPath" -Severity ''Error'' -Source ''Install-ADTDeployment'''
+    '        throw "Installer file not found: $installerPath"'
+    '    }'
+    ''
+    '    # Show installation progress'
+    "    Show-ADTInstallationProgress -StatusMessage `"Installing `$(`$adtSession.AppName)...`""
+    ''
+)
+
 # Generate install command based on installer type
 switch ($installerTypeLower) {
     { $_ -in 'msi', 'wix' } {
@@ -330,12 +356,12 @@ switch ($installerTypeLower) {
     { $_ -in 'msix', 'appx' } {
         $lines += @(
             "    `$msixPath = `"`$(`$adtSession.DirFiles)\$installerFileName`""
-            '    Write-ADTLogEntry -Message "Provisioning MSIX/APPX package for all users: $msixPath" -Severity ''Info'''
+            '    Write-ADTLogEntry -Message "Provisioning MSIX/APPX package for all users: $msixPath" -Severity ''Info'' -Source ''Install-ADTDeployment'''
             '    try {'
             '        Add-AppxProvisionedPackage -Online -PackagePath $msixPath -SkipLicense -ErrorAction Stop'
-            '        Write-ADTLogEntry -Message "MSIX/APPX package provisioned successfully" -Severity ''Info'''
+            '        Write-ADTLogEntry -Message "MSIX/APPX package provisioned successfully" -Severity ''Info'' -Source ''Install-ADTDeployment'''
             '    } catch {'
-            '        Write-ADTLogEntry -Message "Failed to provision MSIX/APPX package: $_" -Severity ''Error'''
+            '        Write-ADTLogEntry -Message "Failed to provision MSIX/APPX package: $_" -Severity ''Error'' -Source ''Install-ADTDeployment'''
             '        throw'
             '    }'
         )
@@ -344,15 +370,15 @@ switch ($installerTypeLower) {
         $lines += @(
             "    `$zipPath = `"`$(`$adtSession.DirFiles)\$installerFileName`""
             "    `$extractPath = `"`$env:ProgramFiles\$displayNameEscaped`""
-            '    Write-ADTLogEntry -Message "Extracting portable app to: $extractPath" -Severity ''Info'''
+            '    Write-ADTLogEntry -Message "Extracting portable app to: $extractPath" -Severity ''Info'' -Source ''Install-ADTDeployment'''
             '    try {'
             '        if (-not (Test-Path $extractPath)) {'
             '            New-Item -Path $extractPath -ItemType Directory -Force | Out-Null'
             '        }'
             '        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force'
-            '        Write-ADTLogEntry -Message "Portable app extracted successfully" -Severity ''Info'''
+            '        Write-ADTLogEntry -Message "Portable app extracted successfully" -Severity ''Info'' -Source ''Install-ADTDeployment'''
             '    } catch {'
-            '        Write-ADTLogEntry -Message "Failed to extract portable app: $_" -Severity ''Error'''
+            '        Write-ADTLogEntry -Message "Failed to extract portable app: $_" -Severity ''Error'' -Source ''Install-ADTDeployment'''
             '        throw'
             '    }'
         )
@@ -374,11 +400,11 @@ switch ($installerTypeLower) {
                 '    $userTempDir = [System.IO.Path]::Combine($env:TEMP, "IntuneGet_" + [System.Guid]::NewGuid().ToString("N").Substring(0, 8))'
                 '    $null = New-Item -Path $userTempDir -ItemType Directory -Force'
                 "    `$installerDest = Join-Path `$userTempDir '$installerFileName'"
-                '    Write-ADTLogEntry -Message "Copying installer to user temp: $installerDest" -Severity ''Info'''
+                '    Write-ADTLogEntry -Message "Copying installer to user temp: $installerDest" -Severity ''Info'' -Source ''Install-ADTDeployment'''
                 '    Copy-Item -Path $installerSource -Destination $installerDest -Force'
                 ''
                 '    try {'
-                '        Write-ADTLogEntry -Message "Running per-user installer from user temp directory" -Severity ''Info'''
+                '        Write-ADTLogEntry -Message "Running per-user installer from user temp directory" -Severity ''Info'' -Source ''Install-ADTDeployment'''
                 '        # Use -UseShellExecute for shell context which inherits environment variables'
                 "        Start-ADTProcess -FilePath `$installerDest -ArgumentList '$silentSwitchesEscaped' -UseShellExecute -WaitForMsiExec -Timeout (New-TimeSpan -Minutes 30) -TimeoutAction SilentlyContinue -IgnoreExitCodes @(0, 3010, 1641)"
                 '    }'
@@ -413,9 +439,9 @@ if ($IsUserScope) {
         "        Set-ItemProperty -Path `$regPath -Name 'Publisher' -Value '$publisherEscaped' -Type String -Force"
         "        Set-ItemProperty -Path `$regPath -Name 'WingetId' -Value '$WingetId' -Type String -Force"
         '        Set-ItemProperty -Path $regPath -Name ''InstalledDate'' -Value (Get-Date -Format ''o'') -Type String -Force'
-        '        Write-ADTLogEntry -Message "IntuneGet detection marker written to HKCU registry" -Severity ''Info'''
+        '        Write-ADTLogEntry -Message "IntuneGet detection marker written to HKCU registry" -Severity ''Info'' -Source ''Install-ADTDeployment'''
         '    } catch {'
-        '        Write-ADTLogEntry -Message "Warning: Could not write detection marker: $_" -Severity ''Warning'''
+        '        Write-ADTLogEntry -Message "Warning: Could not write detection marker: $_" -Severity ''Warning'' -Source ''Install-ADTDeployment'''
         '    }'
         '}'
     )
@@ -434,9 +460,9 @@ if ($IsUserScope) {
         "        Set-ItemProperty -Path `$regPath -Name 'Publisher' -Value '$publisherEscaped' -Type String -Force"
         "        Set-ItemProperty -Path `$regPath -Name 'WingetId' -Value '$WingetId' -Type String -Force"
         '        Set-ItemProperty -Path $regPath -Name ''InstalledDate'' -Value (Get-Date -Format ''o'') -Type String -Force'
-        '        Write-ADTLogEntry -Message "IntuneGet detection marker written to HKLM registry" -Severity ''Info'''
+        '        Write-ADTLogEntry -Message "IntuneGet detection marker written to HKLM registry" -Severity ''Info'' -Source ''Install-ADTDeployment'''
         '    } catch {'
-        '        Write-ADTLogEntry -Message "Warning: Could not write detection marker: $_" -Severity ''Warning'''
+        '        Write-ADTLogEntry -Message "Warning: Could not write detection marker: $_" -Severity ''Warning'' -Source ''Install-ADTDeployment'''
         '    }'
         '}'
     )
@@ -454,103 +480,41 @@ $lines += @(
 if ($useRegistryUninstall) {
     $lines += @(
         ''
-        '    # Find and execute the uninstaller from registry'
+        '    # Use PSADT v4 native functions to find and uninstall application'
         "    `$appName = '$registryUninstallDisplayName'"
         "    `$silentArgs = '$registryUninstallSilentSwitch'"
-        '    $uninstallPaths = @('
-        '        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*",'
-        '        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",'
-        '        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*"'
-        '    )'
         ''
-        '    # Build search patterns - try exact match first, then progressively broader matches'
-        '    # This handles cases like "Adobe Acrobat Reader" vs "Adobe Acrobat (64-bit)"'
-        '    $searchPatterns = @('
-        '        "*$appName*"'
-        '    )'
+        '    Write-ADTLogEntry -Message "Searching for installed application: $appName" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         ''
-        '    # Build simplified names by removing common suffixes/editions'
-        '    $currentName = $appName'
+        '    # Use Get-ADTApplication to find the installed app (handles all registry paths automatically)'
+        '    $installedApp = Get-ADTApplication -Name $appName -NameMatch ''Contains'''
         ''
-        '    # Remove edition/product type words'
-        '    $simplified1 = $currentName -replace ''\s*(Reader|Editor|Viewer|Pro|DC|Free|Lite|Plus|Premium|Home|Business|Enterprise|Standard|Ultimate|Essentials)\b'', '''''
-        '    $simplified1 = $simplified1.Trim()'
-        '    if ($simplified1 -ne $currentName -and $simplified1.Length -gt 3) {'
-        '        $searchPatterns += "*$simplified1*"'
-        '        $currentName = $simplified1'
+        '    # If not found with contains, try regex for more flexible matching'
+        '    if (-not $installedApp) {'
+        '        # Build regex pattern that handles common suffixes'
+        '        $regexPattern = [regex]::Escape($appName) -replace ''\\s+'', ''\s+'''
+        '        $installedApp = Get-ADTApplication -Name $regexPattern -NameMatch ''RegEx'''
         '    }'
         ''
-        '    # Remove common descriptor words'
-        '    $simplified2 = $currentName -replace ''\s*(PDF|media player|Browser|Client|Desktop|App|Application)\b'', '''''
-        '    $simplified2 = $simplified2.Trim()'
-        '    if ($simplified2 -ne $currentName -and $simplified2.Length -gt 3) {'
-        '        $searchPatterns += "*$simplified2*"'
-        '    }'
-        ''
-        '    # Remove duplicate patterns and log what we will try'
-        '    $searchPatterns = $searchPatterns | Select-Object -Unique'
-        '    Write-ADTLogEntry -Message "Will search registry with patterns: $($searchPatterns -join '', '')" -Severity ''Info'''
-        ''
-        '    $uninstallEntry = $null'
-        '    :patternLoop foreach ($pattern in $searchPatterns) {'
-        '        foreach ($path in $uninstallPaths) {'
-        '            $entries = Get-ItemProperty $path -ErrorAction SilentlyContinue |'
-        '                Where-Object { $_.DisplayName -like $pattern -and ($_.UninstallString -or $_.QuietUninstallString) }'
-        '            if ($entries) {'
-        '                # Prefer shorter DisplayName (more likely to be main app, not "... Update" or "... MUI")'
-        '                $uninstallEntry = $entries | Sort-Object { $_.DisplayName.Length } | Select-Object -First 1'
-        '                Write-ADTLogEntry -Message "Found match using pattern: $pattern" -Severity ''Info'''
-        '                break patternLoop'
-        '            }'
+        '    if ($installedApp) {'
+        '        # If multiple matches, prefer shorter DisplayName (more likely to be main app)'
+        '        if ($installedApp -is [array]) {'
+        '            $installedApp = $installedApp | Sort-Object { $_.DisplayName.Length } | Select-Object -First 1'
         '        }'
-        '    }'
+        '        Write-ADTLogEntry -Message "Found installed application: $($installedApp.DisplayName)" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         ''
-        '    if ($uninstallEntry) {'
-        '        # Prefer QuietUninstallString if available (already configured for silent uninstall)'
-        '        $uninstallString = if ($uninstallEntry.QuietUninstallString) { $uninstallEntry.QuietUninstallString } else { $uninstallEntry.UninstallString }'
-        '        $usingQuiet = [bool]$uninstallEntry.QuietUninstallString'
-        '        Write-ADTLogEntry -Message "Found uninstall entry: $($uninstallEntry.DisplayName)" -Severity ''Info'''
-        '        Write-ADTLogEntry -Message "Using $(if ($usingQuiet) { ''QuietUninstallString'' } else { ''UninstallString'' }): $uninstallString" -Severity ''Info'''
-        ''
-        '        # Check if this is an MSI uninstall (contains product code GUID)'
-        '        if ($uninstallString -match ''\{[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}\}'') {'
-        '            $productCode = $Matches[0]'
-        '            Write-ADTLogEntry -Message "Detected MSI product code: $productCode - using Start-ADTMsiProcess" -Severity ''Info'''
-        '            Start-ADTMsiProcess -Action ''Uninstall'' -ProductCode $productCode -IgnoreExitCodes @(0, 3010, 1605, 1614)'
+        '        # Check if this is an MSI-based installation'
+        '        if ($installedApp.ProductCode) {'
+        '            Write-ADTLogEntry -Message "Detected MSI product code: $($installedApp.ProductCode) - using Start-ADTMsiProcess" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
+        '            Start-ADTMsiProcess -Action ''Uninstall'' -ProductCode $installedApp.ProductCode -IgnoreExitCodes @(0, 3010, 1605, 1614)'
         '        } else {'
-        '            # EXE-based uninstaller - parse and execute with timeout'
-        '            if ($uninstallString -match ''^"([^"]+)"(.*)$'') {'
-        '                $uninstallExe = $Matches[1]'
-        '                $existingArgs = $Matches[2].Trim()'
-        '            } elseif ($uninstallString -match ''^([^\s]+)(.*)$'') {'
-        '                $uninstallExe = $Matches[1]'
-        '                $existingArgs = $Matches[2].Trim()'
-        '            } else {'
-        '                $uninstallExe = $uninstallString'
-        '                $existingArgs = ""'
-        '            }'
-        ''
-        '            # Only add silent args if using UninstallString (QuietUninstallString is already silent)'
-        '            if ($usingQuiet) {'
-        '                $finalArgs = $existingArgs'
-        '            } elseif ($existingArgs -notmatch "/S|/SILENT|/VERYSILENT|/quiet|-silent|--silent") {'
-        '                $finalArgs = if ($existingArgs) { "$existingArgs $silentArgs" } else { $silentArgs }'
-        '            } else {'
-        '                $finalArgs = $existingArgs'
-        '            }'
-        ''
-        '            # PSADT v4 requires fully qualified paths - resolve common executables'
-        '            if (-not [System.IO.Path]::IsPathRooted($uninstallExe)) {'
-        '                $resolved = Get-Command $uninstallExe -ErrorAction SilentlyContinue | Select-Object -First 1'
-        '                if ($resolved) { $uninstallExe = $resolved.Source }'
-        '            }'
-        ''
-        '            Write-ADTLogEntry -Message "Executing EXE uninstall: $uninstallExe $finalArgs" -Severity ''Info'''
-        '            Start-ADTProcess -FilePath $uninstallExe -ArgumentList $finalArgs -WindowStyle Hidden -WaitForMsiExec -Timeout (New-TimeSpan -Minutes 15) -TimeoutAction Stop -IgnoreExitCodes @(0, 3010, 1641, 1605)'
+        '            # EXE-based uninstaller - use Uninstall-ADTApplication for automatic handling'
+        '            Write-ADTLogEntry -Message "Using Uninstall-ADTApplication for EXE-based uninstaller" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
+        '            Uninstall-ADTApplication -Name $installedApp.DisplayName -NameMatch ''Exact'' -ApplicationType ''EXE'' -ArgumentList $silentArgs -IgnoreExitCodes @(0, 3010, 1641, 1605)'
         '        }'
         '    } else {'
-        '        Write-ADTLogEntry -Message "No uninstall entry found for: $appName" -Severity ''Warning'''
-        '        throw "Could not find uninstall entry for $appName in registry"'
+        '        Write-ADTLogEntry -Message "No installed application found for: $appName" -Severity ''Warning'' -Source ''Uninstall-ADTDeployment'''
+        '        throw "Could not find installed application: $appName"'
         '    }'
     )
 } elseif ($useMsixUninstall) {
@@ -558,23 +522,23 @@ if ($useRegistryUninstall) {
         ''
         '    # Remove MSIX/APPX provisioned package and installed instances'
         "    `$packageName = '$msixPackageName'"
-        '    Write-ADTLogEntry -Message "Removing MSIX package: $packageName" -Severity ''Info'''
+        '    Write-ADTLogEntry -Message "Removing MSIX package: $packageName" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '    try {'
         '        $provPackage = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*$packageName*" }'
         '        if ($provPackage) {'
-        '            Write-ADTLogEntry -Message "Removing provisioned package: $($provPackage.DisplayName)" -Severity ''Info'''
+        '            Write-ADTLogEntry -Message "Removing provisioned package: $($provPackage.DisplayName)" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '            $provPackage | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue'
         '        }'
         '        $packages = Get-AppxPackage -Name "*$packageName*" -AllUsers -ErrorAction SilentlyContinue'
         '        if ($packages) {'
         '            foreach ($pkg in $packages) {'
-        '                Write-ADTLogEntry -Message "Removing installed package: $($pkg.PackageFullName)" -Severity ''Info'''
+        '                Write-ADTLogEntry -Message "Removing installed package: $($pkg.PackageFullName)" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '                Remove-AppxPackage -Package $pkg.PackageFullName -AllUsers -ErrorAction SilentlyContinue'
         '            }'
         '        }'
-        '        Write-ADTLogEntry -Message "MSIX package removal completed" -Severity ''Info'''
+        '        Write-ADTLogEntry -Message "MSIX package removal completed" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '    } catch {'
-        '        Write-ADTLogEntry -Message "Failed to remove MSIX package: $_" -Severity ''Error'''
+        '        Write-ADTLogEntry -Message "Failed to remove MSIX package: $_" -Severity ''Error'' -Source ''Uninstall-ADTDeployment'''
         '        throw'
         '    }'
     )
@@ -583,16 +547,16 @@ if ($useRegistryUninstall) {
         ''
         '    # Remove portable app folder'
         "    `$installPath = `"`$env:ProgramFiles\$displayNameEscaped`""
-        '    Write-ADTLogEntry -Message "Removing portable app folder: $installPath" -Severity ''Info'''
+        '    Write-ADTLogEntry -Message "Removing portable app folder: $installPath" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '    try {'
         '        if (Test-Path $installPath) {'
         '            Remove-Item -Path $installPath -Recurse -Force -ErrorAction Stop'
-        '            Write-ADTLogEntry -Message "Portable app folder removed successfully" -Severity ''Info'''
+        '            Write-ADTLogEntry -Message "Portable app folder removed successfully" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '        } else {'
-        '            Write-ADTLogEntry -Message "Portable app folder not found: $installPath" -Severity ''Warning'''
+        '            Write-ADTLogEntry -Message "Portable app folder not found: $installPath" -Severity ''Warning'' -Source ''Uninstall-ADTDeployment'''
         '        }'
         '    } catch {'
-        '        Write-ADTLogEntry -Message "Failed to remove portable app folder: $_" -Severity ''Error'''
+        '        Write-ADTLogEntry -Message "Failed to remove portable app folder: $_" -Severity ''Error'' -Source ''Uninstall-ADTDeployment'''
         '        throw'
         '    }'
     )
@@ -605,7 +569,7 @@ if ($useRegistryUninstall) {
         '    # Check if this is an MSI uninstall (contains product code GUID)'
         '    if ($uninstallCmd -match ''\{[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}\}'') {'
         '        $productCode = $Matches[0]'
-        '        Write-ADTLogEntry -Message "Detected MSI product code: $productCode - using Start-ADTMsiProcess" -Severity ''Info'''
+        '        Write-ADTLogEntry -Message "Detected MSI product code: $productCode - using Start-ADTMsiProcess" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '        Start-ADTMsiProcess -Action ''Uninstall'' -ProductCode $productCode -IgnoreExitCodes @(0, 3010, 1605, 1614)'
         '    } else {'
         '        # EXE-based uninstaller - parse and execute with timeout'
@@ -626,7 +590,7 @@ if ($useRegistryUninstall) {
         '            if ($resolved) { $uninstallExe = $resolved.Source }'
         '        }'
         ''
-        '        Write-ADTLogEntry -Message "Executing EXE uninstall: $uninstallExe $uninstallArgs" -Severity ''Info'''
+        '        Write-ADTLogEntry -Message "Executing EXE uninstall: $uninstallExe $uninstallArgs" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
         '        Start-ADTProcess -FilePath $uninstallExe -ArgumentList $uninstallArgs -WindowStyle Hidden -WaitForMsiExec -Timeout (New-TimeSpan -Minutes 15) -TimeoutAction Stop -IgnoreExitCodes @(0, 3010, 1641, 1605)'
         '    }'
     )
@@ -641,14 +605,14 @@ $lines += @(
     "        `$regPathHKCU = 'HKCU:\SOFTWARE\IntuneGet\Apps\$sanitizedWingetId'"
     '        if (Test-Path $regPathHKLM) {'
     '            Remove-Item -Path $regPathHKLM -Force -Recurse'
-    '            Write-ADTLogEntry -Message "IntuneGet detection marker removed from HKLM" -Severity ''Info'''
+    '            Write-ADTLogEntry -Message "IntuneGet detection marker removed from HKLM" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
     '        }'
     '        if (Test-Path $regPathHKCU) {'
     '            Remove-Item -Path $regPathHKCU -Force -Recurse'
-    '            Write-ADTLogEntry -Message "IntuneGet detection marker removed from HKCU" -Severity ''Info'''
+    '            Write-ADTLogEntry -Message "IntuneGet detection marker removed from HKCU" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
     '        }'
     '    } catch {'
-    '        Write-ADTLogEntry -Message "Warning: Could not remove detection marker: $_" -Severity ''Warning'''
+    '        Write-ADTLogEntry -Message "Warning: Could not remove detection marker: $_" -Severity ''Warning'' -Source ''Uninstall-ADTDeployment'''
     '    }'
     '}'
 )
@@ -660,8 +624,8 @@ $lines += @(
     '    [CmdletBinding()]'
     '    param ()'
     ''
-    '    Write-ADTLogEntry -Message "Repair operation is not implemented for this package" -Severity ''Warning'''
-    '    Write-ADTLogEntry -Message "To repair, please uninstall and reinstall the application" -Severity ''Info'''
+    '    Write-ADTLogEntry -Message "Repair operation is not implemented for this package" -Severity ''Warning'' -Source ''Repair-ADTDeployment'''
+    '    Write-ADTLogEntry -Message "To repair, please uninstall and reinstall the application" -Severity ''Info'' -Source ''Repair-ADTDeployment'''
     '}'
     ''
     '##================================================'
@@ -682,6 +646,11 @@ $lines += @(
     '    else'
     '    {'
     "        Import-Module -FullyQualifiedName @{ ModuleName = 'PSAppDeployToolkit'; Guid = '8c3c366b-8606-4576-9f2d-4051144f7ca2'; ModuleVersion = '$psadtVersion' } -Force"
+    '    }'
+    ''
+    '    # Verify module loaded successfully'
+    '    if (-not (Get-Module -Name PSAppDeployToolkit)) {'
+    '        throw "Failed to import PSAppDeployToolkit module"'
     '    }'
     ''
     '    $iadtParams = Get-ADTBoundParametersAndDefaultValues -Invocation $MyInvocation'
@@ -705,7 +674,7 @@ $lines += @(
     '}'
     'catch'
     '{'
-    '    Write-ADTLogEntry -Message "An error occurred: $(Resolve-ADTErrorRecord -ErrorRecord $_)" -Severity ''Error'''
+    '    Write-ADTLogEntry -Message "An error occurred: $(Resolve-ADTErrorRecord -ErrorRecord $_)" -Severity ''Error'' -Source ''Main'''
     '    Close-ADTSession -ExitCode 60001'
     '}'
 )
