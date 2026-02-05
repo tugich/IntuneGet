@@ -8,9 +8,11 @@ import { GradientOrb } from "../ui/GradientOrb";
 import { GridBackground } from "../ui/GridBackground";
 import { FadeIn } from "../animations/FadeIn";
 import { ProductShowcase } from "../ui/ProductShowcase";
+import { useLandingStats } from "@/hooks/useLandingStats";
 
 export function HeroSection() {
   const shouldReduceMotion = useReducedMotion();
+  const { signinClicks, appsDeployed, appsSupported } = useLandingStats();
 
   return (
     <section className="relative w-full h-screen min-h-[600px] flex flex-col overflow-hidden">
@@ -49,16 +51,16 @@ export function HeroSection() {
           {/* Trust signals */}
           <FadeIn delay={0.05} animateOnMount duration={0.4}>
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-8 text-sm md:text-base text-stone-500">
-              <span>Trusted by <strong className="text-stone-900 font-bold">1,000+</strong> IT teams</span>
+              <span>Trusted by <strong className="text-stone-900 font-bold">{signinClicks.toLocaleString()}</strong> users</span>
               <span className="hidden sm:block w-px h-5 bg-stone-300" />
-              <span><strong className="text-stone-900 font-bold">10,000+</strong> apps deployed</span>
+              <span><strong className="text-stone-900 font-bold">{appsDeployed.toLocaleString()}</strong> apps deployed</span>
             </div>
           </FadeIn>
 
           {/* Main Headline */}
           <FadeIn delay={0.1} animateOnMount duration={0.4}>
             <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-stone-900 tracking-tight leading-[1.05] max-w-5xl">
-              <span className="gradient-text-cyan">10,000 Apps.</span>{" "}
+              <span className="gradient-text-cyan">{appsSupported.toLocaleString()} Apps.</span>{" "}
               <span className="text-stone-800">One Click.</span>
               <br className="hidden md:block" />
               <span className="text-stone-500">Zero Scripting.</span>
@@ -70,7 +72,7 @@ export function HeroSection() {
             <p className="mx-auto max-w-2xl text-lg md:text-xl text-stone-600 leading-relaxed">
               Save your team <strong className="font-semibold text-stone-800">10+ hours per deployment</strong>.
               Deploy any app from Winget to Intune instantly
-              <span className="hidden sm:inline">—no scripting, no packaging, no hassle.</span>
+              <span className="hidden sm:inline"> no scripting, no packaging, no hassle.</span>
               <span className="sm:hidden">.</span>
             </p>
           </FadeIn>

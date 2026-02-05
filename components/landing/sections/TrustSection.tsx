@@ -1,11 +1,12 @@
 "use client";
 
-import { Shield, Lock, Github, Monitor, Building2, Clock, ChevronDown } from "lucide-react";
+import { Shield, Lock, Github, ChevronDown } from "lucide-react";
 import { FadeIn } from "../animations/FadeIn";
 import { CountUp } from "../animations/CountUp";
 import { LogoBar } from "../ui/LogoBar";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLandingStats } from "@/hooks/useLandingStats";
 
 const worksWithLogos = [
   { name: "Microsoft Intune", src: "/icons/Microsoft.Intune/icon-64.png", alt: "Microsoft Intune" },
@@ -19,12 +20,6 @@ const connectsToLogos = [
   { name: "Discord", src: "/icons/Discord.Discord/icon-64.png", alt: "Discord" },
 ];
 
-const metrics = [
-  { value: 10000, suffix: "+", label: "Apps Available" },
-  { value: 1000, suffix: "+", label: "IT Teams" },
-  { value: 99.9, suffix: "%", label: "Uptime", decimals: 1 },
-];
-
 const securityBadges = [
   { icon: Lock, label: "Your credentials never leave your environment", color: "emerald" },
   { icon: Shield, label: "Enterprise-grade security", color: "cyan" },
@@ -33,6 +28,13 @@ const securityBadges = [
 
 export function TrustSection() {
   const [showIntegrations, setShowIntegrations] = useState(false);
+  const { signinClicks, appsSupported } = useLandingStats();
+
+  const metrics = [
+    { value: appsSupported, suffix: "", label: "Apps Available" },
+    { value: signinClicks, suffix: "", label: "Users" },
+    { value: 99.9, suffix: "%", label: "Uptime", decimals: 1 },
+  ];
 
   return (
     <section className="relative w-full py-16 md:py-20 bg-white border-y border-stone-200/60">
@@ -41,7 +43,7 @@ export function TrustSection() {
         <FadeIn>
           <div className="text-center mb-10 md:mb-12">
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-stone-900 mb-3">
-              Trusted by <span className="gradient-text-cyan">1,000+</span> IT Organizations
+              Trusted by <span className="gradient-text-cyan">{signinClicks.toLocaleString()}</span> IT Organizations
             </h2>
             <p className="text-stone-500 max-w-xl mx-auto">
               From startups to enterprises, teams rely on IntuneGet to streamline their app deployments
