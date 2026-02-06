@@ -40,6 +40,10 @@ export interface PackagingJob {
   progress_percent: number;
   progress_message: string | null;
   error_message: string | null;
+  error_stage: string | null;
+  error_category: string | null;
+  error_code: string | null;
+  error_details: Json | null;
   packager_id: string | null;
   packager_heartbeat_at: string | null;
   claimed_at: string | null;

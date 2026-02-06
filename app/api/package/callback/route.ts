@@ -22,6 +22,12 @@ interface PackageCallbackBody {
   // GitHub Actions run info
   runId?: string;
   runUrl?: string;
+
+  // Enhanced error fields
+  errorStage?: 'download' | 'package' | 'upload' | 'authenticate' | 'finalize' | 'unknown';
+  errorCategory?: 'network' | 'validation' | 'permission' | 'installer' | 'intune_api' | 'system';
+  errorCode?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 export async function POST(request: NextRequest) {
@@ -110,6 +116,26 @@ export async function POST(request: NextRequest) {
       updateData.error_message = data.message || 'Unknown error';
       updateData.completed_at = new Date().toISOString();
       updateData.progress_percent = 0;
+
+      // Save enhanced error fields if provided
+      if (data.errorStage) {
+        updateData.error_stage = data.errorStage;
+      }
+      if (data.errorCategory) {
+        updateData.error_category = data.errorCategory;
+      }
+      if (data.errorCode) {
+        updateData.error_code = data.errorCode;
+      }
+      if (data.errorDetails) {
+        updateData.error_details = data.errorDetails;
+      }
+
+      console.error(`Job ${data.jobId} failed: ${data.message}`, {
+        stage: data.errorStage,
+        category: data.errorCategory,
+        code: data.errorCode,
+      });
     }
 
     // Update the job in database

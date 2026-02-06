@@ -36,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { ProgressStepper } from '@/components/ProgressStepper';
+import { ErrorDisplay } from '@/components/ErrorDisplay';
 import { PageHeader, AnimatedStatCard, StatCardGrid, AnimatedEmptyState, SkeletonGrid } from '@/components/dashboard';
 import type { PackageAssignment } from '@/types/upload';
 
@@ -52,6 +53,10 @@ interface PackagingJob {
   status_message?: string;
   progress_percent: number;
   error_message?: string;
+  error_stage?: string;
+  error_category?: string;
+  error_code?: string;
+  error_details?: Record<string, unknown>;
   pipeline_run_id?: number;
   pipeline_run_url?: string;
   intunewin_url?: string;
@@ -573,28 +578,14 @@ function UploadJobCard({
           )}
 
           {/* Error message */}
-          {job.status === 'failed' && job.error_message && (
-            <div className="mt-4 p-3 bg-status-error/10 border border-status-error/20 rounded-lg">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-status-error flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="text-status-error/90">{job.error_message}</p>
-                  {/* Show hint for permission-related errors */}
-                  {(job.error_message.toLowerCase().includes('forbidden') ||
-                    job.error_message.includes('403') ||
-                    job.error_message.toLowerCase().includes('unauthorized') ||
-                    job.error_message.toLowerCase().includes('permission') ||
-                    job.error_message.toLowerCase().includes('access denied')) && (
-                    <p className="text-status-warning mt-2">
-                      This may be a permissions issue. Check that your organization&apos;s Global Administrator has granted admin consent with Intune permissions.
-                      <Link href="/onboarding" className="text-accent-cyan hover:underline ml-1">
-                        Re-verify permissions
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+          {job.status === 'failed' && (job.error_message || job.error_code) && (
+            <ErrorDisplay
+              errorMessage={job.error_message}
+              errorStage={job.error_stage}
+              errorCategory={job.error_category}
+              errorCode={job.error_code}
+              errorDetails={job.error_details}
+            />
           )}
 
           {/* Cancelled info */}
