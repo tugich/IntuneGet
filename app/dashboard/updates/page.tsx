@@ -16,7 +16,13 @@ import { Input } from '@/components/ui/input';
 import { PageHeader, AnimatedStatCard, StatCardGrid, AnimatedEmptyState } from '@/components/dashboard';
 import { UpdateCard, UpdateCardSkeleton, AutoUpdateHistory } from '@/components/updates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAvailableUpdates, useAutoUpdateHistory, useTriggerUpdate, useUpdatePolicy } from '@/hooks/use-updates';
+import {
+  useAvailableUpdates,
+  useAutoUpdateHistory,
+  useRefreshAvailableUpdates,
+  useTriggerUpdate,
+  useUpdatePolicy,
+} from '@/hooks/use-updates';
 import { useMspOptional } from '@/hooks/useMspOptional';
 import { cn } from '@/lib/utils';
 import type { AvailableUpdate, UpdatePolicyType } from '@/types/update-policies';
@@ -52,6 +58,7 @@ export default function UpdatesPage() {
     hasMore: hasMoreHistory,
   } = useAutoUpdateHistory({ tenantId });
 
+  const { refreshUpdates, isRefreshing } = useRefreshAvailableUpdates({ tenantId });
   const { triggerUpdate } = useTriggerUpdate();
   const { updatePolicy } = useUpdatePolicy();
 
@@ -123,6 +130,11 @@ export default function UpdatesPage() {
     }
   }, [filteredUpdates, handleTriggerUpdate]);
 
+  const handleRefresh = useCallback(async () => {
+    await refreshUpdates();
+    await refetchUpdates();
+  }, [refreshUpdates, refetchUpdates]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -135,11 +147,18 @@ export default function UpdatesPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
-              onClick={() => refetchUpdates()}
-              disabled={isFetchingUpdates}
+              onClick={() => {
+                void handleRefresh();
+              }}
+              disabled={isFetchingUpdates || isRefreshing}
               className="text-text-secondary hover:text-text-primary"
             >
-              <RefreshCw className={cn('w-4 h-4 mr-2', isFetchingUpdates && 'animate-spin')} />
+              <RefreshCw
+                className={cn(
+                  'w-4 h-4 mr-2',
+                  (isFetchingUpdates || isRefreshing) && 'animate-spin'
+                )}
+              />
               Refresh
             </Button>
             {filteredUpdates.length > 0 && (

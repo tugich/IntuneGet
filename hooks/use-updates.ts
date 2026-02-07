@@ -64,6 +64,13 @@ export interface AvailableUpdatesResponse {
   criticalCount: number;
 }
 
+export interface RefreshAvailableUpdatesResponse {
+  success: boolean;
+  refreshedCount: number;
+  removedCount: number;
+  updateCount: number;
+}
+
 export interface AutoUpdateHistoryResponse {
   history: AutoUpdateHistoryWithPolicy[];
   count: number;
@@ -127,6 +134,50 @@ export function useAvailableUpdates(options: UseAvailableUpdatesOptions = {}) {
     staleTime: 1000 * 60, // 1 minute
     refetchOnWindowFocus: false,
   });
+}
+
+/**
+ * Hook to trigger an on-demand refresh scan for available updates
+ */
+export function useRefreshAvailableUpdates(options: { tenantId?: string } = {}) {
+  const { getAccessToken } = useMicrosoftAuth();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<RefreshAvailableUpdatesResponse, Error, void>({
+    mutationFn: async () => {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch('/api/updates/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenant_id: options.tenantId || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to refresh updates');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['availableUpdates'] });
+    },
+  });
+
+  return {
+    refreshUpdates: mutation.mutateAsync,
+    isRefreshing: mutation.isPending,
+    error: mutation.error,
+  };
 }
 
 export interface UseAutoUpdateHistoryOptions {
