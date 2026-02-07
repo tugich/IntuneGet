@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, isSupabaseConfigured } from '@/lib/supabase';
+import { resolveTargetTenantId } from '@/lib/msp/tenant-resolution';
 import {
   logTokenAcquired,
   logPermissionVerification,
@@ -400,12 +401,42 @@ export async function POST(request: NextRequest): Promise<NextResponse<ConsentVe
           { status: 400 }
         );
       }
+
+      if (!userId) {
+        return NextResponse.json(
+          { verified: false, tenantId: '', message: 'No user ID in token' },
+          { status: 400 }
+        );
+      }
     } catch {
       return NextResponse.json(
         { verified: false, tenantId: '', message: 'Invalid token format' },
         { status: 401 }
       );
     }
+
+    const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return NextResponse.json(
+        {
+          verified: false,
+          tenantId: tenantResolution.tenantId,
+          message: 'Not authorized to verify consent for this tenant',
+        },
+        { status: 403 }
+      );
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     // First, check if we have a cached consent record in the database
     const hasStoredConsent = await checkStoredConsent(tenantId);

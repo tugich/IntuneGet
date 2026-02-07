@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { resolveTargetTenantId } from '@/lib/msp/tenant-resolution';
 import type { ClaimAppRequest, ClaimedApp } from '@/types/unmanaged';
 import type { Database } from '@/types/database';
 
@@ -100,6 +101,20 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     // Ensure user profile exists (required for foreign key constraint)
     await ensureUserProfile(supabase, userId, tenantId, tokenPayload);
@@ -195,13 +210,22 @@ export async function GET(request: NextRequest) {
     }
 
     const accessToken = authHeader.slice(7);
+    let userId: string;
     let tenantId: string;
 
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()
       );
+      userId = tokenPayload.oid || tokenPayload.sub;
       tenantId = tokenPayload.tid;
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Invalid token: missing user identifier' },
+          { status: 401 }
+        );
+      }
 
       if (!tenantId) {
         return NextResponse.json(
@@ -217,6 +241,20 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     const { data: claims, error } = await supabase
       .from('claimed_apps')
@@ -267,13 +305,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const accessToken = authHeader.slice(7);
+    let userId: string;
     let tenantId: string;
 
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()
       );
+      userId = tokenPayload.oid || tokenPayload.sub;
       tenantId = tokenPayload.tid;
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Invalid token: missing user identifier' },
+          { status: 401 }
+        );
+      }
 
       if (!tenantId) {
         return NextResponse.json(
@@ -299,6 +346,20 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     const updates: ClaimedAppUpdate = {};
     if (status) updates.status = status;

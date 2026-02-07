@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
+import { useMspOptional } from '@/hooks/useMspOptional';
 import { useCartStore } from '@/stores/cart-store';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
@@ -77,10 +78,20 @@ function isMicrosoftApp(app: UnmanagedApp): boolean {
 
 export function useUnmanagedApps(): UseUnmanagedAppsReturn {
   const { getAccessToken, isAuthenticated } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
   const addItem = useCartStore((state) => state.addItem);
   const addItemSilent = useCartStore((state) => state.addItemSilent);
   const cartItems = useCartStore((state) => state.items);
   const tokenRef = useRef<string | null>(null);
+  const mspHeaders = useMemo<Record<string, string>>(() => {
+    const headers: Record<string, string> = {};
+
+    if (isMspUser && selectedTenantId) {
+      headers['X-MSP-Tenant-Id'] = selectedTenantId;
+    }
+
+    return headers;
+  }, [isMspUser, selectedTenantId]);
 
   // Data state
   const [apps, setApps] = useState<UnmanagedApp[]>([]);
@@ -115,7 +126,10 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
     try {
       const url = `/api/intune/unmanaged-apps${forceRefresh ? '?refresh=true' : ''}`;
       const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          ...mspHeaders,
+        },
       });
 
       if (!response.ok) {
@@ -142,7 +156,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
         variant: 'destructive',
       });
     }
-  }, [getToken]);
+  }, [getToken, mspHeaders]);
 
   // Initial load
   useEffect(() => {
@@ -326,6 +340,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          ...mspHeaders,
         },
         body: JSON.stringify({
           discoveredAppId: app.discoveredAppId,
@@ -357,7 +372,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
     } finally {
       setClaimingAppId(null);
     }
-  }, [getToken, addItem]);
+  }, [getToken, addItem, mspHeaders]);
 
   // Claim single app (used by handleClaimAll)
   const claimSingleApp = useCallback(async (
@@ -422,6 +437,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          ...mspHeaders,
         },
         body: JSON.stringify({
           discoveredAppId: app.discoveredAppId,
@@ -440,7 +456,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
       console.error(`Error claiming app ${app.displayName}:`, error);
       return { app, success: false };
     }
-  }, [addItemSilent]);
+  }, [addItemSilent, mspHeaders]);
 
   // Claim all matched apps handler
   const handleClaimAll = useCallback(async () => {
@@ -516,6 +532,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
+          ...mspHeaders,
         },
         body: JSON.stringify({
           discoveredAppName: app.displayName,
@@ -560,7 +577,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
       });
       throw error;
     }
-  }, [getToken]);
+  }, [getToken, mspHeaders]);
 
   const clearFilters = useCallback(() => {
     setFilters(defaultFilters);

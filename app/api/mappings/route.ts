@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { resolveTargetTenantId } from '@/lib/msp/tenant-resolution';
 import type { ManualAppMapping, CreateMappingRequest } from '@/types/unmanaged';
 import type { Database } from '@/types/database';
 
@@ -25,13 +26,22 @@ export async function GET(request: NextRequest) {
     }
 
     const accessToken = authHeader.slice(7);
+    let userId: string;
     let tenantId: string;
 
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()
       );
+      userId = tokenPayload.oid || tokenPayload.sub;
       tenantId = tokenPayload.tid;
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Invalid token: missing user identifier' },
+          { status: 401 }
+        );
+      }
 
       if (!tenantId) {
         return NextResponse.json(
@@ -47,6 +57,20 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     // Get mappings for this tenant and global mappings
     const { data: mappings, error } = await supabase
@@ -130,6 +154,20 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     // Check if mapping already exists
     const { data: existing } = await supabase
@@ -223,13 +261,22 @@ export async function DELETE(request: NextRequest) {
     }
 
     const accessToken = authHeader.slice(7);
+    let userId: string;
     let tenantId: string;
 
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()
       );
+      userId = tokenPayload.oid || tokenPayload.sub;
       tenantId = tokenPayload.tid;
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Invalid token: missing user identifier' },
+          { status: 401 }
+        );
+      }
 
       if (!tenantId) {
         return NextResponse.json(
@@ -255,6 +302,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     // Get the mapping first to verify ownership
     const { data: mapping, error: fetchError } = await supabase

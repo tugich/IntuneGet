@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { resolveTargetTenantId } from '@/lib/msp/tenant-resolution';
 import type { IntuneAppWithAssignments, IntuneAppAssignment } from '@/types/inventory';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/beta';
@@ -28,12 +29,21 @@ export async function GET(
     // Decode the token
     const accessToken = authHeader.slice(7);
     let tenantId: string;
+    let userId: string;
 
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()
       );
+      userId = tokenPayload.oid || tokenPayload.sub;
       tenantId = tokenPayload.tid;
+
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Invalid token: missing user identifier' },
+          { status: 401 }
+        );
+      }
 
       if (!tenantId) {
         return NextResponse.json(
@@ -50,6 +60,20 @@ export async function GET(
 
     // Verify admin consent
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     const { data: consentData, error: consentError } = await supabase
       .from('tenant_consent')

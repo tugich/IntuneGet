@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
 import { useMicrosoftAuth } from './useMicrosoftAuth';
+import { useMspOptional } from './useMspOptional';
 import type { AppUpdateInfo } from '@/types/inventory';
 import type {
   AvailableUpdate,
@@ -20,9 +21,10 @@ interface UpdatesResponse {
 
 export function useAppUpdates() {
   const { getAccessToken, isAuthenticated } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
 
   return useQuery<UpdatesResponse>({
-    queryKey: ['inventory', 'updates'],
+    queryKey: ['inventory', 'updates', isMspUser ? selectedTenantId || 'primary' : 'self'],
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) {
@@ -33,6 +35,7 @@ export function useAppUpdates() {
       const response = await fetch('/api/intune/apps/updates', {
         headers: {
           Authorization: `Bearer ${token}`,
+          ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
         },
       });
 

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+import { resolveTargetTenantId } from '@/lib/msp/tenant-resolution';
 import type { IntuneWin32App } from '@/types/inventory';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/beta';
@@ -54,6 +55,20 @@ export async function GET(request: NextRequest) {
 
     // Get the service principal access token from the database
     const supabase = createServerClient();
+    const mspTenantId = request.headers.get('X-MSP-Tenant-Id');
+
+    const tenantResolution = await resolveTargetTenantId({
+      supabase,
+      userId,
+      tokenTenantId: tenantId,
+      requestedTenantId: mspTenantId,
+    });
+
+    if (tenantResolution.errorResponse) {
+      return tenantResolution.errorResponse;
+    }
+
+    tenantId = tenantResolution.tenantId;
 
     const { data: consentData, error: consentError } = await supabase
       .from('tenant_consent')

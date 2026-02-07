@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
+import { useMspOptional } from '@/hooks/useMspOptional';
 import type { PackageAssignment } from '@/types/upload';
 import type { EntraIDGroup } from '@/types/intune';
 
@@ -31,6 +32,7 @@ export function AssignmentConfig({ assignments, onChange }: AssignmentConfigProp
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const { getAccessToken } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
 
   // When toggling off, clear assignments
   const handleToggle = () => {
@@ -68,6 +70,7 @@ export function AssignmentConfig({ assignments, onChange }: AssignmentConfigProp
           {
             headers: {
               Authorization: `Bearer ${accessToken}`,
+              ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
             },
           }
         );
@@ -87,7 +90,7 @@ export function AssignmentConfig({ assignments, onChange }: AssignmentConfigProp
         setIsSearching(false);
       }
     },
-    [getAccessToken]
+    [getAccessToken, isMspUser, selectedTenantId]
   );
 
   // Debounce search input

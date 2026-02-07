@@ -20,6 +20,7 @@ import { CartItemConfig } from '@/components/CartItemConfig';
 import type { CartItem } from '@/types/upload';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { usePermissionStatus } from '@/hooks/usePermissionStatus';
+import { useMspOptional } from '@/hooks/useMspOptional';
 import { trackDeployment } from '@/hooks/useLandingStats';
 import { PermissionStatusIndicator } from '@/components/PermissionStatusIndicator';
 
@@ -50,6 +51,7 @@ export function UploadCart() {
   const [editingItem, setEditingItem] = useState<CartItem | null>(null);
 
   const { isAuthenticated, getAccessToken, signIn, requestAdminConsent } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
   const {
     status: permissionStatus,
     error: permissionError,
@@ -107,6 +109,7 @@ export function UploadCart() {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
+          ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
         },
         body: JSON.stringify({ items }),
       });

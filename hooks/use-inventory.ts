@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { useMicrosoftAuth } from './useMicrosoftAuth';
+import { useMspOptional } from './useMspOptional';
 import type { IntuneWin32App, IntuneAppWithAssignments } from '@/types/inventory';
 
 interface InventoryResponse {
@@ -15,9 +16,10 @@ interface AppDetailsResponse {
 
 export function useInventoryApps() {
   const { getAccessToken, isAuthenticated } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
 
   return useQuery<InventoryResponse>({
-    queryKey: ['inventory', 'apps'],
+    queryKey: ['inventory', 'apps', isMspUser ? selectedTenantId || 'primary' : 'self'],
     queryFn: async () => {
       const token = await getAccessToken();
       if (!token) {
@@ -27,6 +29,7 @@ export function useInventoryApps() {
       const response = await fetch('/api/intune/apps', {
         headers: {
           Authorization: `Bearer ${token}`,
+          ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
         },
       });
 
@@ -44,9 +47,10 @@ export function useInventoryApps() {
 
 export function useAppDetails(appId: string | null) {
   const { getAccessToken, isAuthenticated } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
 
   return useQuery<AppDetailsResponse>({
-    queryKey: ['inventory', 'app', appId],
+    queryKey: ['inventory', 'app', appId, isMspUser ? selectedTenantId || 'primary' : 'self'],
     queryFn: async () => {
       if (!appId) {
         throw new Error('No app ID provided');
@@ -60,6 +64,7 @@ export function useAppDetails(appId: string | null) {
       const response = await fetch(`/api/intune/apps/${appId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
+          ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
         },
       });
 

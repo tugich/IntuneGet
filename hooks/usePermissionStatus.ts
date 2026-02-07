@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
+import { useMspOptional } from '@/hooks/useMspOptional';
 
 export type PermissionErrorType =
   | 'consent_not_granted'
@@ -22,6 +23,7 @@ interface ConsentVerificationResult {
 
 export function usePermissionStatus() {
   const { isAuthenticated, getAccessToken, user } = useMicrosoftAuth();
+  const { isMspUser, selectedTenantId } = useMspOptional();
 
   const fetchPermissionStatus = useCallback(async (): Promise<ConsentVerificationResult> => {
     const token = await getAccessToken();
@@ -34,6 +36,7 @@ export function usePermissionStatus() {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+        ...(isMspUser && selectedTenantId ? { 'X-MSP-Tenant-Id': selectedTenantId } : {}),
       },
     });
 
@@ -42,10 +45,10 @@ export function usePermissionStatus() {
     }
 
     return response.json();
-  }, [getAccessToken]);
+  }, [getAccessToken, isMspUser, selectedTenantId]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['permission-status', user?.tenantId],
+    queryKey: ['permission-status', user?.tenantId, isMspUser ? selectedTenantId || 'primary' : 'self'],
     queryFn: fetchPermissionStatus,
     enabled: isAuthenticated && !!user?.tenantId,
     staleTime: 5 * 60 * 1000, // 5 minutes
