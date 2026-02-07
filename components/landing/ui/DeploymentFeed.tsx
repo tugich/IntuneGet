@@ -5,48 +5,28 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { CheckCircle, Loader2, Circle } from "lucide-react";
 import { springPresets } from "@/lib/animations/variants";
+import {
+  FEED_MOTION_CONFIGS,
+  createInitialFeedItems,
+  tickFeedItems,
+  type AppDefinition,
+  type FeedItem,
+  type StageState,
+  type ViewportMode,
+} from "@/lib/landing/deploymentFeedMotion";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const TICK_INTERVAL_MS = 100;
-const STAGE_DURATION_MS = 1400;
-const COMPLETE_HOLD_MS = 800;
-const ENTER_ANIMATION_MS = 300;
-const EXIT_ANIMATION_MS = 350;
-const OVERLAP_THRESHOLD = 2; // new item enters when prev reaches stageIndex >= 2
+const TICK_INTERVAL_MS = 80;
 
 const STAGE_LABELS = [
   { label: "Downloaded", shortLabel: "Downloaded" },
   { label: "Packaged (.intunewin)", shortLabel: "Packaged" },
   { label: "Uploaded to Intune", shortLabel: "Uploaded" },
   { label: "Deployed", shortLabel: "Deployed" },
-];
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface AppDefinition {
-  name: string;
-  icon: string;
-  alt: string;
-}
-
-type StageState = "waiting" | "active" | "complete";
-
-type FeedItemStatus = "entering" | "processing" | "completing" | "exiting";
-
-interface FeedItem {
-  id: string;
-  app: AppDefinition;
-  stageIndex: number;
-  stageProgress: number;
-  status: FeedItemStatus;
-  holdElapsed: number; // ms elapsed in completing state
-  enterElapsed: number; // ms elapsed in entering state
-}
+] as const;
 
 // ---------------------------------------------------------------------------
 // App Pool (13 apps)
@@ -74,18 +54,21 @@ const APP_POOL: AppDefinition[] = [
 
 function shuffleArray<T>(arr: T[]): T[] {
   const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
+  for (let i = copy.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
 }
 
-function getStageState(stageIndex: number, itemStageIndex: number, itemStageProgress: number): StageState {
+function getStageState(stageIndex: number, itemStageIndex: number): StageState {
   if (stageIndex < itemStageIndex) return "complete";
-  if (stageIndex === itemStageIndex && itemStageProgress > 0) return "active";
-  if (stageIndex === itemStageIndex && itemStageProgress === 0) return "active";
+  if (stageIndex === itemStageIndex) return "active";
   return "waiting";
+}
+
+function createItemId(appName: string): string {
+  return `${appName.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,7 +91,7 @@ function StageIcon({ state }: { state: StageState }) {
     return (
       <motion.div
         animate={{ rotate: 360 }}
-        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 1.1, repeat: Infinity, ease: "linear" }}
       >
         <Loader2 className="w-3.5 h-3.5 text-accent-cyan" />
       </motion.div>
@@ -130,9 +113,9 @@ function StageIconStatic({ state }: { state: StageState }) {
 
 function ProgressBar({ progress }: { progress: number }) {
   return (
-    <div className="h-0.5 bg-stone-200/60 rounded-full w-full mt-0.5">
+    <div className="mt-0.5 h-0.5 w-full rounded-full bg-stone-200/60">
       <div
-        className="h-full bg-accent-cyan rounded-full transition-[width] duration-100 ease-linear"
+        className="h-full rounded-full bg-[linear-gradient(90deg,#06b6d4_0%,#0891b2_72%,#7c3aed_100%)] shadow-[0_0_8px_rgba(8,145,178,0.24)] transition-[width] duration-75 ease-linear"
         style={{ width: `${Math.min(progress * 100, 100)}%` }}
       />
     </div>
@@ -146,89 +129,101 @@ function ProgressBar({ progress }: { progress: number }) {
 interface AppRowProps {
   item: FeedItem;
   compact?: boolean;
+  isMobile?: boolean;
 }
 
-const AppRow = memo(function AppRow({ item, compact = false }: AppRowProps) {
+const AppRow = memo(function AppRow({ item, compact = false, isMobile = false }: AppRowProps) {
   const allComplete = item.status === "completing" || item.status === "exiting";
+  const isProcessing = item.status === "processing";
 
   return (
     <div
       className={cn(
-        "bg-white rounded-lg border p-3",
+        "relative overflow-hidden rounded-lg border p-3 transition-[box-shadow,border-color,background-color] duration-500",
         allComplete
           ? "border-emerald-200/60"
-          : item.status === "processing"
-            ? "border-accent-cyan/30"
-            : "border-stone-200"
+          : isProcessing
+            ? "border-accent-cyan/45 bg-[linear-gradient(125deg,rgba(8,145,178,0.06),rgba(255,255,255,0.96)_52%,rgba(124,58,237,0.04))] shadow-[0_0_0_1px_rgba(8,145,178,0.12),0_10px_24px_rgba(8,145,178,0.08)]"
+            : "border-stone-200 bg-white"
       )}
     >
-      {/* App header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div
-          className={cn(
-            "bg-stone-100 rounded-md flex items-center justify-center flex-shrink-0",
-            compact ? "w-6 h-6" : "w-7 h-7"
-          )}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.app.icon}
-            alt={item.app.alt}
-            className={cn("object-contain", compact ? "w-4 h-4" : "w-5 h-5")}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
-        </div>
-        <span
-          className={cn(
-            "font-medium text-stone-800",
-            compact ? "text-xs" : "text-sm"
-          )}
-        >
-          {item.app.name}
-        </span>
-        {allComplete && (
-          <motion.span
-            className="ml-auto text-[10px] text-emerald-600 font-medium"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={springPresets.bouncy}
+      {isProcessing && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          initial={{ opacity: 0.35 }}
+          animate={{ opacity: [0.28, 0.42, 0.28] }}
+          transition={{ duration: isMobile ? 4.2 : 3.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+
+      <div className="relative z-10">
+        {/* App header */}
+        <div className="mb-2 flex items-center gap-2">
+          <div
+            className={cn(
+              "flex flex-shrink-0 items-center justify-center rounded-md bg-stone-100",
+              compact ? "h-6 w-6" : "h-7 w-7"
+            )}
           >
-            Complete
-          </motion.span>
-        )}
-      </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={item.app.icon}
+              alt={item.app.alt}
+              className={cn("object-contain", compact ? "h-4 w-4" : "h-5 w-5")}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+          </div>
+          <span
+            className={cn(
+              "font-medium text-stone-800",
+              compact ? "text-xs" : "text-sm"
+            )}
+          >
+            {item.app.name}
+          </span>
+          {allComplete && (
+            <motion.span
+              className="ml-auto text-[10px] font-medium text-emerald-600"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={springPresets.bouncy}
+            >
+              Complete
+            </motion.span>
+          )}
+        </div>
 
-      {/* Stages */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {STAGE_LABELS.map((stage, si) => {
-          const state: StageState = allComplete
-            ? "complete"
-            : getStageState(si, item.stageIndex, item.stageProgress);
-          const isActive = state === "active" && !allComplete;
-          const progress = isActive && si === item.stageIndex ? item.stageProgress : 0;
+        {/* Stages */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {STAGE_LABELS.map((stage, si) => {
+            const state: StageState = allComplete ? "complete" : getStageState(si, item.stageIndex);
+            const isActive = state === "active" && !allComplete;
+            const progress = isActive && si === item.stageIndex ? item.stageProgress : 0;
 
-          return (
-            <div key={stage.label} className="flex flex-col">
-              <div
-                className={cn(
-                  "flex items-center gap-1",
-                  state === "complete" && "text-stone-700",
-                  state === "active" && "text-accent-cyan",
-                  state === "waiting" && "text-stone-400"
-                )}
-              >
-                <StageIcon state={state} />
-                <span className={cn("truncate", compact ? "text-[9px]" : "text-[10px]")}>
-                  <span className="hidden sm:inline">{stage.label}</span>
-                  <span className="sm:hidden">{stage.shortLabel}</span>
-                </span>
+            return (
+              <div key={stage.label} className="flex flex-col">
+                <div
+                  className={cn(
+                    "flex items-center gap-1",
+                    state === "complete" && "text-stone-700",
+                    state === "active" && "text-accent-cyan",
+                    state === "waiting" && "text-stone-400"
+                  )}
+                >
+                  <StageIcon state={state} />
+                  <span className={cn("truncate", compact ? "text-[9px]" : "text-[10px]")}>
+                    <span className="hidden sm:inline">{stage.label}</span>
+                    <span className="sm:hidden">{stage.shortLabel}</span>
+                  </span>
+                </div>
+                {isActive && <ProgressBar progress={progress} />}
               </div>
-              {isActive && <ProgressBar progress={progress} />}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -243,32 +238,32 @@ function DeploymentFeedStatic({ className = "" }: { className?: string }) {
   const mobileApps = APP_POOL.slice(0, 3);
 
   return (
-    <div className={cn("relative w-full mx-auto max-w-4xl", className)}>
-      <div className="relative bg-white rounded-xl shadow-soft-xl border border-stone-200/60 overflow-hidden">
+    <div className={cn("relative mx-auto w-full max-w-4xl", className)}>
+      <div className="relative overflow-hidden rounded-xl border border-stone-200/60 bg-white shadow-soft-xl">
         {/* Browser chrome */}
-        <div className="flex items-center gap-2 bg-stone-50 border-b border-stone-200 px-3 py-2">
+        <div className="flex items-center gap-2 border-b border-stone-200 bg-stone-50 px-3 py-2">
           <div className="flex gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
           </div>
-          <div className="flex-1 mx-4">
-            <div className="bg-white border border-stone-200 rounded-lg px-3 py-1 text-xs text-stone-500 max-w-md mx-auto">
+          <div className="mx-4 flex-1">
+            <div className="mx-auto max-w-md rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs text-stone-500">
               IntuneGet.com/dashboard
             </div>
           </div>
         </div>
 
         {/* Static feed */}
-        <div className="p-3 md:p-4 bg-stone-50/50">
+        <div className="bg-stone-50/50 p-3 md:p-4">
           {/* Desktop */}
-          <div className="hidden md:flex flex-col gap-3">
+          <div className="hidden flex-col gap-3 md:flex">
             {staticApps.map((app) => (
               <StaticAppRow key={app.name} app={app} />
             ))}
           </div>
           {/* Mobile */}
-          <div className="flex md:hidden flex-col gap-3">
+          <div className="flex flex-col gap-3 md:hidden">
             {mobileApps.map((app) => (
               <StaticAppRow key={app.name} app={app} compact />
             ))}
@@ -281,30 +276,26 @@ function DeploymentFeedStatic({ className = "" }: { className?: string }) {
 
 function StaticAppRow({ app, compact = false }: { app: AppDefinition; compact?: boolean }) {
   return (
-    <div
-      className="bg-white rounded-lg border border-emerald-200/60 p-3"
-    >
-      <div className="flex items-center gap-2 mb-2">
+    <div className="rounded-lg border border-emerald-200/60 bg-white p-3">
+      <div className="mb-2 flex items-center gap-2">
         <div
           className={cn(
-            "bg-stone-100 rounded-md flex items-center justify-center",
-            compact ? "w-6 h-6" : "w-7 h-7"
+            "flex items-center justify-center rounded-md bg-stone-100",
+            compact ? "h-6 w-6" : "h-7 w-7"
           )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={app.icon}
             alt={app.alt}
-            className={cn("object-contain", compact ? "w-4 h-4" : "w-5 h-5")}
+            className={cn("object-contain", compact ? "h-4 w-4" : "h-5 w-5")}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";
             }}
           />
         </div>
-        <span className={cn("font-medium text-stone-800", compact ? "text-xs" : "text-sm")}>
-          {app.name}
-        </span>
-        <span className="ml-auto text-[10px] text-emerald-600 font-medium">Complete</span>
+        <span className={cn("font-medium text-stone-800", compact ? "text-xs" : "text-sm")}>{app.name}</span>
+        <span className="ml-auto text-[10px] font-medium text-emerald-600">Complete</span>
       </div>
       <div className="grid grid-cols-4 gap-1.5">
         {STAGE_LABELS.map((stage) => (
@@ -331,158 +322,94 @@ interface DeploymentFeedProps {
 
 export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
   const shouldReduceMotion = useReducedMotion();
-
+  const [viewportMode, setViewportMode] = useState<ViewportMode>("desktop");
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
 
-  // Shuffle queue ref
   const queueRef = useRef<AppDefinition[]>([]);
   const lastAppNameRef = useRef<string>("");
+  const tickRef = useRef<() => void>();
+
+  const isMobile = viewportMode === "mobile";
+  const motionConfig = FEED_MOTION_CONFIGS[viewportMode];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateViewportMode = () => setViewportMode(mediaQuery.matches ? "mobile" : "desktop");
+
+    updateViewportMode();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updateViewportMode);
+      return () => mediaQuery.removeEventListener("change", updateViewportMode);
+    }
+
+    mediaQuery.addListener(updateViewportMode);
+    return () => mediaQuery.removeListener(updateViewportMode);
+  }, []);
+
+  const createId = useCallback((app: AppDefinition) => createItemId(app.name), []);
 
   const getNextApp = useCallback((): AppDefinition => {
     if (queueRef.current.length === 0) {
       let shuffled = shuffleArray(APP_POOL);
-      // Guard against consecutive duplicate at reshuffle boundary
+
+      // Guard against consecutive duplicate at reshuffle boundary.
       if (shuffled[0].name === lastAppNameRef.current && shuffled.length > 1) {
-        // Swap first with a random later position
         const swapIdx = 1 + Math.floor(Math.random() * (shuffled.length - 1));
         [shuffled[0], shuffled[swapIdx]] = [shuffled[swapIdx], shuffled[0]];
       }
+
       queueRef.current = shuffled;
     }
+
     const next = queueRef.current.shift()!;
     lastAppNameRef.current = next.name;
     return next;
   }, []);
 
-  // Tick function ref to avoid stale closures
-  const tickRef = useRef<() => void>();
-
-  // Track if we've initialized to avoid double-start in strict mode
-  const initializedRef = useRef(false);
-
-  const VISIBLE_COUNT = 3;
-
-  const makeItem = useCallback(
-    (stageIndex: number, stageProgress: number, status: FeedItemStatus): FeedItem => {
-      const app = getNextApp();
-      return {
-        id: `${app.name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        app,
-        stageIndex,
-        stageProgress,
-        status,
-        holdElapsed: 0,
-        enterElapsed: status === "processing" ? ENTER_ANIMATION_MS : 0,
-      };
-    },
-    [getNextApp]
-  );
-
   useEffect(() => {
     if (shouldReduceMotion) return;
 
-    // Seed 3 staggered items so the feed looks active from the start
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      setFeedItems([
-        makeItem(2, 0.4, "processing"),
-        makeItem(1, 0.2, "processing"),
-        makeItem(0, 0, "entering"),
-      ]);
-    }
-  }, [shouldReduceMotion, makeItem]);
+    setFeedItems(
+      createInitialFeedItems({
+        config: motionConfig,
+        stageCount: STAGE_LABELS.length,
+        getNextApp,
+        createId,
+      })
+    );
+  }, [shouldReduceMotion, motionConfig, getNextApp, createId]);
 
-  // Tick logic
   tickRef.current = () => {
-    setFeedItems((prev) => {
-      let items = prev.map((item) => ({ ...item }));
-
-      for (const item of items) {
-        switch (item.status) {
-          case "entering": {
-            item.enterElapsed += TICK_INTERVAL_MS;
-            if (item.enterElapsed >= ENTER_ANIMATION_MS) {
-              item.status = "processing";
-            }
-            break;
-          }
-          case "processing": {
-            item.stageProgress += TICK_INTERVAL_MS / STAGE_DURATION_MS;
-            if (item.stageProgress >= 1) {
-              if (item.stageIndex >= STAGE_LABELS.length - 1) {
-                // Last stage complete
-                item.stageProgress = 1;
-                item.status = "completing";
-                item.holdElapsed = 0;
-              } else {
-                // Move to next stage
-                item.stageProgress = 0;
-                item.stageIndex += 1;
-              }
-            }
-            break;
-          }
-          case "completing": {
-            item.holdElapsed += TICK_INTERVAL_MS;
-            if (item.holdElapsed >= COMPLETE_HOLD_MS) {
-              item.status = "exiting";
-            }
-            break;
-          }
-          case "exiting": {
-            // Will be removed after animation
-            break;
-          }
-        }
-      }
-
-      // Maintain exactly VISIBLE_COUNT non-exiting items
-      const visibleCount = items.filter((i) => i.status !== "exiting").length;
-      for (let i = visibleCount; i < VISIBLE_COUNT; i++) {
-        const nextApp = getNextApp();
-        items.push({
-          id: `${nextApp.name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          app: nextApp,
-          stageIndex: 0,
-          stageProgress: 0,
-          status: "entering",
-          holdElapsed: 0,
-          enterElapsed: 0,
-        });
-      }
-
-      // Remove exiting items after animation completes
-      items = items.filter((item) => {
-        if (item.status === "exiting" && item.holdElapsed > COMPLETE_HOLD_MS + EXIT_ANIMATION_MS) {
-          return false;
-        }
-        // Track exit duration in holdElapsed (reusing field)
-        if (item.status === "exiting") {
-          item.holdElapsed += TICK_INTERVAL_MS;
-        }
-        return true;
-      });
-
-      return items;
-    });
+    setFeedItems((prev) =>
+      tickFeedItems({
+        prevItems: prev,
+        config: motionConfig,
+        tickMs: TICK_INTERVAL_MS,
+        stageCount: STAGE_LABELS.length,
+        getNextApp,
+        createId,
+      })
+    );
   };
 
-  // Single interval drives everything
   useEffect(() => {
     if (shouldReduceMotion) return;
-    const id = setInterval(() => tickRef.current?.(), TICK_INTERVAL_MS);
-    return () => clearInterval(id);
+
+    const intervalId = setInterval(() => tickRef.current?.(), TICK_INTERVAL_MS);
+    return () => clearInterval(intervalId);
   }, [shouldReduceMotion]);
 
-  // Reduced motion: static fallback
   if (shouldReduceMotion) {
     return <DeploymentFeedStatic className={className} />;
   }
 
   return (
-    <div className={cn("relative w-full mx-auto max-w-4xl", className)}>
+    <div className={cn("relative mx-auto w-full max-w-4xl", className)}>
       <motion.div
-        className="relative bg-white rounded-xl shadow-soft-xl border border-stone-200/60 overflow-hidden"
+        className="relative overflow-hidden rounded-xl border border-stone-200/60 bg-white shadow-soft-xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
@@ -491,15 +418,62 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
           ease: [0.25, 0.46, 0.45, 0.94],
         }}
       >
+        {/* Ambient FX */}
+        <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+          <motion.div
+            className="absolute -left-16 -top-24 h-64 w-64 rounded-full bg-accent-cyan/20 blur-3xl"
+            initial={{ opacity: 0.16, scale: 1 }}
+            animate={{
+              opacity: isMobile ? [0.1, 0.16, 0.1] : [0.14, 0.22, 0.14],
+              scale: [1, 1.06, 1],
+              x: [0, 12, 0],
+              y: [0, -8, 0],
+            }}
+            transition={{
+              duration: isMobile ? 11 : 9,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          <motion.div
+            className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-accent-violet/15 blur-3xl"
+            initial={{ opacity: 0.12, scale: 1 }}
+            animate={{
+              opacity: isMobile ? [0.08, 0.14, 0.08] : [0.1, 0.18, 0.1],
+              scale: [1, 1.05, 1],
+              x: [0, -10, 0],
+              y: [0, 8, 0],
+            }}
+            transition={{
+              duration: isMobile ? 12 : 9.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          />
+          {!isMobile && (
+            <motion.div
+              className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent mix-blend-soft-light"
+              initial={{ x: "-120%" }}
+              animate={{ x: ["-120%", "250%"] }}
+              transition={{
+                duration: 1.15,
+                repeat: Infinity,
+                repeatDelay: 5.85,
+                ease: [0.25, 0.46, 0.45, 0.94],
+              }}
+            />
+          )}
+        </div>
+
         {/* Browser chrome */}
-        <div className="flex items-center gap-2 bg-stone-50 border-b border-stone-200 px-3 py-2">
+        <div className="relative z-10 flex items-center gap-2 border-b border-stone-200 bg-stone-50/90 px-3 py-2 backdrop-blur-[1px]">
           <div className="flex gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-            <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
+            <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
           </div>
-          <div className="flex-1 mx-4">
-            <div className="bg-white border border-stone-200 rounded-lg px-3 py-1 text-xs text-stone-500 max-w-md mx-auto">
+          <div className="mx-4 flex-1">
+            <div className="mx-auto max-w-md rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs text-stone-500">
               IntuneGet.com/dashboard
             </div>
           </div>
@@ -507,10 +481,11 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
 
         {/* Feed area with fade mask */}
         <div
-          className="p-3 md:p-4 bg-stone-50/50 h-[200px] md:h-[300px] overflow-hidden"
+          className="relative z-10 h-[200px] overflow-hidden bg-stone-50/45 p-3 md:h-[300px] md:p-4"
           style={{
             maskImage: "linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent)",
-            WebkitMaskImage: "linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent)",
+            WebkitMaskImage:
+              "linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent)",
           }}
         >
           <AnimatePresence initial={false}>
@@ -520,23 +495,22 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
                 <motion.div
                   key={item.id}
                   layout
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: motionConfig.enterOffsetY, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: motionConfig.exitOffsetY, scale: 0.995 }}
                   transition={{
-                    opacity: { duration: 0.3, ease: "easeOut" },
-                    y: { duration: 0.3, ease: "easeOut" },
-                    layout: { type: "spring", stiffness: 400, damping: 30 },
+                    opacity: { duration: 0.32, ease: "easeOut" },
+                    y: { duration: 0.32, ease: "easeOut" },
+                    scale: { duration: 0.28, ease: "easeOut" },
+                    layout: { type: "spring", stiffness: 320, damping: 32 },
                   }}
                   className="mb-3 last:mb-0"
                 >
-                  {/* Desktop */}
                   <div className="hidden md:block">
-                    <AppRow item={item} />
+                    <AppRow item={item} isMobile={isMobile} />
                   </div>
-                  {/* Mobile */}
                   <div className="block md:hidden">
-                    <AppRow item={item} compact />
+                    <AppRow item={item} compact isMobile={isMobile} />
                   </div>
                 </motion.div>
               ))}
