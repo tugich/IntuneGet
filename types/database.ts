@@ -703,6 +703,8 @@ export interface Database {
           current_version: string;
           latest_version: string;
           is_critical: boolean;
+          large_icon_type: string | null;
+          large_icon_value: string | null;
           notified_at: string | null;
           dismissed_at: string | null;
           detected_at: string;
@@ -718,6 +720,8 @@ export interface Database {
           current_version: string;
           latest_version: string;
           is_critical?: boolean;
+          large_icon_type?: string | null;
+          large_icon_value?: string | null;
           notified_at?: string | null;
           dismissed_at?: string | null;
           detected_at?: string;
@@ -733,6 +737,8 @@ export interface Database {
           current_version?: string;
           latest_version?: string;
           is_critical?: boolean;
+          large_icon_type?: string | null;
+          large_icon_value?: string | null;
           notified_at?: string | null;
           dismissed_at?: string | null;
           detected_at?: string;

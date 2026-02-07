@@ -98,14 +98,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Combine updates with policy info
-    const updatesWithPolicies: AvailableUpdate[] = updates.map((update) => {
-      const policyKey = `${update.winget_id}:${update.tenant_id}`;
-      return {
-        ...update,
-        policy: policyMap.get(policyKey) || null,
-      };
-    });
+    // Combine updates with policy info and filter out Unknown versions
+    const updatesWithPolicies: AvailableUpdate[] = updates
+      .map((update) => {
+        const policyKey = `${update.winget_id}:${update.tenant_id}`;
+        return {
+          ...update,
+          policy: policyMap.get(policyKey) || null,
+        };
+      })
+      .filter((u) => u.current_version !== 'Unknown');
 
     // Count critical updates
     const criticalCount = updatesWithPolicies.filter((u) => u.is_critical).length;

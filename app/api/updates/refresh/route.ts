@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const rows = liveData.updates
       .filter((update) => Boolean(update.wingetId))
+      .filter((update) => update.currentVersion !== 'Unknown')
       .map((update) => ({
         user_id: user.userId,
         tenant_id: tenantId,
@@ -105,6 +106,8 @@ export async function POST(request: NextRequest) {
         current_version: update.currentVersion,
         latest_version: update.latestVersion,
         is_critical: isCriticalUpdate(update.currentVersion, update.latestVersion),
+        large_icon_type: update.intuneApp.largeIcon?.type || null,
+        large_icon_value: update.intuneApp.largeIcon?.value || null,
         detected_at: now,
         updated_at: now,
       }));

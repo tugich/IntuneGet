@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
@@ -8,6 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Package,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UpdatePolicySelector } from './UpdatePolicySelector';
@@ -29,6 +31,8 @@ export function UpdateCard({
   onDismiss,
   isUpdating = false,
 }: UpdateCardProps) {
+  const [iconError, setIconError] = useState(false);
+
   const handlePolicyChange = async (policyType: UpdatePolicyType) => {
     await onPolicyChange(update, policyType);
   };
@@ -50,6 +54,20 @@ export function UpdateCard({
       )}
     >
       <div className="flex items-start justify-between gap-4">
+        {/* App Icon */}
+        <div className="w-11 h-11 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center flex-shrink-0">
+          {update.large_icon_value && !iconError ? (
+            <img
+              src={`data:${update.large_icon_type || 'image/png'};base64,${update.large_icon_value}`}
+              alt={update.display_name}
+              className="w-9 h-9 rounded"
+              onError={() => setIconError(true)}
+            />
+          ) : (
+            <Package className="w-5 h-5 text-zinc-500" />
+          )}
+        </div>
+
         {/* App Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -148,6 +166,7 @@ export function UpdateCardSkeleton({ count = 3 }: UpdateCardSkeletonProps) {
           className="glass-dark rounded-xl p-4 border border-white/5"
         >
           <div className="flex items-start justify-between gap-4">
+            <div className="w-11 h-11 bg-white/5 rounded-lg animate-pulse flex-shrink-0" />
             <div className="flex-1">
               <div className="h-4 w-40 bg-white/10 rounded animate-pulse mb-2" />
               <div className="h-3 w-24 bg-white/5 rounded animate-pulse mb-3" />

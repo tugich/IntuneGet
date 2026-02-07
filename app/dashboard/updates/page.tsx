@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   RefreshCw,
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 import type { AvailableUpdate, UpdatePolicyType } from '@/types/update-policies';
 
 export default function UpdatesPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [showCriticalOnly, setShowCriticalOnly] = useState(false);
   const [activeTab, setActiveTab] = useState<'available' | 'history'>('available');
@@ -96,8 +98,7 @@ export default function UpdatesPage() {
         winget_id: update.winget_id,
         tenant_id: update.tenant_id,
       });
-      // Refetch to update the list
-      refetchUpdates();
+      router.push('/dashboard/uploads');
     } finally {
       setUpdatingIds((prev) => {
         const next = new Set(prev);
@@ -105,7 +106,7 @@ export default function UpdatesPage() {
         return next;
       });
     }
-  }, [triggerUpdate, refetchUpdates]);
+  }, [triggerUpdate, router]);
 
   const handlePolicyChange = useCallback(async (
     update: AvailableUpdate,
@@ -120,15 +121,28 @@ export default function UpdatesPage() {
   }, [updatePolicy, refetchUpdates]);
 
   const handleBulkUpdate = useCallback(async () => {
-    // Trigger updates for all non-ignored apps
     const eligibleUpdates = filteredUpdates.filter(
       (u) => u.policy?.policy_type !== 'ignore' && u.policy?.policy_type !== 'pin_version'
     );
 
     for (const update of eligibleUpdates) {
-      await handleTriggerUpdate(update);
+      setUpdatingIds((prev) => new Set(prev).add(update.id));
+      try {
+        await triggerUpdate({
+          winget_id: update.winget_id,
+          tenant_id: update.tenant_id,
+        });
+      } finally {
+        setUpdatingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(update.id);
+          return next;
+        });
+      }
     }
-  }, [filteredUpdates, handleTriggerUpdate]);
+
+    router.push('/dashboard/uploads');
+  }, [filteredUpdates, triggerUpdate, router]);
 
   const handleRefresh = useCallback(async () => {
     await refreshUpdates();

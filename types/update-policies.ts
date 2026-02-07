@@ -148,6 +148,8 @@ export interface AvailableUpdate {
   current_version: string;
   latest_version: string;
   is_critical: boolean;
+  large_icon_type?: string | null;
+  large_icon_value?: string | null;
   detected_at: string;
   notified_at: string | null;
   dismissed_at: string | null;
