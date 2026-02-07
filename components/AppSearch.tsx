@@ -80,16 +80,14 @@ export function AppSearch({ value, onChange, isLoading = false }: AppSearchProps
   };
 
   return (
-    <div className="relative group">
-      {/* Glass background with glow on focus */}
+    <div className="relative">
       <div
-        className={`relative rounded-xl transition-all duration-300 ${
+        className={`relative rounded-xl border transition-all duration-200 ${
           isFocused
-            ? 'shadow-glow-cyan ring-1 ring-accent-cyan/30'
-            : 'ring-1 ring-black/5 hover:ring-black/10'
+            ? 'border-accent-cyan/40 bg-bg-elevated shadow-soft-md'
+            : 'border-black/10 bg-bg-elevated/95 hover:border-black/20'
         }`}
       >
-        {/* Search icon with animation */}
         <Search
           className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors duration-200 ${
             isFocused ? 'text-accent-cyan' : 'text-text-muted'
@@ -111,47 +109,43 @@ export function AppSearch({ value, onChange, isLoading = false }: AppSearchProps
           }}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          className="pl-12 pr-12 py-6 bg-bg-surface/80 backdrop-blur-sm border-0 text-text-primary placeholder:text-text-muted focus:ring-0 focus:outline-none text-lg rounded-xl"
+          className="h-12 md:h-14 pl-12 pr-12 bg-transparent border-0 text-text-primary placeholder:text-text-muted focus-visible:ring-0 focus-visible:outline-none text-base md:text-lg rounded-xl"
         />
 
-        {/* Keyboard shortcut hint */}
         {!isFocused && !inputValue && (
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 pointer-events-none">
-            <kbd className="px-1.5 py-0.5 text-xs text-text-muted bg-bg-elevated border border-black/10 rounded font-mono">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 pointer-events-none">
+            <kbd className="px-1.5 py-0.5 text-[10px] text-text-secondary bg-bg-surface border border-black/10 rounded font-mono">
               {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? 'Cmd' : 'Ctrl'}
             </kbd>
-            <kbd className="px-1.5 py-0.5 text-xs text-text-muted bg-bg-elevated border border-black/10 rounded font-mono">
+            <kbd className="px-1.5 py-0.5 text-[10px] text-text-secondary bg-bg-surface border border-black/10 rounded font-mono">
               K
             </kbd>
           </div>
         )}
 
-        {/* Loading indicator */}
         {isLoading && (
           <div className="absolute right-12 top-1/2 -translate-y-1/2">
             <Loader2 className="w-5 h-5 text-accent-cyan animate-spin" />
           </div>
         )}
 
-        {/* Clear button */}
         {inputValue && !isLoading && (
           <Button
             variant="ghost"
             size="icon"
             onClick={clearSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary hover:bg-black/10"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary hover:bg-black/5"
           >
             <X className="w-5 h-5" />
           </Button>
         )}
       </div>
 
-      {/* Search suggestions dropdown */}
       {showSuggestions && !inputValue && (
-        <div className="absolute top-full left-0 right-0 mt-2 z-50 glass-light rounded-xl border border-black/5 shadow-lg p-4 animate-fade-in">
+        <div className="absolute top-full left-0 right-0 mt-2 z-50 rounded-xl border border-black/10 bg-bg-elevated shadow-soft-lg p-4 animate-fade-in">
           <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-text-muted" />
-            <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Popular searches</span>
+            <TrendingUp className="w-4 h-4 text-accent-cyan" />
+            <span className="text-xs font-semibold text-text-secondary uppercase tracking-[0.08em]">Popular searches</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {TRENDING_SEARCHES.map((suggestion) => (
@@ -159,7 +153,7 @@ export function AppSearch({ value, onChange, isLoading = false }: AppSearchProps
                 key={suggestion}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="px-3 py-1.5 text-sm text-text-secondary bg-bg-elevated hover:bg-black/10 hover:text-text-primary rounded-lg border border-black/5 transition-colors"
+                className="px-3 py-1.5 text-sm text-text-secondary bg-bg-surface hover:bg-black/5 hover:text-text-primary rounded-lg border border-black/10 transition-colors"
               >
                 {suggestion}
               </button>
@@ -168,9 +162,8 @@ export function AppSearch({ value, onChange, isLoading = false }: AppSearchProps
         </div>
       )}
 
-      {/* Character count hint */}
       {inputValue.length > 0 && inputValue.length < 2 && (
-        <p className="text-text-muted text-sm mt-2 animate-fade-in">
+        <p className="text-text-muted text-xs mt-2 animate-fade-in">
           Type at least <span className="text-accent-cyan">2</span> characters to search
         </p>
       )}

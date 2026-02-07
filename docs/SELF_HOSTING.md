@@ -15,7 +15,7 @@ IntuneGet supports two self-hosting modes:
 
 Before you begin, ensure you have:
 
-1. **Supabase Account** - [supabase.com](https://supabase.com) (free tier available, or self-hosted)
+1. **Supabase Account** - [supabase.com](https://supabase.com) (required only when `DATABASE_MODE=supabase`)
 2. **Microsoft Entra ID** - Access to create app registrations
 3. **GitHub Account** - For the packaging pipeline (GitHub Actions mode only)
 4. **Docker** (optional) - For containerized deployment
@@ -29,8 +29,8 @@ The simplest way to self-host IntuneGet.
 
 ```bash
 # Clone the repository
-git clone https://github.com/ugurkocde/IntuneGet-Website.git
-cd IntuneGet-Website
+git clone https://github.com/ugurkocde/IntuneGet.git
+cd IntuneGet
 
 # Copy environment template
 cp .env.example .env.local
@@ -59,8 +59,8 @@ For other hosting providers or bare metal.
 
 ```bash
 # Clone and install
-git clone https://github.com/ugurkocde/IntuneGet-Website.git
-cd IntuneGet-Website
+git clone https://github.com/ugurkocde/IntuneGet.git
+cd IntuneGet
 npm install
 
 # Build for production
@@ -84,12 +84,24 @@ pm2 save
 
 | Variable | Description |
 |----------|-------------|
+| `DATABASE_MODE` | `supabase` (default) or `sqlite` |
+| `NEXT_PUBLIC_AZURE_AD_CLIENT_ID` | Azure AD application ID |
+| `AZURE_AD_CLIENT_SECRET` | Azure AD client secret (`AZURE_CLIENT_SECRET` also supported) |
+| `NEXT_PUBLIC_URL` | Your application's public URL |
+
+If `DATABASE_MODE=supabase`, also set:
+
+| Variable | Description |
+|----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `NEXT_PUBLIC_AZURE_AD_CLIENT_ID` | Azure AD application ID |
-| `AZURE_AD_CLIENT_SECRET` | Azure AD client secret |
-| `NEXT_PUBLIC_URL` | Your application's public URL |
+
+If `DATABASE_MODE=sqlite`, also set:
+
+| Variable | Description |
+|----------|-------------|
+| `PACKAGER_API_KEY` | Shared key between web app and local packager API mode |
 
 ### Pipeline Configuration
 
@@ -98,7 +110,8 @@ pm2 save
 | `PACKAGER_MODE` | `github` (default) or `local` |
 | `GITHUB_PAT` | GitHub PAT (required for github mode) |
 | `GITHUB_OWNER` | GitHub username/org (required for github mode) |
-| `GITHUB_REPO` | Repository name (required for github mode) |
+| `GITHUB_WORKFLOWS_REPO` | Private repository containing packaging workflow (required for github mode) |
+| `GITHUB_REPO` | Public repository name (optional, for reference) |
 | `CALLBACK_SECRET` | Secret for webhook verification (github mode) |
 
 ### Optional Environment Variables
@@ -136,7 +149,7 @@ See [GITHUB_ACTIONS_SETUP.md](GITHUB_ACTIONS_SETUP.md) for detailed instructions
 Quick start:
 1. Fork the IntuneGet repository
 2. Create a Personal Access Token with `repo` and `workflow` scopes
-3. Add secrets to your forked repository
+3. Add secrets to your private workflows repository (`GITHUB_WORKFLOWS_REPO`)
 4. Update `.env.local` to point to your fork
 
 ### 4. Configure Callback URL (GitHub Actions Mode)
@@ -174,13 +187,17 @@ npx @ugurkocde/intuneget-packager
 Create a `.env` file in your packager working directory:
 
 ```env
-# Supabase (same as web app)
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+# Recommended API mode (for sqlite web mode)
+INTUNEGET_API_URL=https://your-intuneget-instance.com
+PACKAGER_API_KEY=your-packager-api-key
 
 # Azure AD (same credentials as web app)
 AZURE_CLIENT_ID=your-client-id
 AZURE_CLIENT_SECRET=your-client-secret
+
+# Optional Supabase mode (for supabase web mode)
+# SUPABASE_URL=https://your-project.supabase.co
+# SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Optional
 PACKAGER_ID=packager-01
@@ -268,12 +285,12 @@ curl http://localhost:3000/api/health
 Response:
 ```json
 {
-  "status": "healthy",
+  "status": "degraded",
   "mode": "self-hosted",
   "services": {
     "database": true,
     "auth": true,
-    "pipeline": true
+    "pipeline": false
   }
 }
 ```
@@ -309,10 +326,10 @@ docker-compose up -d
 ### Packaging pipeline not working
 
 1. Verify GitHub PAT has correct scopes
-2. Check the workflow exists in your forked repository
+2. Verify `GITHUB_WORKFLOWS_REPO` is configured and contains the packaging workflow
 3. Verify `CALLBACK_SECRET` matches in both places
 
 ## Support
 
-- GitHub Issues: [github.com/ugurkocde/IntuneGet-Website/issues](https://github.com/ugurkocde/IntuneGet-Website/issues)
-- Documentation: [github.com/ugurkocde/IntuneGet-Website/docs](https://github.com/ugurkocde/IntuneGet-Website/tree/main/docs)
+- GitHub Issues: [github.com/ugurkocde/IntuneGet/issues](https://github.com/ugurkocde/IntuneGet/issues)
+- Documentation: [github.com/ugurkocde/IntuneGet/docs](https://github.com/ugurkocde/IntuneGet/tree/main/docs)

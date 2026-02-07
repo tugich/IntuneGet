@@ -6,10 +6,16 @@ import type { ChangelogData } from '@/components/InstallationChangelog';
 
 interface PopularPackagesResponse {
   packages: NormalizedPackage[];
+  count: number;
+  total?: number;
+  offset?: number;
+  limit?: number;
+  hasMore?: boolean;
 }
 
 interface SearchPackagesResponse {
   packages: NormalizedPackage[];
+  count?: number;
 }
 
 interface ManifestResponse {
@@ -59,6 +65,10 @@ export function usePopularPackages(limit: number = 12, category?: string | null)
 interface InfinitePackagesResponse {
   packages: NormalizedPackage[];
   count: number;
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
 }
 
 export function useInfinitePackages(pageSize: number = 20, category?: string | null, sort?: string) {
@@ -78,12 +88,12 @@ export function useInfinitePackages(pageSize: number = 20, category?: string | n
       return response.json();
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      // If we got fewer items than requested, we've reached the end
-      if (lastPage.packages.length < pageSize) {
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore) {
         return undefined;
       }
-      return allPages.length * pageSize;
+
+      return lastPage.offset + lastPage.count;
     },
   });
 }

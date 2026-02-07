@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 import { CheckCircle, Loader2, Circle } from "lucide-react";
 import { springPresets } from "@/lib/animations/variants";
 import {
-  FEED_MOTION_CONFIGS,
+  getFeedMotionConfig,
   createInitialFeedItems,
   tickFeedItems,
   type AppDefinition,
+  type FeedAnimationMode,
   type FeedItem,
   type StageState,
   type ViewportMode,
@@ -19,7 +20,8 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const TICK_INTERVAL_MS = 80;
+const DEFAULT_TICK_INTERVAL_MS = 80;
+const HERO_CALM_TICK_INTERVAL_MS = 100;
 
 const STAGE_LABELS = [
   { label: "Downloaded", shortLabel: "Downloaded" },
@@ -111,11 +113,16 @@ function StageIconStatic({ state }: { state: StageState }) {
 // ProgressBar (CSS-driven for perf)
 // ---------------------------------------------------------------------------
 
-function ProgressBar({ progress }: { progress: number }) {
+function ProgressBar({ progress, calm = false }: { progress: number; calm?: boolean }) {
   return (
     <div className="mt-0.5 h-0.5 w-full rounded-full bg-stone-200/60">
       <div
-        className="h-full rounded-full bg-[linear-gradient(90deg,#06b6d4_0%,#0891b2_72%,#7c3aed_100%)] shadow-[0_0_8px_rgba(8,145,178,0.24)] transition-[width] duration-75 ease-linear"
+        className={cn(
+          "h-full rounded-full bg-[linear-gradient(90deg,#06b6d4_0%,#0891b2_72%,#7c3aed_100%)] transition-[width] ease-linear",
+          calm
+            ? "shadow-[0_0_6px_rgba(8,145,178,0.16)] duration-100"
+            : "shadow-[0_0_8px_rgba(8,145,178,0.24)] duration-75"
+        )}
         style={{ width: `${Math.min(progress * 100, 100)}%` }}
       />
     </div>
@@ -130,20 +137,25 @@ interface AppRowProps {
   item: FeedItem;
   compact?: boolean;
   isMobile?: boolean;
+  mode?: FeedAnimationMode;
 }
 
-const AppRow = memo(function AppRow({ item, compact = false, isMobile = false }: AppRowProps) {
+const AppRow = memo(function AppRow({ item, compact = false, isMobile = false, mode = "default" }: AppRowProps) {
   const allComplete = item.status === "completing" || item.status === "exiting";
   const isProcessing = item.status === "processing";
+  const isHeroCalm = mode === "heroCalm";
 
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-lg border p-3 transition-[box-shadow,border-color,background-color] duration-500",
+        "relative overflow-hidden rounded-lg border transition-[box-shadow,border-color,background-color] duration-500",
+        compact ? "p-3" : isHeroCalm ? "p-3.5" : "p-3",
         allComplete
           ? "border-emerald-200/60"
           : isProcessing
-            ? "border-accent-cyan/45 bg-[linear-gradient(125deg,rgba(8,145,178,0.06),rgba(255,255,255,0.96)_52%,rgba(124,58,237,0.04))] shadow-[0_0_0_1px_rgba(8,145,178,0.12),0_10px_24px_rgba(8,145,178,0.08)]"
+            ? isHeroCalm
+              ? "border-accent-cyan/35 bg-[linear-gradient(125deg,rgba(8,145,178,0.04),rgba(255,255,255,0.97)_54%,rgba(124,58,237,0.03))] shadow-[0_0_0_1px_rgba(8,145,178,0.08),0_8px_18px_rgba(8,145,178,0.06)]"
+              : "border-accent-cyan/45 bg-[linear-gradient(125deg,rgba(8,145,178,0.06),rgba(255,255,255,0.96)_52%,rgba(124,58,237,0.04))] shadow-[0_0_0_1px_rgba(8,145,178,0.12),0_10px_24px_rgba(8,145,178,0.08)]"
             : "border-stone-200 bg-white"
       )}
     >
@@ -151,9 +163,13 @@ const AppRow = memo(function AppRow({ item, compact = false, isMobile = false }:
         <motion.div
           aria-hidden
           className="pointer-events-none absolute inset-0"
-          initial={{ opacity: 0.35 }}
-          animate={{ opacity: [0.28, 0.42, 0.28] }}
-          transition={{ duration: isMobile ? 4.2 : 3.6, repeat: Infinity, ease: "easeInOut" }}
+          initial={{ opacity: isHeroCalm ? 0.22 : 0.35 }}
+          animate={isHeroCalm ? { opacity: [0.18, 0.3, 0.18] } : { opacity: [0.28, 0.42, 0.28] }}
+          transition={{
+            duration: isHeroCalm ? (isMobile ? 5.2 : 4.6) : (isMobile ? 4.2 : 3.6),
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
         />
       )}
 
@@ -208,18 +224,23 @@ const AppRow = memo(function AppRow({ item, compact = false, isMobile = false }:
                 <div
                   className={cn(
                     "flex items-center gap-1",
-                    state === "complete" && "text-stone-700",
-                    state === "active" && "text-accent-cyan",
+                    state === "complete" && (isHeroCalm ? "text-stone-600" : "text-stone-700"),
+                    state === "active" && "text-accent-cyan font-medium",
                     state === "waiting" && "text-stone-400"
                   )}
                 >
                   <StageIcon state={state} />
-                  <span className={cn("truncate", compact ? "text-[9px]" : "text-[10px]")}>
+                  <span
+                    className={cn(
+                      "truncate",
+                      compact ? (isHeroCalm ? "text-[10px]" : "text-[9px]") : isHeroCalm ? "text-[11px]" : "text-[10px]"
+                    )}
+                  >
                     <span className="hidden sm:inline">{stage.label}</span>
                     <span className="sm:hidden">{stage.shortLabel}</span>
                   </span>
                 </div>
-                {isActive && <ProgressBar progress={progress} />}
+                {isActive && <ProgressBar progress={progress} calm={isHeroCalm} />}
               </div>
             );
           })}
@@ -233,7 +254,8 @@ const AppRow = memo(function AppRow({ item, compact = false, isMobile = false }:
 // Static fallback (reduced motion)
 // ---------------------------------------------------------------------------
 
-function DeploymentFeedStatic({ className = "" }: { className?: string }) {
+function DeploymentFeedStatic({ className = "", mode = "default" }: { className?: string; mode?: FeedAnimationMode }) {
+  const isHeroCalm = mode === "heroCalm";
   const staticApps = APP_POOL.slice(0, 4);
   const mobileApps = APP_POOL.slice(0, 3);
 
@@ -255,17 +277,17 @@ function DeploymentFeedStatic({ className = "" }: { className?: string }) {
         </div>
 
         {/* Static feed */}
-        <div className="bg-stone-50/50 p-3 md:p-4">
+        <div className={cn("bg-stone-50/50 p-3 md:p-4", isHeroCalm && "bg-stone-50/35")}>
           {/* Desktop */}
           <div className="hidden flex-col gap-3 md:flex">
             {staticApps.map((app) => (
-              <StaticAppRow key={app.name} app={app} />
+              <StaticAppRow key={app.name} app={app} mode={mode} />
             ))}
           </div>
           {/* Mobile */}
           <div className="flex flex-col gap-3 md:hidden">
             {mobileApps.map((app) => (
-              <StaticAppRow key={app.name} app={app} compact />
+              <StaticAppRow key={app.name} app={app} compact mode={mode} />
             ))}
           </div>
         </div>
@@ -274,9 +296,18 @@ function DeploymentFeedStatic({ className = "" }: { className?: string }) {
   );
 }
 
-function StaticAppRow({ app, compact = false }: { app: AppDefinition; compact?: boolean }) {
+function StaticAppRow({
+  app,
+  compact = false,
+  mode = "default",
+}: {
+  app: AppDefinition;
+  compact?: boolean;
+  mode?: FeedAnimationMode;
+}) {
+  const isHeroCalm = mode === "heroCalm";
   return (
-    <div className="rounded-lg border border-emerald-200/60 bg-white p-3">
+    <div className={cn("rounded-lg border border-emerald-200/60 bg-white", compact ? "p-3" : isHeroCalm ? "p-3.5" : "p-3")}>
       <div className="mb-2 flex items-center gap-2">
         <div
           className={cn(
@@ -301,7 +332,12 @@ function StaticAppRow({ app, compact = false }: { app: AppDefinition; compact?: 
         {STAGE_LABELS.map((stage) => (
           <div key={stage.label} className="flex items-center gap-1 text-stone-700">
             <StageIconStatic state="complete" />
-            <span className={cn("truncate", compact ? "text-[9px]" : "text-[10px]")}>
+            <span
+              className={cn(
+                "truncate",
+                compact ? (isHeroCalm ? "text-[10px]" : "text-[9px]") : isHeroCalm ? "text-[11px]" : "text-[10px]"
+              )}
+            >
               <span className="hidden sm:inline">{stage.label}</span>
               <span className="sm:hidden">{stage.shortLabel}</span>
             </span>
@@ -318,9 +354,10 @@ function StaticAppRow({ app, compact = false }: { app: AppDefinition; compact?: 
 
 interface DeploymentFeedProps {
   className?: string;
+  mode?: FeedAnimationMode;
 }
 
-export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
+export function DeploymentFeed({ className = "", mode = "default" }: DeploymentFeedProps) {
   const shouldReduceMotion = useReducedMotion();
   const [viewportMode, setViewportMode] = useState<ViewportMode>("desktop");
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
@@ -330,7 +367,9 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
   const tickRef = useRef<() => void>();
 
   const isMobile = viewportMode === "mobile";
-  const motionConfig = FEED_MOTION_CONFIGS[viewportMode];
+  const isHeroCalm = mode === "heroCalm";
+  const motionConfig = getFeedMotionConfig(mode, viewportMode);
+  const tickIntervalMs = isHeroCalm ? HERO_CALM_TICK_INTERVAL_MS : DEFAULT_TICK_INTERVAL_MS;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -387,7 +426,7 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
       tickFeedItems({
         prevItems: prev,
         config: motionConfig,
-        tickMs: TICK_INTERVAL_MS,
+        tickMs: tickIntervalMs,
         stageCount: STAGE_LABELS.length,
         getNextApp,
         createId,
@@ -398,12 +437,12 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
   useEffect(() => {
     if (shouldReduceMotion) return;
 
-    const intervalId = setInterval(() => tickRef.current?.(), TICK_INTERVAL_MS);
+    const intervalId = setInterval(() => tickRef.current?.(), tickIntervalMs);
     return () => clearInterval(intervalId);
-  }, [shouldReduceMotion]);
+  }, [shouldReduceMotion, tickIntervalMs]);
 
   if (shouldReduceMotion) {
-    return <DeploymentFeedStatic className={className} />;
+    return <DeploymentFeedStatic className={className} mode={mode} />;
   }
 
   return (
@@ -420,60 +459,90 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
       >
         {/* Ambient FX */}
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
-          <motion.div
-            className="absolute -left-16 -top-24 h-64 w-64 rounded-full bg-accent-cyan/20 blur-3xl"
-            initial={{ opacity: 0.16, scale: 1 }}
-            animate={{
-              opacity: isMobile ? [0.1, 0.16, 0.1] : [0.14, 0.22, 0.14],
-              scale: [1, 1.06, 1],
-              x: [0, 12, 0],
-              y: [0, -8, 0],
-            }}
-            transition={{
-              duration: isMobile ? 11 : 9,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-          <motion.div
-            className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-accent-violet/15 blur-3xl"
-            initial={{ opacity: 0.12, scale: 1 }}
-            animate={{
-              opacity: isMobile ? [0.08, 0.14, 0.08] : [0.1, 0.18, 0.1],
-              scale: [1, 1.05, 1],
-              x: [0, -10, 0],
-              y: [0, 8, 0],
-            }}
-            transition={{
-              duration: isMobile ? 12 : 9.5,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-          {!isMobile && (
+          {isHeroCalm ? (
             <motion.div
-              className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent mix-blend-soft-light"
-              initial={{ x: "-120%" }}
-              animate={{ x: ["-120%", "250%"] }}
+              className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(8,145,178,0.14),rgba(124,58,237,0.08)_42%,transparent_72%)] blur-3xl"
+              initial={{ opacity: 0.18, scale: 1 }}
+              animate={{
+                opacity: isMobile ? [0.12, 0.18, 0.12] : [0.14, 0.2, 0.14],
+                scale: [1, 1.05, 1],
+                x: [0, -8, 0],
+                y: [0, 6, 0],
+              }}
               transition={{
-                duration: 1.15,
+                duration: isMobile ? 14 : 12,
                 repeat: Infinity,
-                repeatDelay: 5.85,
-                ease: [0.25, 0.46, 0.45, 0.94],
+                ease: "easeInOut",
               }}
             />
+          ) : (
+            <>
+              <motion.div
+                className="absolute -left-16 -top-24 h-64 w-64 rounded-full bg-accent-cyan/20 blur-3xl"
+                initial={{ opacity: 0.16, scale: 1 }}
+                animate={{
+                  opacity: isMobile ? [0.1, 0.16, 0.1] : [0.14, 0.22, 0.14],
+                  scale: [1, 1.06, 1],
+                  x: [0, 12, 0],
+                  y: [0, -8, 0],
+                }}
+                transition={{
+                  duration: isMobile ? 11 : 9,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              <motion.div
+                className="absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-accent-violet/15 blur-3xl"
+                initial={{ opacity: 0.12, scale: 1 }}
+                animate={{
+                  opacity: isMobile ? [0.08, 0.14, 0.08] : [0.1, 0.18, 0.1],
+                  scale: [1, 1.05, 1],
+                  x: [0, -10, 0],
+                  y: [0, 8, 0],
+                }}
+                transition={{
+                  duration: isMobile ? 12 : 9.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+              {!isMobile && (
+                <motion.div
+                  className="absolute -left-1/2 top-0 h-full w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent mix-blend-soft-light"
+                  initial={{ x: "-120%" }}
+                  animate={{ x: ["-120%", "250%"] }}
+                  transition={{
+                    duration: 1.15,
+                    repeat: Infinity,
+                    repeatDelay: 5.85,
+                    ease: [0.25, 0.46, 0.45, 0.94],
+                  }}
+                />
+              )}
+            </>
           )}
         </div>
 
         {/* Browser chrome */}
-        <div className="relative z-10 flex items-center gap-2 border-b border-stone-200 bg-stone-50/90 px-3 py-2 backdrop-blur-[1px]">
+        <div
+          className={cn(
+            "relative z-10 flex items-center gap-2 border-b px-3 py-2",
+            isHeroCalm ? "border-stone-200/80 bg-stone-100/75" : "border-stone-200 bg-stone-50/90 backdrop-blur-[1px]"
+          )}
+        >
           <div className="flex gap-1.5">
             <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
             <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
             <div className="h-2.5 w-2.5 rounded-full bg-stone-300" />
           </div>
           <div className="mx-4 flex-1">
-            <div className="mx-auto max-w-md rounded-lg border border-stone-200 bg-white px-3 py-1 text-xs text-stone-500">
+            <div
+              className={cn(
+                "mx-auto max-w-md rounded-lg border bg-white px-3 py-1 text-xs text-stone-500",
+                isHeroCalm ? "border-stone-200/70" : "border-stone-200"
+              )}
+            >
               IntuneGet.com/dashboard
             </div>
           </div>
@@ -481,7 +550,10 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
 
         {/* Feed area with fade mask */}
         <div
-          className="relative z-10 h-[200px] overflow-hidden bg-stone-50/45 p-3 md:h-[300px] md:p-4"
+          className={cn(
+            "relative z-10 h-[200px] overflow-hidden p-3 md:h-[300px] md:p-4",
+            isHeroCalm ? "bg-stone-50/35" : "bg-stone-50/45"
+          )}
           style={{
             maskImage: "linear-gradient(to bottom, transparent, black 16px, black calc(100% - 16px), transparent)",
             WebkitMaskImage:
@@ -495,22 +567,26 @@ export function DeploymentFeed({ className = "" }: DeploymentFeedProps) {
                 <motion.div
                   key={item.id}
                   layout
-                  initial={{ opacity: 0, y: motionConfig.enterOffsetY, scale: 0.985 }}
+                  initial={{ opacity: 0, y: motionConfig.enterOffsetY, scale: isHeroCalm ? 0.992 : 0.985 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: motionConfig.exitOffsetY, scale: 0.995 }}
+                  exit={{ opacity: 0, y: motionConfig.exitOffsetY, scale: isHeroCalm ? 0.998 : 0.995 }}
                   transition={{
-                    opacity: { duration: 0.32, ease: "easeOut" },
-                    y: { duration: 0.32, ease: "easeOut" },
-                    scale: { duration: 0.28, ease: "easeOut" },
-                    layout: { type: "spring", stiffness: 320, damping: 32 },
+                    opacity: { duration: isHeroCalm ? 0.4 : 0.32, ease: "easeOut" },
+                    y: { duration: isHeroCalm ? 0.4 : 0.32, ease: "easeOut" },
+                    scale: { duration: isHeroCalm ? 0.34 : 0.28, ease: "easeOut" },
+                    layout: {
+                      type: "spring",
+                      stiffness: isHeroCalm ? 280 : 320,
+                      damping: isHeroCalm ? 34 : 32,
+                    },
                   }}
                   className="mb-3 last:mb-0"
                 >
                   <div className="hidden md:block">
-                    <AppRow item={item} isMobile={isMobile} />
+                    <AppRow item={item} isMobile={isMobile} mode={mode} />
                   </div>
                   <div className="block md:hidden">
-                    <AppRow item={item} compact isMobile={isMobile} />
+                    <AppRow item={item} compact isMobile={isMobile} mode={mode} />
                   </div>
                 </motion.div>
               ))}

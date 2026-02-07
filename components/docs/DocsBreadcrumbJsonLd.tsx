@@ -9,6 +9,14 @@ const navItemsMap: Record<string, string> = {
   "/docs/database-setup": "Database Setup",
   "/docs/github-setup": "GitHub Setup",
   "/docs/docker": "Docker",
+  "/docs/environment-reference": "Environment Reference",
+  "/docs/api-reference": "API Reference",
+  "/docs/sccm-migration": "SCCM Migration",
+  "/docs/updates-policies": "Updates & Policies",
+  "/docs/inventory-reports-uploads": "Inventory/Reports/Uploads",
+  "/docs/unmanaged-apps": "Unmanaged Apps",
+  "/docs/msp": "MSP Features",
+  "/docs/settings": "Settings & Webhooks",
   "/docs/troubleshooting": "Troubleshooting",
 };
 

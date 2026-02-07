@@ -23,7 +23,7 @@ export function TextReveal({
   animateOnMount = false,
 }: TextRevealProps) {
   const shouldReduceMotion = useReducedMotion();
-  const words = text.split(" ");
+  const lines = text.split("\n").map((line) => line.split(" "));
 
   const containerVariants: Variants = {
     hidden: {},
@@ -65,15 +65,19 @@ export function TextReveal({
       variants={containerVariants}
       aria-label={text}
     >
-      {words.map((word, index) => (
-        <motion.span
-          key={`${word}-${index}`}
-          className="inline-block"
-          variants={wordVariants}
-        >
-          {word}
-          {index < words.length - 1 && "\u00A0"}
-        </motion.span>
+      {lines.map((words, lineIndex) => (
+        <span key={`line-${lineIndex}`} className={lineIndex < lines.length - 1 ? "block" : undefined}>
+          {words.map((word, wordIndex) => (
+            <motion.span
+              key={`${word}-${lineIndex}-${wordIndex}`}
+              className="inline-block"
+              variants={wordVariants}
+            >
+              {word}
+              {wordIndex < words.length - 1 && "\u00A0"}
+            </motion.span>
+          ))}
+        </span>
       ))}
     </MotionComponent>
   );

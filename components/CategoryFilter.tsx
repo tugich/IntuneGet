@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Tag, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getCategoryLabel } from '@/lib/category-utils';
 
 interface Category {
   category: string;
@@ -11,30 +12,20 @@ interface Category {
 
 interface CategoryFilterProps {
   categories: Category[];
+  totalCount?: number;
   selectedCategory: string | null;
   onSelectCategory: (category: string | null) => void;
   isLoading?: boolean;
+  sticky?: boolean;
 }
-
-// Display names for categories (maps internal names to friendly names)
-const categoryDisplayNames: Record<string, string> = {
-  browser: 'Browsers',
-  development: 'Development',
-  productivity: 'Productivity',
-  utilities: 'Utilities',
-  communication: 'Communication',
-  media: 'Media',
-  gaming: 'Gaming',
-  security: 'Security',
-  runtime: 'Runtimes',
-  other: 'Other',
-};
 
 export function CategoryFilter({
   categories,
+  totalCount,
   selectedCategory,
   onSelectCategory,
   isLoading,
+  sticky = true,
 }: CategoryFilterProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -83,13 +74,13 @@ export function CategoryFilter({
   }
 
   return (
-    <div className="sticky top-0 z-20 bg-bg-base/95 backdrop-blur-md py-3 -mx-1 px-1">
+    <div className={cn(sticky && 'sticky top-16 z-20', 'py-1')}>
       <div className="relative group">
         {/* Left scroll button */}
         {canScrollLeft && (
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-bg-surface/90 backdrop-blur-sm border border-black/10 rounded-full shadow-lg hover:bg-bg-elevated transition-colors"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-bg-elevated border border-black/10 rounded-full shadow-soft hover:bg-bg-surface transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-text-secondary" />
           </button>
@@ -105,7 +96,7 @@ export function CategoryFilter({
           {/* All categories pill */}
           <CategoryPill
             label="All"
-            count={categories.reduce((sum, c) => sum + c.count, 0)}
+            count={totalCount ?? categories.reduce((sum, c) => sum + c.count, 0)}
             isSelected={selectedCategory === null}
             onClick={() => onSelectCategory(null)}
           />
@@ -114,7 +105,7 @@ export function CategoryFilter({
           {categories.map((cat) => (
             <CategoryPill
               key={cat.category}
-              label={categoryDisplayNames[cat.category] || cat.category}
+              label={getCategoryLabel(cat.category)}
               count={cat.count}
               isSelected={selectedCategory === cat.category}
               onClick={() => onSelectCategory(cat.category)}
@@ -126,7 +117,7 @@ export function CategoryFilter({
         {canScrollRight && (
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-bg-surface/90 backdrop-blur-sm border border-black/10 rounded-full shadow-lg hover:bg-bg-elevated transition-colors"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 flex items-center justify-center bg-bg-elevated border border-black/10 rounded-full shadow-soft hover:bg-bg-surface transition-colors"
           >
             <ChevronRight className="w-4 h-4 text-text-secondary" />
           </button>
@@ -148,10 +139,10 @@ function CategoryPill({ label, count, isSelected, onClick }: CategoryPillProps) 
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0',
+        'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 border',
         isSelected
-          ? 'bg-gradient-to-r from-accent-cyan to-accent-violet text-text-primary shadow-glow-cyan'
-          : 'bg-bg-elevated border border-black/5 text-text-secondary hover:text-text-primary hover:border-black/10'
+          ? 'bg-accent-cyan text-white border-accent-cyan/70 shadow-soft'
+          : 'bg-bg-surface border-black/10 text-text-secondary hover:text-text-primary hover:border-black/20 hover:bg-bg-elevated'
       )}
     >
       {label === 'All' && <Tag className="w-3 h-3" />}
@@ -159,7 +150,7 @@ function CategoryPill({ label, count, isSelected, onClick }: CategoryPillProps) 
       <span
         className={cn(
           'text-xs px-1.5 py-0.5 rounded-full',
-          isSelected ? 'bg-black/20 text-text-primary' : 'bg-black/5 text-text-muted'
+          isSelected ? 'bg-white/20 text-white' : 'bg-black/5 text-text-muted'
         )}
       >
         {count}
@@ -175,7 +166,7 @@ interface CategoryBadgeProps {
 }
 
 export function CategoryBadge({ category, className }: CategoryBadgeProps) {
-  const displayName = categoryDisplayNames[category] || category;
+  const displayName = getCategoryLabel(category);
 
   return (
     <span

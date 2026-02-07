@@ -81,7 +81,7 @@ After setup, collect these values for your environment configuration:
 | Value | Location | Environment Variable |
 |-------|----------|---------------------|
 | Application (client) ID | Overview page | `NEXT_PUBLIC_AZURE_AD_CLIENT_ID` |
-| Client secret | Certificates & secrets | `AZURE_AD_CLIENT_SECRET` |
+| Client secret | Certificates & secrets | `AZURE_AD_CLIENT_SECRET` (`AZURE_CLIENT_SECRET` also supported) |
 
 ## Admin Consent Flow
 
@@ -150,6 +150,6 @@ The client ID is incorrect or the app was deleted:
 ### "Invalid client secret"
 
 The client secret is wrong or expired:
-1. Check `AZURE_AD_CLIENT_SECRET` matches the secret in Azure
+1. Check `AZURE_AD_CLIENT_SECRET` (or `AZURE_CLIENT_SECRET`) matches the secret in Azure
 2. Verify the secret hasn't expired
 3. Create a new secret if needed

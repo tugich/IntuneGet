@@ -14,6 +14,11 @@ import {
   SearchX,
   Building2,
   Settings,
+  FileText,
+  ClipboardList,
+  RefreshCw,
+  Package,
+  SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,6 +65,36 @@ const navItems: NavItem[] = [
     href: "/docs/docker",
     icon: Container,
     description: "Docker deployment",
+  },
+  {
+    title: "Environment Reference",
+    href: "/docs/environment-reference",
+    icon: SlidersHorizontal,
+    description: "Variables by deployment mode",
+  },
+  {
+    title: "API Reference",
+    href: "/docs/api-reference",
+    icon: FileText,
+    description: "Endpoints grouped by feature",
+  },
+  {
+    title: "SCCM Migration",
+    href: "/docs/sccm-migration",
+    icon: ClipboardList,
+    description: "Import, match, and migrate",
+  },
+  {
+    title: "Updates & Policies",
+    href: "/docs/updates-policies",
+    icon: RefreshCw,
+    description: "Update automation controls",
+  },
+  {
+    title: "Inventory/Reports/Uploads",
+    href: "/docs/inventory-reports-uploads",
+    icon: Package,
+    description: "Operational dashboard areas",
   },
   {
     title: "Unmanaged Apps",

@@ -17,7 +17,7 @@ The IntuneGet Packager is a Node.js application that runs on Windows and handles
 - Windows 10/11 or Windows Server 2019+
 - Node.js 18 or higher
 - Network access to:
-  - Your Supabase database
+  - Your IntuneGet web app API (API mode) or Supabase database (Supabase mode)
   - Microsoft Graph API (graph.microsoft.com)
   - Application installer URLs
 
@@ -42,13 +42,17 @@ Create a `.env` file in your working directory or set environment variables:
 ### Required Variables
 
 ```env
-# Supabase Connection
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-
 # Azure AD / Microsoft Entra ID
 AZURE_CLIENT_ID=your-app-registration-client-id
 AZURE_CLIENT_SECRET=your-app-registration-client-secret
+
+# API mode (recommended for sqlite web mode)
+INTUNEGET_API_URL=https://your-intuneget-instance.com
+PACKAGER_API_KEY=your-shared-packager-api-key
+
+# Supabase mode (use instead of API mode for supabase web mode)
+# SUPABASE_URL=https://your-project.supabase.co
+# SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 ### Optional Variables
@@ -64,9 +68,6 @@ STALE_JOB_TIMEOUT=300000    # Consider job stale after this many ms (default: 5 
 # Directory Paths
 WORK_DIR=./work             # Working directory for packages
 TOOLS_DIR=./tools           # Tools directory (IntuneWinAppUtil, PSADT)
-
-# Web App API (optional)
-WEB_APP_URL=https://your-intuneget-instance.com
 ```
 
 ## Usage
@@ -192,7 +193,8 @@ pm2 startup
 
 **Jobs not being picked up**
 - Ensure PACKAGER_MODE=local is set in your web app's configuration
-- Check that SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY match between web app and packager
+- In API mode, verify `INTUNEGET_API_URL` and `PACKAGER_API_KEY`
+- In Supabase mode, verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
 
 ### Logs
 
@@ -200,7 +202,7 @@ The packager logs to stdout/stderr. Use `--verbose` or `--debug` for more detail
 
 ## Security Considerations
 
-- The packager uses the Supabase service role key for database access
+- The packager uses either `PACKAGER_API_KEY` (API mode) or Supabase service role key (Supabase mode)
 - Keep the `.env` file secure and never commit it to version control
 - The AZURE_CLIENT_SECRET should be rotated regularly
 - Consider running the packager on a dedicated machine or container

@@ -16,6 +16,11 @@ import {
   SearchX,
   Building2,
   Settings,
+  FileText,
+  ClipboardList,
+  RefreshCw,
+  Package,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   Callout,
@@ -63,6 +68,36 @@ const quickLinks = [
     href: "/docs/docker",
     icon: Container,
     description: "Deploy with Docker and Docker Compose",
+  },
+  {
+    title: "Environment Reference",
+    href: "/docs/environment-reference",
+    icon: SlidersHorizontal,
+    description: "Complete env vars for all deployment modes",
+  },
+  {
+    title: "API Reference",
+    href: "/docs/api-reference",
+    icon: FileText,
+    description: "Endpoint map by domain and auth model",
+  },
+  {
+    title: "SCCM Migration",
+    href: "/docs/sccm-migration",
+    icon: ClipboardList,
+    description: "Import SCCM, match to WinGet, and migrate",
+  },
+  {
+    title: "Updates & Policies",
+    href: "/docs/updates-policies",
+    icon: RefreshCw,
+    description: "Available updates, policy types, trigger flow",
+  },
+  {
+    title: "Inventory/Reports/Uploads",
+    href: "/docs/inventory-reports-uploads",
+    icon: Package,
+    description: "Operational dashboards and related APIs",
   },
   {
     title: "Unmanaged Apps",

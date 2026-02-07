@@ -5,7 +5,7 @@ import { ExternalLink, Plus, Check, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
-import type { NormalizedPackage, NormalizedInstaller } from '@/types/winget';
+import type { NormalizedPackage } from '@/types/winget';
 import { useCartStore } from '@/stores/cart-store';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
@@ -117,68 +117,64 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="group glass-light rounded-xl p-5 cursor-pointer contain-layout transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1 hover:scale-[1.02] hover:border-accent-cyan/20"
+      className="group rounded-2xl border border-black/10 bg-bg-elevated p-5 cursor-pointer contain-layout transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-accent-cyan/30"
     >
       <div className="flex items-start gap-4">
-        {/* App icon - larger size with hover effect */}
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <AppIcon
             packageId={pkg.id}
             packageName={pkg.name}
             iconPath={pkg.iconPath}
             size="xl"
-            className="group-hover:border-accent-cyan/30 transition-all duration-300 group-hover:scale-105"
+            className="group-hover:border-accent-cyan/30 transition-all duration-200 group-hover:scale-[1.03]"
           />
-          {/* Glow effect on hover */}
-          <div className="absolute -inset-1 bg-gradient-to-br from-accent-cyan/20 to-accent-violet/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10" />
+          <div className="absolute -inset-1 bg-gradient-to-br from-accent-cyan/20 to-transparent rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 -z-10" />
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h3 className="text-text-primary font-semibold text-base truncate group-hover:text-accent-cyan-bright transition-colors">
+              <h3 className="text-text-primary font-semibold text-base truncate group-hover:text-accent-cyan transition-colors">
                 {pkg.name}
               </h3>
-              <p className="text-text-muted text-sm truncate">
-                {pkg.publisher}
-                {pkg.id && <span className="text-text-muted/60 font-mono text-xs ml-1.5">{pkg.id}</span>}
-              </p>
+              <p className="text-text-secondary text-sm truncate">{pkg.publisher}</p>
+              {pkg.id && (
+                <p className="text-[11px] text-text-muted font-mono truncate mt-1">
+                  {pkg.id}
+                </p>
+              )}
             </div>
-            {/* Version badge */}
-            <span className="text-xs text-text-secondary bg-bg-elevated px-2.5 py-1 rounded-md flex-shrink-0 border border-black/5 group-hover:border-accent-cyan/20 transition-colors">
+            <span className="text-xs text-text-secondary bg-bg-surface px-2.5 py-1 rounded-md flex-shrink-0 border border-black/10">
               v{pkg.version}
             </span>
           </div>
 
           {pkg.description && (
-            <p className="text-text-secondary text-sm mt-3 line-clamp-2 leading-relaxed">
+            <p className="text-text-secondary text-sm mt-3 line-clamp-2 leading-relaxed min-h-[2.75rem]">
               {pkg.description}
             </p>
           )}
 
-          {/* Category badge, Popularity badge, and Installer type */}
           <div className="flex items-center flex-wrap gap-1.5 mt-3">
             {pkg.category && (
               <CategoryBadge category={pkg.category} />
             )}
-            {pkg.popularityRank != null && pkg.popularityRank <= 100 && (
-              <span className="text-xs font-medium text-accent-violet bg-accent-violet/10 px-2 py-0.5 rounded-full">
-                Top {pkg.popularityRank}
+            {pkg.installerType && (
+              <span className={`text-xs px-2 py-0.5 rounded-full border ${installerTypeStyles[pkg.installerType.toLowerCase()] || 'text-text-secondary bg-bg-surface border-black/10'}`}>
+                {getInstallerLabel(pkg.installerType)}
               </span>
             )}
-            {pkg.installerType && (
-              <span className={`text-xs px-2 py-0.5 rounded-full border ${installerTypeStyles[pkg.installerType.toLowerCase()] || 'text-text-secondary bg-bg-elevated border-black/10'}`}>
-                {getInstallerLabel(pkg.installerType)}
+            {pkg.popularityRank != null && pkg.popularityRank <= 100 && (
+              <span className="text-xs font-medium text-accent-violet bg-accent-violet/10 px-2 py-0.5 rounded-full border border-accent-violet/20">
+                Top {pkg.popularityRank}
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Actions - always visible */}
-      <div className="flex items-center justify-between mt-4 pt-4 border-t border-black/5">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-black/10">
+        <div className="flex items-center gap-2">
           {pkg.homepage && (
             <a
               href={pkg.homepage}
@@ -186,6 +182,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="text-text-muted hover:text-accent-cyan transition-colors p-1"
+              title="Open homepage"
             >
               <ExternalLink className="w-4 h-4" />
             </a>
@@ -198,7 +195,7 @@ function AppCardComponent({ package: pkg, onSelect }: AppCardProps) {
           disabled={isLoading || inCart}
           className={
             inCart
-              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
+              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
               : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
           }
         >

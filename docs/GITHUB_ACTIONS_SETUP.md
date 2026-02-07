@@ -34,14 +34,14 @@ For enterprises wanting to use their own infrastructure.
 
 ### Step 1: Fork the Repository
 
-1. Go to [github.com/ugurkocde/IntuneGet-Website](https://github.com/ugurkocde/IntuneGet-Website)
+1. Go to [github.com/ugurkocde/IntuneGet](https://github.com/ugurkocde/IntuneGet)
 2. Click **Fork** in the top right
 3. Select your account/organization
 4. Wait for the fork to complete
 
-### Step 2: Configure Repository Secrets
+### Step 2: Configure Workflow Repository Secrets
 
-Navigate to your forked repository:
+Navigate to your private workflows repository (`GITHUB_WORKFLOWS_REPO`):
 **Settings** > **Secrets and variables** > **Actions** > **New repository secret**
 
 Add these secrets:
@@ -56,7 +56,7 @@ Add these secrets:
 
 GitHub disables workflows in forks by default:
 
-1. Go to the **Actions** tab in your fork
+1. Go to the **Actions** tab in your private workflows repository
 2. Click **I understand my workflows, go ahead and enable them**
 
 ### Step 4: Update Your Environment
@@ -65,7 +65,8 @@ In your IntuneGet deployment, update these environment variables:
 
 ```env
 GITHUB_OWNER=your-github-username
-GITHUB_REPO=IntuneGet-Website
+GITHUB_WORKFLOWS_REPO=IntuneGet-Workflows
+GITHUB_REPO=IntuneGet
 GITHUB_PAT=ghp_your-personal-access-token
 CALLBACK_SECRET=same-secret-as-in-github
 ```
@@ -91,7 +92,9 @@ For fine-grained tokens:
 
 ## Workflow Configuration
 
-The packaging workflow is located at `.github/workflows/package-intunewin.yml`.
+Reference workflow template is located at `.github/workflows-reference/package-intunewin.yml`.
+In production, the real packaging workflow should run in your private `GITHUB_WORKFLOWS_REPO`.
+Copy that template into your private repo at `.github/workflows/package-intunewin.yml`.
 
 ### Workflow Inputs
 
@@ -132,7 +135,7 @@ If you prefer to use your own infrastructure:
 
 ### Modify Workflow
 
-Update `.github/workflows/package-intunewin.yml`:
+Update the packaging workflow in your private workflows repository:
 
 ```yaml
 jobs:
@@ -151,7 +154,7 @@ To test the pipeline manually:
    - `app_id`: `Microsoft.VisualStudioCode`
    - `deployment_id`: `test-123`
    - `tenant_id`: Your test tenant
-   - `callback_url`: Your deployment URL + `/api/callback`
+   - `callback_url`: Your deployment URL + `/api/package/callback`
 5. Click **Run workflow**
 
 ## Monitoring

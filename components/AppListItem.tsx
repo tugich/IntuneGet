@@ -113,7 +113,7 @@ function AppListItemComponent({ package: pkg, onSelect }: AppListItemProps) {
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="group glass-light rounded-lg px-4 py-3 cursor-pointer contain-layout transition-all duration-200 hover:bg-black/5 hover:shadow-card"
+      className="group rounded-xl border border-black/10 bg-bg-elevated px-4 py-3 cursor-pointer contain-layout transition-all duration-200 hover:shadow-card hover:border-accent-cyan/25"
     >
       <div className="flex items-center gap-4">
         <AppIcon
@@ -121,22 +121,23 @@ function AppListItemComponent({ package: pkg, onSelect }: AppListItemProps) {
           packageName={pkg.name}
           iconPath={pkg.iconPath}
           size="md"
-          className="flex-shrink-0"
+          className="flex-shrink-0 group-hover:scale-[1.03] transition-transform duration-200"
         />
 
-        <div className="flex-1 min-w-0 flex items-center gap-4">
+        <div className="flex-1 min-w-0 flex items-center gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium text-text-primary truncate group-hover:text-accent-cyan transition-colors">
-                {pkg.name}
-              </h4>
-              <span className="text-xs text-text-muted truncate hidden sm:inline">
+            <h4 className="text-sm font-semibold text-text-primary truncate group-hover:text-accent-cyan transition-colors">
+              {pkg.name}
+            </h4>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs text-text-secondary truncate">
                 {pkg.publisher}
               </span>
+              <span className="text-xs text-text-muted sm:hidden">v{pkg.version}</span>
             </div>
           </div>
 
-          <span className="text-xs text-text-secondary bg-bg-elevated px-2 py-0.5 rounded border border-black/5 flex-shrink-0 hidden md:inline">
+          <span className="text-xs text-text-secondary bg-bg-surface px-2 py-0.5 rounded border border-black/10 flex-shrink-0 hidden sm:inline">
             v{pkg.version}
           </span>
 
@@ -147,7 +148,7 @@ function AppListItemComponent({ package: pkg, onSelect }: AppListItemProps) {
           )}
 
           {pkg.category && (
-            <div className="hidden lg:block flex-shrink-0">
+            <div className="hidden xl:block flex-shrink-0">
               <CategoryBadge category={pkg.category} />
             </div>
           )}
@@ -158,8 +159,8 @@ function AppListItemComponent({ package: pkg, onSelect }: AppListItemProps) {
             disabled={isLoading || inCart}
             className={`h-7 px-2 flex-shrink-0 ${
               inCart
-                ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
-                : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 text-text-primary border-0'
+                ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
+                : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
             }`}
           >
             {isLoading ? (

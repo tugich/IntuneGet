@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FEED_MOTION_CONFIGS,
+  HERO_CALM_FEED_MOTION_CONFIGS,
   createInitialFeedItems,
   tickFeedItems,
   type AppDefinition,
@@ -50,6 +51,27 @@ describe("deploymentFeedMotion", () => {
     expect(mobileItems).toHaveLength(2);
     expect(desktopItems[0].status).toBe("processing");
     expect(mobileItems[1].status).toBe("entering");
+  });
+
+  it("creates hero calm seeds with expected visible count", () => {
+    const calmDesktopItems = createInitialFeedItems({
+      config: HERO_CALM_FEED_MOTION_CONFIGS.desktop,
+      stageCount: 4,
+      getNextApp: makeNextApp(["A", "B", "C", "D"]),
+      createId: makeIdFactory(),
+    });
+
+    const calmMobileItems = createInitialFeedItems({
+      config: HERO_CALM_FEED_MOTION_CONFIGS.mobile,
+      stageCount: 4,
+      getNextApp: makeNextApp(["A", "B", "C", "D"]),
+      createId: makeIdFactory(),
+    });
+
+    expect(calmDesktopItems).toHaveLength(HERO_CALM_FEED_MOTION_CONFIGS.desktop.visibleCount);
+    expect(calmMobileItems).toHaveLength(HERO_CALM_FEED_MOTION_CONFIGS.mobile.visibleCount);
+    expect(calmDesktopItems[0].status).toBe("processing");
+    expect(calmMobileItems[1].status).toBe("entering");
   });
 
   it("advances processing items with stage-specific durations", () => {
@@ -112,6 +134,41 @@ describe("deploymentFeedMotion", () => {
     expect(desktopTick[0].stageProgress).toBeGreaterThan(mobileTick[0].stageProgress);
   });
 
+  it("progresses more slowly in hero calm desktop mode than default desktop", () => {
+    const desktop = FEED_MOTION_CONFIGS.desktop;
+    const heroCalmDesktop = HERO_CALM_FEED_MOTION_CONFIGS.desktop;
+
+    const base: FeedItem = {
+      id: "a",
+      app: makeApp("Slack"),
+      stageIndex: 0,
+      stageProgress: 0,
+      status: "processing",
+      holdElapsed: 0,
+      enterElapsed: desktop.enterAnimationMs,
+    };
+
+    const desktopTick = tickFeedItems({
+      prevItems: [base],
+      config: { ...desktop, visibleCount: 1 },
+      tickMs: 220,
+      stageCount: 4,
+      getNextApp: makeNextApp(["X"]),
+      createId: makeIdFactory(),
+    });
+
+    const heroCalmTick = tickFeedItems({
+      prevItems: [base],
+      config: { ...heroCalmDesktop, visibleCount: 1 },
+      tickMs: 220,
+      stageCount: 4,
+      getNextApp: makeNextApp(["X"]),
+      createId: makeIdFactory(),
+    });
+
+    expect(desktopTick[0].stageProgress).toBeGreaterThan(heroCalmTick[0].stageProgress);
+  });
+
   it("removes exiting items after exit animation duration", () => {
     const config: FeedMotionConfig = {
       ...FEED_MOTION_CONFIGS.desktop,
@@ -152,6 +209,53 @@ describe("deploymentFeedMotion", () => {
 
     expect(items).toHaveLength(FEED_MOTION_CONFIGS.desktop.visibleCount);
     expect(items.every((item) => item.status === "entering")).toBe(true);
+  });
+
+  it("completes full lifecycle in hero calm mode", () => {
+    const config: FeedMotionConfig = {
+      ...HERO_CALM_FEED_MOTION_CONFIGS.desktop,
+      visibleCount: 1,
+    };
+
+    let items: FeedItem[] = [
+      {
+        id: "seed",
+        app: makeApp("Lifecycle"),
+        stageIndex: 3,
+        stageProgress: 0.95,
+        status: "processing",
+        holdElapsed: 0,
+        enterElapsed: config.enterAnimationMs,
+      },
+    ];
+
+    let sawCompleting = false;
+    let sawExiting = false;
+    let seedRemoved = false;
+
+    for (let i = 0; i < 20; i += 1) {
+      items = tickFeedItems({
+        prevItems: items,
+        config,
+        tickMs: 200,
+        stageCount: 4,
+        getNextApp: makeNextApp(["Unused"]),
+        createId: makeIdFactory(),
+      });
+
+      if (items.some((item) => item.status === "completing")) sawCompleting = true;
+      if (items.some((item) => item.status === "exiting")) sawExiting = true;
+      if (!items.some((item) => item.id === "seed")) {
+        seedRemoved = true;
+        break;
+      }
+
+      if (items.length === 0) break;
+    }
+
+    expect(sawCompleting).toBe(true);
+    expect(sawExiting).toBe(true);
+    expect(seedRemoved).toBe(true);
   });
 
   it("phases out overflow rows when switching to a smaller visible count", () => {

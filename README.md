@@ -257,6 +257,13 @@ See [SECURITY.md](SECURITY.md) for our complete security policy.
 | [GitHub Actions Setup](docs/GITHUB_ACTIONS_SETUP.md) | Set up the packaging pipeline |
 | [Database Setup](docs/DATABASE_SETUP.md) | Supabase configuration options |
 | [Development Guide](docs/DEVELOPMENT.md) | Local development setup |
+| [Environment Reference](docs/ENV_REFERENCE.md) | Full env var matrix by deployment mode |
+| [API Reference](docs/API_REFERENCE.md) | Endpoint overview by feature area |
+| [SCCM Migration Guide](docs/FEATURES_SCCM.md) | SCCM import, matching, and migration flow |
+| [Updates and Policy Guide](docs/FEATURES_UPDATES.md) | Auto-update policies, triggers, and history |
+| [Inventory/Reports/Uploads Guide](docs/FEATURES_INVENTORY_AND_REPORTS.md) | Operational dashboard feature docs |
+| [Authentication Architecture](docs/authentication-architecture.md) | MSAL, admin consent, and service principal flow |
+| [Documentation Audit](docs/DOCUMENTATION_AUDIT.md) | Coverage and remaining documentation gaps |
 
 ---
 

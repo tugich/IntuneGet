@@ -19,6 +19,7 @@ export interface FeedItem {
 }
 
 export type ViewportMode = "desktop" | "mobile";
+export type FeedAnimationMode = "default" | "heroCalm";
 
 export interface FeedMotionConfig {
   stageDurationsMs: number[];
@@ -32,6 +33,10 @@ export interface FeedMotionConfig {
 
 const STAGE_DURATIONS_BASE_MS = [1100, 1450, 1300, 900] as const;
 const MOBILE_DURATION_MULTIPLIER = 1.2;
+const HERO_CALM_STAGE_DURATIONS_BASE_MS = STAGE_DURATIONS_BASE_MS.map((duration) =>
+  Math.round(duration * 1.18)
+) as [number, number, number, number];
+const HERO_CALM_MOBILE_DURATION_MULTIPLIER = 1.12;
 
 export const FEED_MOTION_CONFIGS: Record<ViewportMode, FeedMotionConfig> = {
   desktop: {
@@ -55,6 +60,33 @@ export const FEED_MOTION_CONFIGS: Record<ViewportMode, FeedMotionConfig> = {
     exitOffsetY: -5,
   },
 };
+
+export const HERO_CALM_FEED_MOTION_CONFIGS: Record<ViewportMode, FeedMotionConfig> = {
+  desktop: {
+    stageDurationsMs: [...HERO_CALM_STAGE_DURATIONS_BASE_MS],
+    enterAnimationMs: 380,
+    completeHoldMs: 1050,
+    exitAnimationMs: 460,
+    visibleCount: 3,
+    enterOffsetY: 12,
+    exitOffsetY: -6,
+  },
+  mobile: {
+    stageDurationsMs: HERO_CALM_STAGE_DURATIONS_BASE_MS.map((duration) =>
+      Math.round(duration * HERO_CALM_MOBILE_DURATION_MULTIPLIER)
+    ),
+    enterAnimationMs: 380,
+    completeHoldMs: 1050,
+    exitAnimationMs: 460,
+    visibleCount: 2,
+    enterOffsetY: 9,
+    exitOffsetY: -4,
+  },
+};
+
+export function getFeedMotionConfig(mode: FeedAnimationMode, viewportMode: ViewportMode): FeedMotionConfig {
+  return mode === "heroCalm" ? HERO_CALM_FEED_MOTION_CONFIGS[viewportMode] : FEED_MOTION_CONFIGS[viewportMode];
+}
 
 interface MakeItemParams {
   app: AppDefinition;

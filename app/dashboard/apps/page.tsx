@@ -1,13 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Package, Loader2, Search, Sparkles, Grid, LayoutGrid, ArrowUpDown, ArrowDownAZ, Clock, List, LayoutGrid as GridIcon } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  Package,
+  Loader2,
+  Search,
+  Sparkles,
+  LayoutGrid,
+  ArrowUpDown,
+  ArrowDownAZ,
+  Clock,
+  List,
+  LayoutGrid as GridIcon,
+  Tags,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronRight,
+  X,
+} from 'lucide-react';
 import { AppSearch } from '@/components/AppSearch';
 import { AppCard } from '@/components/AppCard';
 import { AppListItem } from '@/components/AppListItem';
 import { PackageConfig } from '@/components/PackageConfig';
 import { UploadCart } from '@/components/UploadCart';
-import { CategoryFilter } from '@/components/CategoryFilter';
 import { FeaturedApps } from '@/components/FeaturedApps';
 import { AppCollection } from '@/components/AppCollection';
 import {
@@ -18,9 +33,31 @@ import {
   useInfinitePackages,
 } from '@/hooks/use-packages';
 import type { NormalizedPackage } from '@/types/winget';
+import { getCategoryLabel } from '@/lib/category-utils';
 
-// Categories to show as horizontal collections
-const COLLECTION_CATEGORIES = ['browser', 'development', 'productivity', 'utilities', 'communication'];
+const PREFERRED_COLLECTION_CATEGORIES = [
+  'developer-tools',
+  'development',
+  'utilities',
+  'productivity',
+  'communication',
+  'browsers',
+  'browser',
+  'security',
+  'media',
+  'graphics',
+  'cloud-storage',
+  'system',
+  'gaming',
+  'runtime',
+  'virtualization',
+];
+
+const SORT_OPTIONS = [
+  { key: 'popular', label: 'Popular', icon: ArrowUpDown },
+  { key: 'name', label: 'A-Z', icon: ArrowDownAZ },
+  { key: 'newest', label: 'Newest', icon: Clock },
+] as const;
 
 export default function AppCatalogPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -29,18 +66,26 @@ export default function AppCatalogPage() {
   const [sortBy, setSortBy] = useState<'popular' | 'name' | 'newest'>('popular');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [mounted, setMounted] = useState(false);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [isSortSectionOpen, setIsSortSectionOpen] = useState(true);
+  const [isCategoriesSectionOpen, setIsCategoriesSectionOpen] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const resultsSectionRef = useRef<HTMLElement>(null);
+  const resultsContentRef = useRef<HTMLDivElement>(null);
+  const previousBrowseControlsRef = useRef({
+    sortBy: 'popular' as 'popular' | 'name' | 'newest',
+    selectedCategory: null as string | null,
+    hasSearched: false,
+  });
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // React Query hooks for data fetching with caching
-  const { data: categoriesData, isLoading: isLoadingCategories } = useCategories();
+  const { data: categoriesData } = useCategories();
   const { data: featuredData, isLoading: isLoadingFeatured } = usePopularPackages(5, null);
   const { data: searchData, isLoading: isSearching, isFetching } = useSearchPackages(searchQuery, 50, selectedCategory, sortBy);
 
-  // Infinite scroll for all apps when no search and no specific category filter or when category is selected
   const {
     data: infiniteData,
     isLoading: isLoadingInfinite,
@@ -49,19 +94,90 @@ export default function AppCatalogPage() {
     fetchNextPage,
   } = useInfinitePackages(20, selectedCategory, sortBy);
 
-  // Fetch manifest when a package is selected
   const { data: manifestData, isLoading: isLoadingInstallers } = usePackageManifest(
     selectedPackage?.id || '',
     selectedPackage?.version
   );
 
   const hasSearched = searchQuery.length >= 2;
+  const isBrowseMode = !hasSearched && selectedCategory === null;
   const featuredPackages = featuredData?.packages || [];
   const searchPackages = searchData?.packages || [];
-  const allPackages = infiniteData?.pages.flatMap(page => page.packages) || [];
+  const allPackages = useMemo(() => {
+    const pages = infiniteData?.pages || [];
+    const seen = new Set<string>();
+    const uniquePackages: NormalizedPackage[] = [];
+
+    for (const page of pages) {
+      for (const pkg of page.packages) {
+        if (seen.has(pkg.id)) {
+          continue;
+        }
+
+        seen.add(pkg.id);
+        uniquePackages.push(pkg);
+      }
+    }
+
+    return uniquePackages;
+  }, [infiniteData?.pages]);
   const selectedInstallers = manifestData?.installers || [];
 
-  // Intersection Observer for infinite scroll
+  const showSearchResults = hasSearched;
+  const showCategoryResults = !hasSearched && selectedCategory !== null;
+  const activeSortLabel = SORT_OPTIONS.find((option) => option.key === sortBy)?.label || 'Popular';
+
+  const showInitialLoading = hasSearched && isSearching && searchPackages.length === 0;
+  const showEmptyState = hasSearched && !isSearching && !isFetching && searchPackages.length === 0;
+
+  const loadedCount = showSearchResults ? searchPackages.length : allPackages.length;
+  const activeCategoryLabel = selectedCategory ? getCategoryLabel(selectedCategory) : null;
+  const collectionCategories = useMemo(() => {
+    const available = categoriesData?.categories || [];
+    if (available.length === 0) {
+      return PREFERRED_COLLECTION_CATEGORIES.slice(0, 6);
+    }
+
+    const availableSet = new Set(available.map((cat) => cat.category));
+    const preferredAvailable = PREFERRED_COLLECTION_CATEGORIES.filter((category) =>
+      availableSet.has(category)
+    );
+    const byCount = [...available]
+      .sort((a, b) => b.count - a.count)
+      .map((cat) => cat.category);
+
+    const merged = new Set<string>([...preferredAvailable, ...byCount]);
+    return Array.from(merged).slice(0, 8);
+  }, [categoriesData?.categories]);
+  const totalAvailableCount = useMemo(() => {
+    if (showSearchResults) {
+      return searchData?.count ?? searchPackages.length;
+    }
+
+    const infiniteTotal = infiniteData?.pages?.[0]?.total;
+    if (typeof infiniteTotal === 'number') {
+      return infiniteTotal;
+    }
+
+    if (selectedCategory) {
+      const categoryTotal = categoriesData?.categories.find((c) => c.category === selectedCategory)?.count;
+      if (typeof categoryTotal === 'number') {
+        return categoryTotal;
+      }
+    }
+
+    return categoriesData?.totalApps ?? allPackages.length;
+  }, [
+    showSearchResults,
+    searchData?.count,
+    searchPackages.length,
+    infiniteData?.pages,
+    selectedCategory,
+    categoriesData?.categories,
+    categoriesData?.totalApps,
+    allPackages.length,
+  ]);
+
   const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
     const [target] = entries;
     if (target.isIntersecting && hasNextPage && !isFetchingNextPage) {
@@ -75,7 +191,7 @@ export default function AppCatalogPage() {
 
     const observer = new IntersectionObserver(handleObserver, {
       root: null,
-      rootMargin: '100px',
+      rootMargin: '120px',
       threshold: 0.1,
     });
 
@@ -86,9 +202,28 @@ export default function AppCatalogPage() {
     };
   }, [handleObserver]);
 
-  // Only show full loading state when we have no data to display at all
-  const showInitialLoading = hasSearched && isSearching && searchPackages.length === 0;
-  const showEmptyState = hasSearched && !isSearching && !isFetching && searchPackages.length === 0;
+  useEffect(() => {
+    const previousState = previousBrowseControlsRef.current;
+    const controlsChanged =
+      previousState.sortBy !== sortBy ||
+      previousState.selectedCategory !== selectedCategory ||
+      previousState.hasSearched !== hasSearched;
+
+    previousBrowseControlsRef.current = { sortBy, selectedCategory, hasSearched };
+
+    if (!mounted || !controlsChanged || selectedPackage) {
+      return;
+    }
+
+    const target = resultsContentRef.current || resultsSectionRef.current;
+    if (!target) {
+      return;
+    }
+
+    const stickyOffset = 176;
+    const targetTop = target.getBoundingClientRect().top + window.scrollY - stickyOffset;
+    window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+  }, [hasSearched, mounted, selectedCategory, selectedPackage, sortBy]);
 
   const handleSelectPackage = (pkg: NormalizedPackage) => {
     setSelectedPackage(pkg);
@@ -102,387 +237,436 @@ export default function AppCatalogPage() {
     setSelectedCategory(category);
   };
 
-  // Show different layouts based on state
-  const showBrowseMode = !hasSearched && selectedCategory === null;
-  const showSearchResults = hasSearched;
-  const showCategoryResults = !hasSearched && selectedCategory !== null;
+  const handleCategoryChange = (category: string | null) => {
+    setSelectedCategory(category);
+    setIsMobileFiltersOpen(false);
+  };
+
+  const handleSortChange = (sort: 'popular' | 'name' | 'newest') => {
+    setSortBy(sort);
+    setIsMobileFiltersOpen(false);
+  };
+
+  const resetFilters = () => {
+    setSelectedCategory(null);
+    setSortBy('popular');
+  };
+
+  const renderLoadingSkeletons = () => (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="rounded-xl border border-black/10 bg-bg-elevated p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 rounded-lg bg-bg-surface animate-shimmer" />
+            <div className="flex-1">
+              <div className="h-5 bg-bg-surface rounded w-32 mb-2 animate-shimmer" />
+              <div className="h-4 bg-bg-surface rounded w-24 mb-3 animate-shimmer" />
+              <div className="h-4 bg-bg-surface rounded w-full animate-shimmer" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderFilterPanel = () => (
+    <div className="rounded-2xl border border-black/10 bg-bg-elevated p-4 shadow-soft space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="inline-flex items-center gap-2">
+          <SlidersHorizontal className="w-4 h-4 text-accent-cyan" />
+          <h3 className="text-sm font-semibold tracking-wide text-text-primary uppercase">Filters</h3>
+        </div>
+        {(selectedCategory !== null || sortBy !== 'popular') && (
+          <button
+            onClick={resetFilters}
+            className="text-xs font-medium text-text-secondary hover:text-text-primary transition-colors"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      <div className="border-t border-black/10 pt-3 space-y-2">
+        <button
+          onClick={() => setIsSortSectionOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between text-sm font-medium text-text-primary"
+        >
+          <span>Sort</span>
+          {isSortSectionOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+        {isSortSectionOpen && (
+          <div className="space-y-1">
+            {SORT_OPTIONS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => handleSortChange(key)}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  sortBy === key
+                    ? 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/25'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface border border-transparent'
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </span>
+                {sortBy === key && <span className="text-[11px] font-semibold uppercase tracking-wide">Active</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-black/10 pt-3 space-y-2">
+        <button
+          onClick={() => setIsCategoriesSectionOpen((prev) => !prev)}
+          className="w-full flex items-center justify-between text-sm font-medium text-text-primary"
+        >
+          <span>Categories</span>
+          {isCategoriesSectionOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+        {isCategoriesSectionOpen && (
+          <div className="max-h-[380px] overflow-y-auto pr-1 space-y-1">
+            <button
+              onClick={() => handleCategoryChange(null)}
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                selectedCategory === null
+                  ? 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/25'
+                  : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface border border-transparent'
+              }`}
+            >
+              <span>All</span>
+              <span className="text-xs">{categoriesData?.totalApps ?? 0}</span>
+            </button>
+
+            {(categoriesData?.categories || []).map((cat) => (
+              <button
+                key={cat.category}
+                onClick={() => handleCategoryChange(cat.category)}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  selectedCategory === cat.category
+                    ? 'bg-accent-cyan/10 text-accent-cyan border border-accent-cyan/25'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-surface border border-transparent'
+                }`}
+              >
+                <span>{getCategoryLabel(cat.category)}</span>
+                <span className="text-xs">{cat.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPackages = (packages: NormalizedPackage[], keyPrefix: string) => {
+    if (viewMode === 'grid') {
+      return (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {packages.map((pkg, index) => (
+            <div
+              key={`${keyPrefix}-${pkg.id}-${index}`}
+              className={mounted ? 'animate-fade-up' : 'opacity-0'}
+              style={{ animationDelay: `${Math.min(index * 30, 220)}ms` }}
+            >
+              <AppCard package={pkg} onSelect={handleSelectPackage} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {packages.map((pkg, index) => (
+          <div
+            key={`${keyPrefix}-${pkg.id}-${index}`}
+            className={mounted ? 'animate-fade-up' : 'opacity-0'}
+            style={{ animationDelay: `${Math.min(index * 24, 180)}ms` }}
+          >
+            <AppListItem package={pkg} onSelect={handleSelectPackage} />
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 pb-4">
       <div className={mounted ? 'animate-fade-up stagger-1' : 'opacity-0'}>
-        <h1 className="text-display-sm text-text-primary">App Catalog</h1>
-        <p className="text-text-secondary mt-2">
-          Browse and deploy from <span className="text-accent-cyan">{categoriesData?.totalApps?.toLocaleString() || '...'}</span> curated Winget packages
-        </p>
+        <section className="relative overflow-hidden rounded-2xl border border-black/10 bg-bg-elevated/95 shadow-soft-md p-6 md:p-8">
+          <div className="absolute inset-0 pointer-events-none bg-gradient-radial-cyan opacity-60" />
+          <div className="absolute right-0 top-0 h-28 w-28 md:h-40 md:w-40 bg-gradient-to-bl from-accent-violet/10 via-accent-cyan/5 to-transparent blur-2xl" />
+
+          <div className="relative">
+            <h1 className="text-display-sm text-text-primary">App Catalog</h1>
+            <p className="text-text-secondary mt-2 max-w-2xl">
+              Curated Winget packages optimized for quick Intune deployment and predictable packaging workflows.
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-bg-surface px-3 py-1.5 text-sm text-text-secondary">
+                <Package className="w-4 h-4 text-accent-cyan" />
+                <span className="font-medium text-text-primary">{categoriesData?.totalApps?.toLocaleString() || '...'}</span>
+                packages
+              </span>
+              {activeCategoryLabel && !hasSearched && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-bg-surface px-3 py-1.5 text-sm text-text-secondary">
+                  <Tags className="w-4 h-4 text-accent-violet" />
+                  {activeCategoryLabel}
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
 
-      {/* Search */}
       <div className={mounted ? 'animate-fade-up stagger-2' : 'opacity-0'}>
-        <AppSearch value={searchQuery} onChange={setSearchQuery} isLoading={isFetching} />
+        <section className="sticky top-[4.5rem] z-20 -mx-1 px-1">
+          <div className="rounded-2xl border border-black/10 bg-bg-elevated/95 backdrop-blur-md shadow-soft-lg p-3 md:p-4 space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <AppSearch value={searchQuery} onChange={setSearchQuery} isLoading={isFetching} />
+              </div>
+
+              <div className="flex items-center gap-2 self-end lg:self-auto">
+                <button
+                  onClick={() => setIsMobileFiltersOpen(true)}
+                  className="lg:hidden inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-black/10 bg-bg-surface text-sm text-text-secondary hover:text-text-primary hover:bg-black/5 transition-colors"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
+                </button>
+                <div className="inline-flex items-center rounded-lg border border-black/10 bg-bg-surface p-0.5">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      viewMode === 'grid'
+                        ? 'bg-bg-elevated text-text-primary shadow-soft'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
+                    }`}
+                    title="Grid view"
+                  >
+                    <GridIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-md transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-bg-elevated text-text-primary shadow-soft'
+                        : 'text-text-secondary hover:text-text-primary hover:bg-black/5'
+                    }`}
+                    title="List view"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-lg border border-black/10 bg-bg-surface px-3 py-1.5 text-sm text-text-secondary">
+                {showSearchResults ? (
+                  <Search className="w-4 h-4 text-accent-cyan" />
+                ) : showCategoryResults ? (
+                  <Tags className="w-4 h-4 text-accent-violet" />
+                ) : (
+                  <LayoutGrid className="w-4 h-4 text-accent-cyan" />
+                )}
+                {showSearchResults ? (
+                  <>
+                    <span className="font-medium text-text-primary">{searchPackages.length}</span>
+                    result{searchPackages.length !== 1 ? 's' : ''} for &ldquo;{searchQuery}&rdquo;
+                  </>
+                ) : showCategoryResults ? (
+                  <>
+                    Category:
+                    <span className="font-medium text-text-primary">{activeCategoryLabel}</span>
+                  </>
+                ) : (
+                  <>
+                    Sorting <span className="font-medium text-text-primary">{activeSortLabel}</span>
+                    across all packages
+                  </>
+                )}
+              </span>
+
+              {!showSearchResults && (
+                <span className="hidden lg:inline-flex items-center gap-2 rounded-lg border border-black/10 bg-bg-surface px-3 py-1.5 text-sm text-text-secondary">
+                  <ArrowUpDown className="w-4 h-4 text-accent-cyan" />
+                  Sort <span className="font-medium text-text-primary">{activeSortLabel}</span>
+                </span>
+              )}
+
+              {!showSearchResults && (
+                <span className="inline-flex items-center gap-2 rounded-lg border border-black/10 bg-bg-surface px-3 py-1.5 text-sm text-text-secondary">
+                  <Package className="w-4 h-4 text-accent-cyan" />
+                  Showing <span className="font-medium text-text-primary">{loadedCount}</span> of{' '}
+                  <span className="font-medium text-text-primary">{totalAvailableCount}</span>
+                </span>
+              )}
+            </div>
+          </div>
+        </section>
       </div>
 
-      {/* Category Filter - sticky */}
-      <div className={mounted ? 'animate-fade-up stagger-3' : 'opacity-0'}>
-        <CategoryFilter
-          categories={categoriesData?.categories || []}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          isLoading={isLoadingCategories}
-        />
-      </div>
-
-      {/* Content */}
       {showInitialLoading ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="relative">
-              <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mx-auto mb-4" />
-              <div className="absolute inset-0 w-10 h-10 mx-auto blur-xl bg-accent-cyan/30 animate-pulse-glow" />
-            </div>
+            <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mx-auto mb-4" />
             <p className="text-text-secondary">Searching packages...</p>
           </div>
         </div>
       ) : showEmptyState ? (
         <div className="flex items-center justify-center py-20">
           <div className="text-center max-w-sm">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-accent-cyan/10 to-accent-violet/10 flex items-center justify-center border border-black/5">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-bg-surface flex items-center justify-center border border-black/10">
               <Search className="w-10 h-10 text-text-muted" />
             </div>
             <h3 className="text-text-primary font-semibold text-lg mb-2">
               No packages matching &ldquo;{searchQuery}&rdquo;
             </h3>
             <p className="text-text-secondary text-sm mb-6">
-              Check your spelling or try a broader search term. You can also browse categories to discover apps.
+              Check your spelling or try a broader term. You can also browse categories to discover apps.
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setSearchQuery('')}
-                className="px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated hover:bg-black/10 rounded-lg border border-black/10 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-primary bg-bg-elevated hover:bg-black/5 rounded-lg border border-black/10 transition-colors"
               >
                 Clear Search
               </button>
               <button
                 onClick={() => { setSearchQuery(''); setSelectedCategory(null); }}
-                className="px-4 py-2 text-sm font-medium text-text-primary bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90 rounded-lg border-0 transition-opacity"
+                className="px-4 py-2 text-sm font-medium text-white bg-accent-cyan hover:bg-accent-cyan-dim rounded-lg border-0 transition-colors"
               >
                 Browse All
               </button>
             </div>
           </div>
         </div>
-      ) : showSearchResults ? (
-        // Search results view
-        <>
-          <div className={`flex items-center justify-between flex-wrap gap-3 ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
-            <div className="inline-flex items-center gap-2 text-text-secondary bg-bg-surface/60 px-4 py-2 rounded-lg border border-black/5">
-              <Package className="w-4 h-4 text-accent-cyan" />
-              <span className="text-sm">
-                <span className="text-accent-cyan font-medium">{searchPackages.length}</span> package{searchPackages.length !== 1 ? 's' : ''} found
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Sort controls */}
-              <div className="inline-flex items-center rounded-lg border border-black/10 overflow-hidden">
-                {([
-                  { key: 'popular', label: 'Popular', icon: ArrowUpDown },
-                  { key: 'name', label: 'A-Z', icon: ArrowDownAZ },
-                  { key: 'newest', label: 'Newest', icon: Clock },
-                ] as const).map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setSortBy(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortBy === key
-                        ? 'bg-bg-elevated text-text-primary shadow-soft'
-                        : 'text-text-secondary hover:bg-black/5'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* View toggle */}
-              <div className="inline-flex items-center rounded-lg border border-black/10 overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-bg-elevated text-text-primary shadow-soft'
-                      : 'text-text-secondary hover:bg-black/5'
-                  }`}
-                  title="Grid view"
-                >
-                  <GridIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-bg-elevated text-text-primary shadow-soft'
-                      : 'text-text-secondary hover:bg-black/5'
-                  }`}
-                  title="List view"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {viewMode === 'grid' ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {searchPackages.map((pkg, index) => (
-                <div
-                  key={pkg.id}
-                  className={mounted ? 'animate-fade-up' : 'opacity-0'}
-                  style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
-                >
-                  <AppCard
-                    package={pkg}
-                    onSelect={handleSelectPackage}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {searchPackages.map((pkg, index) => (
-                <div
-                  key={pkg.id}
-                  className={mounted ? 'animate-fade-up' : 'opacity-0'}
-                  style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}
-                >
-                  <AppListItem
-                    package={pkg}
-                    onSelect={handleSelectPackage}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      ) : showCategoryResults ? (
-        // Category filter results with infinite scroll
-        <>
-          <div className={`flex items-center justify-between flex-wrap gap-3 ${mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}`}>
-            <div className="inline-flex items-center gap-2 text-text-secondary bg-bg-surface/60 px-4 py-2 rounded-lg border border-black/5">
-              <Grid className="w-4 h-4 text-accent-violet" />
-              <span className="text-sm">
-                <span className="text-accent-violet font-medium">{allPackages.length}</span> apps in category
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Sort controls */}
-              <div className="inline-flex items-center rounded-lg border border-black/10 overflow-hidden">
-                {([
-                  { key: 'popular', label: 'Popular', icon: ArrowUpDown },
-                  { key: 'name', label: 'A-Z', icon: ArrowDownAZ },
-                  { key: 'newest', label: 'Newest', icon: Clock },
-                ] as const).map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setSortBy(key)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
-                      sortBy === key
-                        ? 'bg-bg-elevated text-text-primary shadow-soft'
-                        : 'text-text-secondary hover:bg-black/5'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* View toggle */}
-              <div className="inline-flex items-center rounded-lg border border-black/10 overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-bg-elevated text-text-primary shadow-soft'
-                      : 'text-text-secondary hover:bg-black/5'
-                  }`}
-                  title="Grid view"
-                >
-                  <GridIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-bg-elevated text-text-primary shadow-soft'
-                      : 'text-text-secondary hover:bg-black/5'
-                  }`}
-                  title="List view"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {isLoadingInfinite ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="glass-light rounded-xl p-5">
-                  <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-bg-elevated animate-shimmer" />
-                    <div className="flex-1">
-                      <div className="h-5 bg-bg-elevated rounded w-32 mb-2 animate-shimmer" />
-                      <div className="h-4 bg-bg-elevated rounded w-24 mb-3 animate-shimmer" />
-                      <div className="h-4 bg-bg-elevated rounded w-full animate-shimmer" />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              {viewMode === 'grid' ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {allPackages.map((pkg, index) => (
-                    <div
-                      key={`${pkg.id}-${index}`}
-                      className={mounted ? 'animate-fade-up' : 'opacity-0'}
-                      style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}
-                    >
-                      <AppCard
-                        package={pkg}
-                        onSelect={handleSelectPackage}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {allPackages.map((pkg, index) => (
-                    <div
-                      key={`${pkg.id}-${index}`}
-                      className={mounted ? 'animate-fade-up' : 'opacity-0'}
-                      style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}
-                    >
-                      <AppListItem
-                        package={pkg}
-                        onSelect={handleSelectPackage}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Infinite scroll trigger */}
-              <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
-                {isFetchingNextPage && (
-                  <div className="flex items-center gap-3 text-text-secondary">
-                    <Loader2 className="w-5 h-5 animate-spin text-accent-cyan" />
-                    <span className="text-sm">Loading more apps...</span>
-                  </div>
-                )}
-                {!hasNextPage && allPackages.length > 0 && (
-                  <p className="text-text-muted text-sm">You've seen all the apps</p>
-                )}
-              </div>
-            </>
-          )}
-        </>
       ) : (
-        // Browse mode - Featured + Collections + All Apps
-        <div className="space-y-10">
-          {/* Featured Section */}
-          <section className={mounted ? 'animate-fade-up stagger-4' : 'opacity-0'}>
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-accent-cyan" />
-              <h2 className="text-xl font-bold tracking-tight text-text-primary">Featured</h2>
-            </div>
-            <FeaturedApps
-              packages={featuredPackages}
-              onSelect={handleSelectPackage}
-              isLoading={isLoadingFeatured}
-            />
-          </section>
+        <>
+          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <aside className="hidden lg:block lg:sticky lg:top-[5.25rem] self-start">
+              {renderFilterPanel()}
+            </aside>
 
-          <div className="h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+            <div className="space-y-10">
+              <section ref={resultsSectionRef} className="space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {showSearchResults ? (
+                      <Search className="w-5 h-5 text-accent-cyan" />
+                    ) : showCategoryResults ? (
+                      <Tags className="w-5 h-5 text-accent-violet" />
+                    ) : (
+                      <LayoutGrid className="w-5 h-5 text-accent-violet" />
+                    )}
 
-          {/* Category Collections */}
-          <section className={mounted ? 'animate-fade-up stagger-5' : 'opacity-0'}>
-            <div className="space-y-8">
-              {COLLECTION_CATEGORIES.map((category) => (
-                <AppCollection
-                  key={category}
-                  category={category}
-                  onSelect={handleSelectPackage}
-                  onSeeAll={handleSeeAll}
-                />
-              ))}
-            </div>
-          </section>
-
-          <div className="h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-
-          {/* All Apps with Infinite Scroll */}
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <LayoutGrid className="w-5 h-5 text-accent-violet" />
-              <h2 className="text-xl font-bold tracking-tight text-text-primary">All Apps</h2>
-            </div>
-
-            {isLoadingInfinite && allPackages.length === 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="glass-light rounded-xl p-5">
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-lg bg-bg-elevated animate-shimmer" />
-                      <div className="flex-1">
-                        <div className="h-5 bg-bg-elevated rounded w-32 mb-2 animate-shimmer" />
-                        <div className="h-4 bg-bg-elevated rounded w-24 mb-3 animate-shimmer" />
-                        <div className="h-4 bg-bg-elevated rounded w-full animate-shimmer" />
-                      </div>
-                    </div>
+                    <h2 className="text-xl font-bold tracking-tight text-text-primary">
+                      {showSearchResults
+                        ? 'Search Results'
+                        : showCategoryResults
+                        ? activeCategoryLabel
+                        : 'All Apps'}
+                    </h2>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {allPackages.map((pkg, index) => (
-                    <div
-                      key={`${pkg.id}-${index}`}
-                      className={mounted ? 'animate-fade-up' : 'opacity-0'}
-                      style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}
-                    >
-                      <AppCard
-                        package={pkg}
+                  {!showSearchResults && (
+                    <p className="text-sm text-text-secondary">
+                      Sorted by <span className="font-medium text-text-primary">{activeSortLabel}</span>
+                    </p>
+                  )}
+                </div>
+
+                {showSearchResults ? (
+                  <div ref={resultsContentRef} className="scroll-mt-44">
+                    {renderPackages(searchPackages, 'search')}
+                  </div>
+                ) : isLoadingInfinite && allPackages.length === 0 ? (
+                  <div ref={resultsContentRef} className="scroll-mt-44">
+                    {renderLoadingSkeletons()}
+                  </div>
+                ) : (
+                  <>
+                    <div ref={resultsContentRef} className="scroll-mt-44">
+                      {renderPackages(allPackages, showCategoryResults ? 'category' : 'browse')}
+                    </div>
+                    <div ref={loadMoreRef} className="h-20 flex items-center justify-center mt-4">
+                      {isFetchingNextPage && (
+                        <div className="flex items-center gap-3 text-text-secondary">
+                          <Loader2 className="w-5 h-5 animate-spin text-accent-cyan" />
+                          <span className="text-sm">Loading more apps...</span>
+                        </div>
+                      )}
+                      {!hasNextPage && allPackages.length > 0 && (
+                        <p className="text-text-muted text-sm">You've seen all the apps</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </section>
+
+              {isBrowseMode && (
+                <section className={mounted ? 'animate-fade-up stagger-4 space-y-8' : 'space-y-8 opacity-0'}>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-accent-cyan" />
+                    <h2 className="text-xl font-bold tracking-tight text-text-primary">Discover</h2>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium uppercase tracking-wide text-text-muted">Featured</h3>
+                      <FeaturedApps
+                        packages={featuredPackages}
                         onSelect={handleSelectPackage}
+                        isLoading={isLoadingFeatured}
                       />
                     </div>
-                  ))}
-                </div>
 
-                {/* Infinite scroll trigger */}
-                <div ref={loadMoreRef} className="h-20 flex items-center justify-center mt-4">
-                  {isFetchingNextPage && (
-                    <div className="flex items-center gap-3 text-text-secondary">
-                      <Loader2 className="w-5 h-5 animate-spin text-accent-cyan" />
-                      <span className="text-sm">Loading more apps...</span>
+                    <div className="space-y-8">
+                      {collectionCategories.map((category) => (
+                        <AppCollection
+                          key={category}
+                          category={category}
+                          onSelect={handleSelectPackage}
+                          onSeeAll={handleSeeAll}
+                        />
+                      ))}
                     </div>
-                  )}
-                  {!hasNextPage && allPackages.length > 0 && (
-                    <p className="text-text-muted text-sm">You've seen all the apps</p>
-                  )}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+
+          {isMobileFiltersOpen && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <button
+                aria-label="Close filters"
+                className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+                onClick={() => setIsMobileFiltersOpen(false)}
+              />
+              <div className="absolute left-0 top-0 bottom-0 w-[86%] max-w-sm bg-bg-base border-r border-black/10 shadow-2xl flex flex-col">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-black/10">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-text-primary">Filters</h3>
+                  <button
+                    onClick={() => setIsMobileFiltersOpen(false)}
+                    className="p-1.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-black/5"
+                    title="Close filters"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </>
-            )}
-          </section>
-        </div>
+                <div className="p-4 overflow-y-auto">
+                  {renderFilterPanel()}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Package Configuration Modal */}
       {selectedPackage && !isLoadingInstallers && selectedInstallers.length > 0 && (
         <PackageConfig
           package={selectedPackage}
@@ -491,7 +675,6 @@ export default function AppCatalogPage() {
         />
       )}
 
-      {/* Loading modal while fetching installers */}
       {selectedPackage && isLoadingInstallers && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} />
@@ -507,7 +690,6 @@ export default function AppCatalogPage() {
         </div>
       )}
 
-      {/* Error state when no installers found */}
       {selectedPackage && !isLoadingInstallers && selectedInstallers.length === 0 && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} />
@@ -531,7 +713,6 @@ export default function AppCatalogPage() {
         </div>
       )}
 
-      {/* Upload Cart Sidebar */}
       <UploadCart />
     </div>
   );

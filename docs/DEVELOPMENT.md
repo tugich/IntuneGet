@@ -13,8 +13,8 @@ This guide covers setting up a local development environment for IntuneGet.
 
 ```bash
 # Clone the repository
-git clone https://github.com/ugurkocde/IntuneGet-Website.git
-cd IntuneGet-Website
+git clone https://github.com/ugurkocde/IntuneGet.git
+cd IntuneGet
 
 # Install dependencies
 npm install
@@ -65,7 +65,7 @@ If your team has a shared development Supabase instance:
 ## Project Structure
 
 ```
-IntuneGet-Website/
+IntuneGet/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
 │   ├── auth/              # Authentication pages
@@ -253,6 +253,6 @@ export async function GET(request: Request) {
 
 ## Getting Help
 
-- Check existing [GitHub Issues](https://github.com/ugurkocde/IntuneGet-Website/issues)
+- Check existing [GitHub Issues](https://github.com/ugurkocde/IntuneGet/issues)
 - Review documentation in `/docs`
-- Open a [GitHub Issue](https://github.com/ugurkocde/IntuneGet-Website/issues)
+- Open a [GitHub Issue](https://github.com/ugurkocde/IntuneGet/issues)

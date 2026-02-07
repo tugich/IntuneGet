@@ -50,9 +50,9 @@ export function HeroSection() {
       </motion.div>
 
       <div className="container px-4 md:px-6 mx-auto max-w-6xl py-16 md:py-24 relative z-10">
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
+        <div className="grid gap-8 items-center md:grid-cols-[0.95fr_1.05fr] lg:gap-12 lg:grid-cols-[0.9fr_1.1fr]">
           {/* Left column: text content */}
-          <div className="flex flex-col items-center text-center md:items-start md:text-left space-y-5 md:space-y-6">
+          <div className="flex flex-col items-center text-center md:items-start md:text-left space-y-5">
             {/* Badge - 1B: Spring-based entrance */}
             <motion.div
               initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -15, scale: 0.95 }}
@@ -67,7 +67,7 @@ export function HeroSection() {
             {/* Headline - 1A: TextReveal with word-by-word blur effect */}
             <TextReveal
               as="h1"
-              text="From Winget to Intune in Minutes"
+              text={"From Winget to\nIntune\u00A0in\u00A0Minutes"}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-stone-900 tracking-tight"
               animateOnMount
               delay={0.05}
@@ -150,7 +150,12 @@ export function HeroSection() {
 
           {/* Right column: ProductShowcase */}
           <FadeIn delay={0.2} animateOnMount duration={0.5} direction="right">
-            <DeploymentFeed />
+            <div className="space-y-3">
+              <div className="inline-flex items-center rounded-full border border-stone-200 bg-white/85 px-3 py-1 text-xs font-medium text-stone-600">
+                Live packaging simulation
+              </div>
+              <DeploymentFeed mode="heroCalm" />
+            </div>
           </FadeIn>
         </div>
       </div>

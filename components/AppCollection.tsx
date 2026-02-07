@@ -10,20 +10,7 @@ import { useCartStore } from '@/stores/cart-store';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
 import { cn } from '@/lib/utils';
-
-// Display names for categories
-const categoryDisplayNames: Record<string, string> = {
-  browser: 'Browsers',
-  development: 'Developer Tools',
-  productivity: 'Productivity',
-  utilities: 'Utilities',
-  communication: 'Communication',
-  media: 'Media & Entertainment',
-  gaming: 'Gaming',
-  security: 'Security',
-  runtime: 'Runtimes',
-  other: 'Other',
-};
+import { getCategoryLabel } from '@/lib/category-utils';
 
 // Category icons/colors
 const categoryStyles: Record<string, { gradient: string; icon: string }> = {
@@ -53,7 +40,7 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
   const { data, isLoading } = usePackagesByCategory(category, 12);
   const packages = data?.packages || [];
 
-  const displayName = categoryDisplayNames[category] || category;
+  const displayName = getCategoryLabel(category);
   const style = categoryStyles[category] || categoryStyles.other;
 
   const checkScroll = useCallback(() => {
@@ -94,7 +81,7 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
         </div>
         <div className="flex gap-4 overflow-hidden">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-60 h-28 glass-light rounded-xl animate-shimmer" />
+            <div key={i} className="flex-shrink-0 w-60 h-28 rounded-xl border border-black/10 bg-bg-elevated animate-shimmer" />
           ))}
         </div>
       </div>
@@ -114,7 +101,7 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
         {onSeeAll && (
           <button
             onClick={() => onSeeAll(category)}
-            className="flex items-center gap-1 text-sm text-accent-cyan hover:text-accent-cyan-bright transition-colors group"
+            className="flex items-center gap-1 text-sm text-accent-cyan hover:text-accent-cyan-dim transition-colors group"
           >
             See All
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -128,7 +115,7 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
         {canScrollLeft && (
           <button
             onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-bg-surface/95 backdrop-blur-sm border border-black/10 rounded-full shadow-lg hover:bg-bg-elevated transition-all opacity-0 group-hover/collection:opacity-100 -translate-x-1/2"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-bg-elevated border border-black/10 rounded-full shadow-soft hover:bg-bg-surface transition-all opacity-0 group-hover/collection:opacity-100 -translate-x-1/2"
           >
             <ChevronLeft className="w-5 h-5 text-text-secondary" />
           </button>
@@ -153,9 +140,9 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
           {packages.length >= 10 && onSeeAll && (
             <button
               onClick={() => onSeeAll(category)}
-              className="flex-shrink-0 w-60 snap-start glass-light rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-black/5 transition-colors border border-dashed border-black/10"
+              className="flex-shrink-0 w-60 snap-start rounded-xl border border-dashed border-black/15 bg-bg-elevated p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-bg-surface transition-colors"
             >
-              <div className="w-12 h-12 rounded-xl bg-bg-elevated flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl border border-black/10 bg-bg-surface flex items-center justify-center">
                 <ArrowRight className="w-6 h-6 text-text-secondary" />
               </div>
               <span className="text-sm text-text-secondary">See all {displayName}</span>
@@ -167,15 +154,15 @@ export function AppCollection({ category, onSelect, onSeeAll }: AppCollectionPro
         {canScrollRight && (
           <button
             onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-bg-surface/95 backdrop-blur-sm border border-black/10 rounded-full shadow-lg hover:bg-bg-elevated transition-all opacity-0 group-hover/collection:opacity-100 translate-x-1/2"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center bg-bg-elevated border border-black/10 rounded-full shadow-soft hover:bg-bg-surface transition-all opacity-0 group-hover/collection:opacity-100 translate-x-1/2"
           >
             <ChevronRight className="w-5 h-5 text-text-secondary" />
           </button>
         )}
 
         {/* Fade edges */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg-base to-transparent opacity-0 group-hover/collection:opacity-100 transition-opacity" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg-base to-transparent opacity-0 group-hover/collection:opacity-100 transition-opacity" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-bg-deepest to-transparent opacity-0 group-hover/collection:opacity-100 transition-opacity" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg-deepest to-transparent opacity-0 group-hover/collection:opacity-100 transition-opacity" />
       </div>
     </div>
   );
@@ -247,7 +234,7 @@ function CollectionCardComponent({ package: pkg, onSelect }: CollectionCardProps
   return (
     <div
       onClick={() => onSelect?.(pkg)}
-      className="flex-shrink-0 w-60 snap-start group glass-light rounded-xl p-4 cursor-pointer transition-all duration-200 hover:bg-black/5 hover:shadow-card hover:-translate-y-0.5"
+      className="flex-shrink-0 w-60 snap-start group rounded-xl border border-black/10 bg-bg-elevated p-4 cursor-pointer transition-all duration-200 hover:shadow-card hover:border-accent-cyan/25 hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
         <AppIcon
@@ -255,7 +242,7 @@ function CollectionCardComponent({ package: pkg, onSelect }: CollectionCardProps
           packageName={pkg.name}
           iconPath={pkg.iconPath}
           size="md"
-          className="group-hover:scale-105 transition-transform"
+          className="group-hover:scale-[1.03] transition-transform"
         />
 
         <div className="flex-1 min-w-0">
@@ -266,7 +253,7 @@ function CollectionCardComponent({ package: pkg, onSelect }: CollectionCardProps
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/5">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/10">
         <span className="text-xs text-text-muted">v{pkg.version}</span>
         <Button
           size="sm"
@@ -275,8 +262,8 @@ function CollectionCardComponent({ package: pkg, onSelect }: CollectionCardProps
           className={cn(
             'h-7 px-2',
             inCart
-              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border-0'
-              : 'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20 border-0'
+              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
+              : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
           )}
         >
           {isLoading ? (
