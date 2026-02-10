@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase, verifyPackagerApiKey } from '@/lib/db';
+import { createServerClient } from '@/lib/supabase';
 import { getFeatureFlags } from '@/lib/features';
 
 // Verify the packager auth key (API key for SQLite, service role key for Supabase)
@@ -209,6 +210,25 @@ export async function PATCH(request: NextRequest) {
           `[Packager Jobs API] Failed to write upload_history for job ${job.id}:`,
           historyError
         );
+      }
+
+      // Clean up stale update_check_results so the Updates page no longer
+      // shows "update available" for the app that was just deployed.
+      if (job.tenant_id && job.winget_id) {
+        try {
+          const supabase = createServerClient();
+          await supabase
+            .from('update_check_results')
+            .delete()
+            .eq('user_id', job.user_id)
+            .eq('tenant_id', job.tenant_id)
+            .eq('winget_id', job.winget_id);
+        } catch (cleanupError) {
+          console.error(
+            `[Packager Jobs API] Failed to clean up update_check_results for job ${job.id}:`,
+            cleanupError
+          );
+        }
       }
     }
 

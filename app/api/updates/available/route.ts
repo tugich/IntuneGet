@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 import { parseAccessToken } from '@/lib/auth-utils';
+import { compareVersions } from '@/lib/version-compare';
 import type { AvailableUpdate } from '@/types/update-policies';
 
 /**
@@ -109,6 +110,7 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter((u) => u.current_version !== 'Unknown')
+      .filter((u) => compareVersions(u.current_version, u.latest_version) < 0)
       .filter((u) => u.policy?.last_auto_update_version !== u.latest_version);
 
     // Count critical updates

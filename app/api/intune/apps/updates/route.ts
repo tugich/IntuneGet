@@ -259,6 +259,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Compute the effective version for an app by taking the MAX of its
+    // displayVersion and the version recorded in upload_history. This prevents
+    // false update detection when Intune's displayVersion lags behind the
+    // actually deployed version (propagation delay) or is null/empty.
+    function getEffectiveVersion(app: IntuneWin32App): string {
+      const displayVer = normalizeVersion(app.displayVersion);
+      const historyVer = normalizeVersion(uploadHistoryVersionMap.get(app.id));
+      return compareVersions(historyVer, displayVer) > 0 ? historyVer : displayVer;
+    }
+
     // Group by Winget ID and compare using the newest tenant app object.
     // This prevents older Intune objects from suppressing update detection.
     const appsByWinget = new Map<string, MatchedApp[]>();
@@ -284,8 +294,8 @@ export async function GET(request: NextRequest) {
       }
 
       const newestCandidate = candidates.reduce((currentNewest, candidate) => {
-        const currentNewestVersion = normalizeVersion(currentNewest.app.displayVersion);
-        const candidateVersion = normalizeVersion(candidate.app.displayVersion);
+        const currentNewestVersion = getEffectiveVersion(currentNewest.app);
+        const candidateVersion = getEffectiveVersion(candidate.app);
         const comparison = compareVersions(candidateVersion, currentNewestVersion);
 
         if (comparison > 0) {
@@ -303,14 +313,14 @@ export async function GET(request: NextRequest) {
         return currentNewest;
       });
 
-      const currentVersion = normalizeVersion(newestCandidate.app.displayVersion);
+      const currentVersion = getEffectiveVersion(newestCandidate.app);
       const normalizedLatest = normalizeVersion(latestVersion);
       const updateAvailable = hasUpdate(currentVersion, normalizedLatest);
 
       if (updateAvailable) {
         updates.push({
           intuneApp: newestCandidate.app,
-          currentVersion: newestCandidate.app.displayVersion || uploadHistoryVersionMap.get(newestCandidate.app.id) || 'Unknown',
+          currentVersion: currentVersion !== '0.0.0' ? currentVersion : 'Unknown',
           latestVersion: latestVersion,
           wingetId,
           hasUpdate: true,
@@ -334,7 +344,7 @@ export async function GET(request: NextRequest) {
         checked.push({
           app: candidate.app.displayName,
           wingetId,
-          result: `Older tenant app object (${normalizeVersion(candidate.app.displayVersion)}) - compared using newest ${currentVersion}`,
+          result: `Older tenant app object (${getEffectiveVersion(candidate.app)}) - compared using newest ${currentVersion}`,
         });
       }
     }
