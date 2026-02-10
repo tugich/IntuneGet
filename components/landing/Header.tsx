@@ -30,12 +30,7 @@ export function Header() {
 
   return (
     <motion.header
-      className={cn(
-        "fixed top-0 left-0 right-0 z-50 transition-colors duration-300",
-        hasScrolled
-          ? "border-b border-stone-200/60"
-          : "border-b border-transparent"
-      )}
+      className="fixed top-0 left-0 right-0 z-50 pointer-events-none"
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{
@@ -43,16 +38,32 @@ export function Header() {
         ease: [0.25, 0.46, 0.45, 0.94],
       }}
     >
-      {/* Animated background */}
-      <motion.div
-        className="absolute inset-0 bg-bg-deepest/80 backdrop-blur-xl"
-        style={{
-          opacity: shouldReduceMotion ? (hasScrolled ? 1 : 0) : headerOpacity,
-        }}
-      />
+      <div
+        className={cn(
+          "pointer-events-auto relative mx-auto transition-all duration-500 ease-spring",
+          hasScrolled
+            ? "mt-3 max-w-4xl rounded-2xl border border-stone-200/60 shadow-soft-md"
+            : "max-w-full"
+        )}
+      >
+        {/* Animated background */}
+        <motion.div
+          className={cn(
+            "absolute inset-0 backdrop-blur-xl transition-all duration-500",
+            hasScrolled
+              ? "bg-white/75 rounded-2xl"
+              : "bg-bg-deepest/80"
+          )}
+          style={{
+            opacity: shouldReduceMotion ? (hasScrolled ? 1 : 0) : headerOpacity,
+          }}
+        />
 
-      <div className="container relative mx-auto max-w-7xl px-4 md:px-6">
-        <div className="flex h-16 items-center justify-between">
+        <div className={cn(
+          "relative mx-auto px-4 md:px-6 transition-all duration-500",
+          hasScrolled ? "max-w-4xl" : "max-w-7xl"
+        )}>
+          <div className="flex h-14 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group z-10">
             <motion.div
@@ -78,7 +89,10 @@ export function Header() {
           </Link>
 
           {/* Desktop navigation */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className={cn(
+            "hidden md:flex items-center transition-all duration-500",
+            hasScrolled ? "gap-5" : "gap-8"
+          )}>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -137,13 +151,17 @@ export function Header() {
               <Menu className="h-6 w-6" />
             )}
           </button>
+          </div>
         </div>
       </div>
 
       {/* Mobile menu */}
       <motion.div
         className={cn(
-          "md:hidden fixed inset-x-0 top-16 bg-bg-deepest/95 backdrop-blur-xl border-b border-stone-200/60",
+          "md:hidden pointer-events-auto mx-auto mt-2 transition-all duration-500",
+          hasScrolled
+            ? "max-w-4xl px-0"
+            : "max-w-full px-0",
           !isMenuOpen && "pointer-events-none"
         )}
         initial={{ opacity: 0, y: -20 }}
@@ -155,7 +173,9 @@ export function Header() {
           duration: shouldReduceMotion ? 0 : 0.2,
         }}
       >
-        <nav className="container mx-auto px-4 py-6 flex flex-col gap-4">
+        <nav className={cn(
+          "mx-4 px-4 py-6 flex flex-col gap-4 bg-white/90 backdrop-blur-xl border border-stone-200/60 rounded-2xl shadow-soft-lg"
+        )}>
           {navLinks.map((link) => (
             <Link
               key={link.href}
