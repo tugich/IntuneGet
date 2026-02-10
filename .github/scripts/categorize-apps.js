@@ -41,6 +41,7 @@ const ALLOWED_CATEGORIES = [
   'automation',
   'devops',
   'package-management',
+  'ide',
   'other',
 ];
 
@@ -117,6 +118,7 @@ function buildPrompt(batch) {
     '- automation: Scripting tools, task schedulers, macro recorders, RPA',
     '- devops: CI/CD tools, infrastructure management, deployment tools',
     '- package-management: Package managers, software deployment tools',
+    '- ide: Full-featured integrated development environments (VS Code, JetBrains, Eclipse)',
     '- other: ONLY for software that truly does not fit any above category',
     '',
     'Packages:',

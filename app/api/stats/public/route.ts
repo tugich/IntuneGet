@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // In-memory cache
 let cache: { data: { signinClicks: number; appsDeployed: number; appsSupported: number }; timestamp: number } | null = null;
-const CACHE_TTL = 60 * 1000; // 60 seconds
+const CACHE_TTL = 5 * 1000; // 5 seconds - kept short since realtime handles live updates
 
 export async function GET() {
   try {
@@ -11,7 +11,7 @@ export async function GET() {
     if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
       return NextResponse.json(cache.data, {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+          'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=5',
         },
       });
     }
@@ -25,7 +25,7 @@ export async function GET() {
         { signinClicks: 0, appsDeployed: 0, appsSupported: 0 },
         {
           headers: {
-            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+            'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=5',
           },
         }
       );
@@ -51,7 +51,7 @@ export async function GET() {
         cache?.data ?? { signinClicks: 0, appsDeployed: 0, appsSupported: 0 },
         {
           headers: {
-            'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+            'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=5',
           },
         }
       );
@@ -68,7 +68,7 @@ export async function GET() {
 
     return NextResponse.json(stats, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+        'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=5',
       },
     });
   } catch {
@@ -76,7 +76,7 @@ export async function GET() {
       { signinClicks: 0, appsDeployed: 0, appsSupported: 0 },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30',
+          'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=5',
         },
       }
     );

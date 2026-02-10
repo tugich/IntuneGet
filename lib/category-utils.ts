@@ -1,7 +1,6 @@
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'All',
   browser: 'Browsers',
-  browsers: 'Browsers',
   development: 'Development',
   'developer-tools': 'Developer Tools',
   productivity: 'Productivity',
@@ -12,7 +11,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   gaming: 'Gaming',
   security: 'Security',
   runtime: 'Runtime',
-  runtimes: 'Runtimes',
   system: 'System',
   'cloud-storage': 'Cloud Storage',
   virtualization: 'Virtualization',
@@ -31,7 +29,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   monitoring: 'Monitoring',
   automation: 'Automation',
   devops: 'DevOps',
-  package: 'Package Management',
+  'package-management': 'Package Management',
+  ide: 'IDE',
   utilitiesandtools: 'Utilities & Tools',
   other: 'Other',
 };

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getCategories } from '@/lib/winget-api';
 
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
