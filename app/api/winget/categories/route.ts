@@ -4,6 +4,7 @@ import { getCategories } from '@/lib/winget-api';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 export async function GET() {
   try {
@@ -13,7 +14,7 @@ export async function GET() {
     let totalApps = categories.reduce((sum, cat) => sum + cat.count, 0);
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseKey) {
       const supabase = createClient(supabaseUrl, supabaseKey);
@@ -31,11 +32,13 @@ export async function GET() {
       count: categories.length,
       totalApps,
       categories,
+    }, {
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
   } catch {
     return NextResponse.json(
       { error: 'Failed to fetch categories' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   }
 }

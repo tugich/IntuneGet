@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'edge';
+export const fetchCache = 'force-no-store';
 
 interface CuratedAppResult {
   id: number;
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
           error:
             'Query parameter "q" is required and must be at least 2 characters',
         },
-        { status: 400 }
+        { status: 400, headers: { 'Cache-Control': 'no-store, max-age=0' } }
       );
     }
 
@@ -116,6 +117,8 @@ export async function GET(request: NextRequest) {
           installerType: p.installer_type,
         })),
         source: 'curated',
+      }, {
+        headers: { 'Cache-Control': 'no-store, max-age=0' },
       });
     }
 
@@ -126,11 +129,13 @@ export async function GET(request: NextRequest) {
       count: 0,
       packages: [],
       source: 'curated',
+    }, {
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
     });
   } catch {
     return NextResponse.json(
       { error: 'Failed to search packages' },
-      { status: 500 }
+      { status: 500, headers: { 'Cache-Control': 'no-store, max-age=0' } }
     );
   }
 }
