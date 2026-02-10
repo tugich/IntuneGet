@@ -7,12 +7,43 @@ export const metadata: Metadata = {
   title: "Terms of Use | IntuneGet",
   description:
     "Terms of Use for IntuneGet - the Winget to Intune deployment tool.",
+  alternates: {
+    canonical: "https://intuneget.com/terms",
+  },
+  openGraph: {
+    title: "Terms of Use | IntuneGet",
+    description:
+      "Terms of Use for IntuneGet - the Winget to Intune deployment tool.",
+  },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://intuneget.com",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Terms of Use",
+      item: "https://intuneget.com/terms",
+    },
+  ],
 };
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-bg-deepest flex flex-col">
       <Header />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
 
       {/* Content */}
       <main className="flex-1 mx-auto max-w-4xl px-4 py-12 lg:px-8 lg:py-16 pt-24 lg:pt-28">

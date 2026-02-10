@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "Inventory, Reports, and Uploads | IntuneGet Docs",
   description:
     "Operational documentation for inventory browsing, reporting, and upload job tracking.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/inventory-reports-uploads",
+  },
+  openGraph: {
+    title: "Inventory, Reports, and Uploads | IntuneGet Docs",
+    description:
+      "Operational documentation for inventory browsing, reporting, and upload job tracking.",
+  },
 };
 
 export default function InventoryReportsUploadsPage() {

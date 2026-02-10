@@ -16,6 +16,14 @@ export const metadata: Metadata = {
   title: "Unmanaged Apps | IntuneGet Docs",
   description:
     "Detect and manage unmanaged applications discovered on your Intune-managed devices. Match, claim, and deploy apps automatically.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/unmanaged-apps",
+  },
+  openGraph: {
+    title: "Unmanaged Apps | IntuneGet Docs",
+    description:
+      "Detect and manage unmanaged applications discovered on your Intune-managed devices. Match, claim, and deploy apps automatically.",
+  },
 };
 
 export default function UnmanagedAppsPage() {

@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "SCCM Migration | IntuneGet Docs",
   description:
     "Import SCCM exports, match apps to WinGet, preview migration, and execute queued deployments.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/sccm-migration",
+  },
+  openGraph: {
+    title: "SCCM Migration | IntuneGet Docs",
+    description:
+      "Import SCCM exports, match apps to WinGet, preview migration, and execute queued deployments.",
+  },
 };
 
 export default function SccmMigrationPage() {

@@ -14,6 +14,14 @@ export const metadata: Metadata = {
   title: "API Reference | IntuneGet Docs",
   description:
     "Endpoint overview for IntuneGet APIs grouped by feature area.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/api-reference",
+  },
+  openGraph: {
+    title: "API Reference | IntuneGet Docs",
+    description:
+      "Endpoint overview for IntuneGet APIs grouped by feature area.",
+  },
 };
 
 export default function ApiReferencePage() {

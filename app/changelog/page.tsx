@@ -117,10 +117,54 @@ function VersionBadge({ type }: { type: Release["type"] }) {
   );
 }
 
+const changelogJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  name: "IntuneGet Release History",
+  itemListElement: releases.map((release, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    item: {
+      "@type": "SoftwareApplication",
+      name: `IntuneGet v${release.version}`,
+      softwareVersion: release.version,
+      datePublished: release.date,
+      description: release.title,
+    },
+  })),
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: "https://intuneget.com",
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Changelog",
+      item: "https://intuneget.com/changelog",
+    },
+  ],
+};
+
 export default function ChangelogPage() {
   return (
     <div className="min-h-screen bg-bg-deepest flex flex-col">
       <Header />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(changelogJsonLd) }}
+      />
 
       <main className="flex-1 mx-auto max-w-3xl px-4 py-12 lg:px-8 lg:py-16 pt-24 lg:pt-28 w-full">
         {/* Header */}

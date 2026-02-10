@@ -16,6 +16,14 @@ export const metadata: Metadata = {
   title: "Database Setup | IntuneGet Docs",
   description:
     "SQLite database for IntuneGet self-hosting. Zero-configuration, embedded database that just works.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/database-setup",
+  },
+  openGraph: {
+    title: "Database Setup | IntuneGet Docs",
+    description:
+      "SQLite database for IntuneGet self-hosting. Zero-configuration, embedded database that just works.",
+  },
 };
 
 export default function DatabaseSetupPage() {

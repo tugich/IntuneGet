@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "Updates & Policies | IntuneGet Docs",
   description:
     "Available updates, update trigger flow, policy types, and history for IntuneGet.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/updates-policies",
+  },
+  openGraph: {
+    title: "Updates & Policies | IntuneGet Docs",
+    description:
+      "Available updates, update trigger flow, policy types, and history for IntuneGet.",
+  },
 };
 
 export default function UpdatesPoliciesPage() {

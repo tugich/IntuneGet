@@ -25,6 +25,14 @@ export const metadata: Metadata = {
   title: "MSP Features | IntuneGet Docs",
   description:
     "Managed Service Provider capabilities in IntuneGet. Multi-tenant batch deployments, team management, webhooks, audit logs, and reports.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/msp",
+  },
+  openGraph: {
+    title: "MSP Features | IntuneGet Docs",
+    description:
+      "Managed Service Provider capabilities in IntuneGet. Multi-tenant batch deployments, team management, webhooks, audit logs, and reports.",
+  },
 };
 
 export default function MspPage() {

@@ -53,6 +53,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/github-setup",
     "/database-setup",
     "/docker",
+    "/environment-reference",
+    "/api-reference",
+    "/sccm-migration",
+    "/updates-policies",
+    "/inventory-reports-uploads",
+    "/unmanaged-apps",
+    "/msp",
+    "/settings",
     "/troubleshooting",
   ];
 

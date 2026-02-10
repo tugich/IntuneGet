@@ -18,6 +18,14 @@ export const metadata: Metadata = {
   title: "Entra ID Setup | IntuneGet Docs",
   description:
     "Configure Microsoft Entra ID app registration for IntuneGet authentication and Intune API access.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/azure-setup",
+  },
+  openGraph: {
+    title: "Entra ID Setup | IntuneGet Docs",
+    description:
+      "Configure Microsoft Entra ID app registration for IntuneGet authentication and Intune API access.",
+  },
 };
 
 export default function AzureSetupPage() {

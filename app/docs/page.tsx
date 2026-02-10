@@ -36,6 +36,14 @@ export const metadata: Metadata = {
   title: "Documentation | IntuneGet",
   description:
     "Learn how to self-host IntuneGet - comprehensive documentation for deploying your own Intune app deployment solution.",
+  alternates: {
+    canonical: "https://intuneget.com/docs",
+  },
+  openGraph: {
+    title: "Documentation | IntuneGet",
+    description:
+      "Learn how to self-host IntuneGet - comprehensive documentation for deploying your own Intune app deployment solution.",
+  },
 };
 
 const quickLinks = [

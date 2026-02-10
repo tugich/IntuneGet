@@ -13,6 +13,14 @@ export const metadata: Metadata = {
   title: "Environment Reference | IntuneGet Docs",
   description:
     "Complete environment variable reference for IntuneGet web app and local packager modes.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/environment-reference",
+  },
+  openGraph: {
+    title: "Environment Reference | IntuneGet Docs",
+    description:
+      "Complete environment variable reference for IntuneGet web app and local packager modes.",
+  },
 };
 
 export default function EnvironmentReferencePage() {

@@ -19,6 +19,14 @@ export const metadata: Metadata = {
   title: "Docker Deployment | IntuneGet Docs",
   description:
     "Deploy IntuneGet with Docker and Docker Compose. Complete guide for containerized self-hosting.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/docker",
+  },
+  openGraph: {
+    title: "Docker Deployment | IntuneGet Docs",
+    description:
+      "Deploy IntuneGet with Docker and Docker Compose. Complete guide for containerized self-hosting.",
+  },
 };
 
 export default function DockerPage() {

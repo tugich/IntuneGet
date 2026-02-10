@@ -25,6 +25,14 @@ export const metadata: Metadata = {
   title: "Getting Started | IntuneGet Docs",
   description:
     "Complete step-by-step guide to self-hosting IntuneGet. Deploy your own Intune app deployment solution in about 2 hours.",
+  alternates: {
+    canonical: "https://intuneget.com/docs/getting-started",
+  },
+  openGraph: {
+    title: "Getting Started | IntuneGet Docs",
+    description:
+      "Complete step-by-step guide to self-hosting IntuneGet. Deploy your own Intune app deployment solution in about 2 hours.",
+  },
 };
 
 export default function GettingStartedPage() {

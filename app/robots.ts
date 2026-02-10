@@ -13,7 +13,6 @@ export default function robots(): MetadataRoute.Robots {
           "/pricing",
           "/changelog",
           "/about",
-          "/blog/",
         ],
         disallow: ["/dashboard/", "/auth/", "/api/", "/onboarding/"],
       },
