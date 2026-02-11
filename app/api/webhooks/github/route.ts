@@ -105,7 +105,6 @@ export async function POST(request: NextRequest) {
       status,
       reviewed_at: new Date().toISOString(),
       reviewed_by: commenter,
-      updated_at: new Date().toISOString(),
     })
     .eq('id', suggestion.id);
 

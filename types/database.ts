@@ -1234,7 +1234,6 @@ export interface Database {
           reviewed_at: string | null;
           reviewed_by: string | null;
           created_at: string;
-          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -1249,7 +1248,6 @@ export interface Database {
           reviewed_at?: string | null;
           reviewed_by?: string | null;
           created_at?: string;
-          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -1264,7 +1262,6 @@ export interface Database {
           reviewed_at?: string | null;
           reviewed_by?: string | null;
           created_at?: string;
-          updated_at?: string;
         };
         Relationships: GenericRelationship[];
       };
