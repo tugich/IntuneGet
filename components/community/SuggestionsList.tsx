@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Loader2, Package, Clock, CheckCircle2, XCircle, Sparkles } from 'lucide-react';
+import { Loader2, Package, Clock, CheckCircle2, XCircle, Sparkles, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { VoteButton } from './VoteButton';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
@@ -13,6 +13,7 @@ interface Suggestion {
   reason: string | null;
   votes_count: number;
   status: 'pending' | 'approved' | 'rejected' | 'implemented';
+  github_issue_url: string | null;
   created_at: string;
 }
 
@@ -249,6 +250,18 @@ export function SuggestionsList({
                       {suggestion.winget_id}
                     </code>
                     {getStatusBadge(suggestion.status)}
+                    {suggestion.github_issue_url && (
+                      <a
+                        href={suggestion.github_issue_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-white/5 text-text-muted hover:text-text-primary transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        GitHub Issue
+                      </a>
+                    )}
                   </div>
 
                   {suggestion.reason && (

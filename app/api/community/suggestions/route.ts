@@ -17,9 +17,10 @@ import {
   applyRateLimit,
   getUserKey,
   getIpKey,
-  COMMUNITY_RATE_LIMIT,
+  SUGGESTION_RATE_LIMIT,
   PUBLIC_RATE_LIMIT,
 } from '@/lib/rate-limit';
+import { createAppSuggestionIssue } from '@/lib/github-issues';
 
 /**
  * GET /api/community/suggestions
@@ -137,10 +138,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limit by user
+    // Rate limit by user (3 suggestions per 10 minutes)
     const rateLimitResponse = await applyRateLimit(
       getUserKey(user.userId),
-      COMMUNITY_RATE_LIMIT
+      SUGGESTION_RATE_LIMIT
     );
     if (rateLimitResponse) return rateLimitResponse;
 
@@ -221,6 +222,28 @@ export async function POST(request: NextRequest) {
         user_id: user.userId,
         user_email: user.userEmail,
       });
+
+    // Create GitHub issue (non-blocking: failure does not affect the suggestion)
+    try {
+      const { issueNumber, issueUrl } = await createAppSuggestionIssue(
+        winget_id,
+        reason,
+        suggestion.id
+      );
+
+      await supabase
+        .from('app_suggestions')
+        .update({
+          github_issue_number: issueNumber,
+          github_issue_url: issueUrl,
+        })
+        .eq('id', suggestion.id);
+
+      suggestion.github_issue_number = issueNumber;
+      suggestion.github_issue_url = issueUrl;
+    } catch (err) {
+      console.error('Failed to create GitHub issue for suggestion:', err);
+    }
 
     return NextResponse.json(
       { suggestion },

@@ -1229,6 +1229,8 @@ export interface Database {
           reason: string | null;
           votes_count: number;
           status: 'pending' | 'approved' | 'rejected' | 'implemented';
+          github_issue_number: number | null;
+          github_issue_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1240,6 +1242,8 @@ export interface Database {
           reason?: string | null;
           votes_count?: number;
           status?: 'pending' | 'approved' | 'rejected' | 'implemented';
+          github_issue_number?: number | null;
+          github_issue_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1251,6 +1255,8 @@ export interface Database {
           reason?: string | null;
           votes_count?: number;
           status?: 'pending' | 'approved' | 'rejected' | 'implemented';
+          github_issue_number?: number | null;
+          github_issue_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

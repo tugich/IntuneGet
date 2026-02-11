@@ -91,6 +91,12 @@ export const STRICT_RATE_LIMIT: RateLimitConfig = {
   windowMs: 60 * 1000,
 };
 
+/** Suggestion submissions: 3 requests per 10 minutes */
+export const SUGGESTION_RATE_LIMIT: RateLimitConfig = {
+  limit: 3,
+  windowMs: 10 * 60 * 1000,
+};
+
 // ============================================
 // Rate Limiting Functions
 // ============================================
