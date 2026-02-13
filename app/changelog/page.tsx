@@ -26,6 +26,21 @@ interface Release {
 
 const releases: Release[] = [
   {
+    version: "0.6.0",
+    date: "2026-02-13",
+    title: "Update Only Assignments for Discovered Apps",
+    type: "minor",
+    highlights: [
+      "New 'Update Only' assignment intent: deploy updates exclusively to devices where the app is already installed, skip devices without it",
+      "Automatic requirement rule generation using standard Windows detection (uninstall registry search for all apps, direct product code check for MSI)",
+      "Full pipeline support: Update Only works across web UI, local packager, and GitHub Actions deployment paths",
+      "Amber-styled UI with informational banners explaining Update Only behavior and mixed-intent warnings",
+      "Expanded RequirementRule types matching the Microsoft Graph API win32LobAppRule format",
+      "Documentation updates across five doc pages covering configuration, troubleshooting, and Intune evaluation logic",
+      "Closes Issue #13: Patch My PC-style update-only assignment support for discovered and unmanaged apps",
+    ],
+  },
+  {
     version: "0.5.8",
     date: "2026-02-13",
     title: "Installer Filename Normalization for Workflow Packaging",
