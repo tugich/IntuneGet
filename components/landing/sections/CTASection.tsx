@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Github, Star, Shield, Clock, Download, BookOpen } from "lucide-react";
+import { ArrowRight, Github, Star, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { FadeIn } from "../animations/FadeIn";
 import { GitHubStatsBar } from "../ui/GitHubStatsBar";
@@ -86,34 +86,6 @@ export function CTASection() {
             <GitHubStatsBar className="pt-4" />
           </FadeIn>
 
-          {/* Risk reversal guarantees */}
-          <FadeIn delay={0.4}>
-            <div className="mt-8 pt-8 border-t border-overlay/[0.06]">
-              <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-bg-elevated border border-overlay/[0.06]">
-                  <Clock className="w-5 h-5 text-accent-cyan flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-text-primary">5-Minute Setup</div>
-                    <div className="text-xs text-text-muted">Or we help you debug</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-bg-elevated border border-overlay/[0.06]">
-                  <Download className="w-5 h-5 text-accent-cyan flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-text-primary">No Lock-In</div>
-                    <div className="text-xs text-text-muted">Export anytime</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-bg-elevated border border-overlay/[0.06]">
-                  <Shield className="w-5 h-5 text-accent-cyan flex-shrink-0" />
-                  <div className="text-left">
-                    <div className="text-sm font-medium text-text-primary">Zero Surprise Bills</div>
-                    <div className="text-xs text-text-muted">Free forever</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FadeIn>
         </div>
       </div>
     </section>

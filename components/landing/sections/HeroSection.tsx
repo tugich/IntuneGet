@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { Github, ArrowRight, Star, Users, Upload, Clock, Shield, Download, BookOpen } from "lucide-react";
+import { Github, ArrowRight, Star, Users, Upload, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "../ui/Badge";
 import { GradientOrb } from "../ui/GradientOrb";
@@ -151,24 +151,6 @@ export function HeroSection() {
                 <span className="flex items-center gap-1.5">
                   <Upload className="w-3.5 h-3.5 text-emerald-500" />
                   {appsDeployedDisplay}+ apps uploaded
-                </span>
-              </div>
-            </FadeIn>
-
-            {/* Risk reversal badges */}
-            <FadeIn delay={0.25} animateOnMount duration={0.4} direction="up">
-              <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-overlay/[0.06]">
-                  <Clock className="w-3 h-3 text-accent-cyan" />
-                  5-min setup
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-overlay/[0.06]">
-                  <Download className="w-3 h-3 text-accent-cyan" />
-                  No lock-in
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bg-elevated border border-overlay/[0.06]">
-                  <Shield className="w-3 h-3 text-accent-cyan" />
-                  Free forever
                 </span>
               </div>
             </FadeIn>
