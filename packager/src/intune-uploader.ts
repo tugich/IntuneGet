@@ -768,7 +768,7 @@ export class IntuneUploader {
       const graphIntent: GraphAssignmentIntent =
         assignment.intent === 'updateOnly' ? 'required' : assignment.intent;
 
-      graphAssignments.push({
+      const graphAssignment: GraphMobileAppAssignment = {
         '@odata.type': '#microsoft.graph.mobileAppAssignment',
         intent: graphIntent,
         target,
@@ -777,7 +777,14 @@ export class IntuneUploader {
           notifications: 'showAll',
           deliveryOptimizationPriority: 'notConfigured',
         },
-      });
+      };
+
+      // Exclusion assignments do not support settings
+      if (assignment.type === 'exclusionGroup') {
+        delete (graphAssignment as Partial<GraphMobileAppAssignment>).settings;
+      }
+
+      graphAssignments.push(graphAssignment);
     }
 
     return graphAssignments;

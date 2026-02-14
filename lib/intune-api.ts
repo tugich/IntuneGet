@@ -612,16 +612,22 @@ export function convertToGraphAssignments(
     // Map 'updateOnly' to 'required' for Graph API (requirement rules handle the gating)
     const graphIntent = assignment.intent === 'updateOnly' ? 'required' : assignment.intent;
 
-    return {
+    const graphAssignment: Win32LobAppAssignment = {
       '@odata.type': '#microsoft.graph.mobileAppAssignment',
       intent: graphIntent,
       target,
-      settings: {
+    };
+
+    // Exclusion assignments do not support settings
+    if (assignment.type !== 'exclusionGroup') {
+      graphAssignment.settings = {
         '@odata.type': '#microsoft.graph.win32LobAppAssignmentSettings',
         notifications: 'showAll',
         deliveryOptimizationPriority: 'notConfigured',
-      },
-    };
+      };
+    }
+
+    return graphAssignment;
   });
 }
 
