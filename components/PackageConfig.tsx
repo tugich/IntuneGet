@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   X,
   Settings,
@@ -113,6 +113,32 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   const [settingsSuccess, setSettingsSuccess] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const canUpdateSettings = isDeployed && !!intuneAppId;
+
+  // Change detection: categorize modifications as Graph-patchable vs requires-redeploy
+  const changeState = useMemo(() => {
+    if (!isDeployed || !deployedConfig) {
+      return { hasGraphChanges: false, hasRedeployChanges: false };
+    }
+
+    // Graph-patchable: assignments + categories
+    const hasAssignmentChanges =
+      JSON.stringify(assignments) !== JSON.stringify(deployedConfig.assignments || []);
+    const hasCategoryChanges =
+      JSON.stringify(categories) !== JSON.stringify(deployedConfig.categories || []);
+    const hasGraphChanges = hasAssignmentChanges || hasCategoryChanges;
+
+    // Redeploy-required: version, architecture, scope, PSADT config
+    const hasVersionChange = selectedVersion !== deployedConfig.version;
+    const hasArchChange = selectedArch !== deployedConfig.architecture;
+    const hasScopeChange = selectedScope !== deployedConfig.installScope;
+    const hasPsadtChange =
+      JSON.stringify(config) !== JSON.stringify(deployedConfig.psadtConfig);
+    const hasRedeployChanges =
+      hasVersionChange || hasArchChange || hasScopeChange || hasPsadtChange;
+
+    return { hasGraphChanges, hasRedeployChanges };
+  }, [isDeployed, deployedConfig, assignments, categories,
+      selectedVersion, selectedArch, selectedScope, config]);
 
   // Get selected installer
   const selectedInstaller = installers.find((i) => i.architecture === selectedArch) || installers[0];
@@ -268,10 +294,16 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 <div className="text-sm">
                   <p className="text-accent-cyan font-medium">Editing deployed configuration</p>
                   <p className="text-accent-cyan/70 mt-1">
-                    {canUpdateSettings
-                      ? 'Update assignments and categories instantly with Update Settings, or redeploy to change the package configuration.'
-                      : 'Changes will be applied as a new deployment.'}
-                    {deployedConfig ? ' Previous settings have been pre-filled.' : ' Using default settings (no previous config found).'}
+                    {!canUpdateSettings
+                      ? 'Changes will be applied as a new deployment.'
+                      : !changeState.hasGraphChanges && !changeState.hasRedeployChanges
+                      ? 'No changes detected. Previous settings have been pre-filled.'
+                      : changeState.hasGraphChanges && !changeState.hasRedeployChanges
+                      ? 'Assignment and category changes can be applied instantly with Update Settings.'
+                      : !changeState.hasGraphChanges && changeState.hasRedeployChanges
+                      ? 'Package configuration changes require a redeployment.'
+                      : 'Assignment/category changes can be applied instantly. Package configuration changes also detected -- those require a separate redeployment.'}
+                    {!canUpdateSettings && deployedConfig ? ' Previous settings have been pre-filled.' : !canUpdateSettings ? ' Using default settings (no previous config found).' : ''}
                   </p>
                 </div>
               </div>
@@ -1306,44 +1338,56 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
             </div>
           )}
           {canUpdateSettings ? (
-            <div className="flex gap-3">
-              <Button
-                onClick={handleUpdateSettings}
-                disabled={isUpdating || settingsSuccess}
-                className="flex-1 py-5 text-base font-medium bg-accent-cyan hover:bg-accent-cyan-dim text-white"
-              >
-                {isUpdating ? (
-                  <>
+            <div className="space-y-2">
+              {!changeState.hasGraphChanges && !settingsSuccess && !isUpdating && (
+                <p className="text-text-muted text-xs text-center">
+                  No assignment or category changes to apply
+                </p>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleUpdateSettings}
+                  disabled={isUpdating || settingsSuccess || !changeState.hasGraphChanges}
+                  className={cn(
+                    'flex-1 py-5 text-base font-medium',
+                    !changeState.hasGraphChanges && !settingsSuccess
+                      ? 'bg-accent-cyan/50 text-white/60 cursor-not-allowed'
+                      : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white'
+                  )}
+                >
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : settingsSuccess ? (
+                    <>
+                      <Check className="w-5 h-5 mr-2" />
+                      Updated
+                    </>
+                  ) : (
+                    <>
+                      <Settings className="w-5 h-5 mr-2" />
+                      Update Settings
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={!selectedInstaller || inCart || isAddingToCart}
+                  variant="outline"
+                  className="py-5 text-base font-medium border-overlay/15 text-text-primary hover:bg-overlay/10"
+                >
+                  {isAddingToCart ? (
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : settingsSuccess ? (
-                  <>
+                  ) : inCart ? (
                     <Check className="w-5 h-5 mr-2" />
-                    Updated
-                  </>
-                ) : (
-                  <>
-                    <Settings className="w-5 h-5 mr-2" />
-                    Update Settings
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleAddToCart}
-                disabled={!selectedInstaller || inCart || isAddingToCart}
-                variant="outline"
-                className="py-5 text-base font-medium border-overlay/15 text-text-primary hover:bg-overlay/10"
-              >
-                {isAddingToCart ? (
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                ) : inCart ? (
-                  <Check className="w-5 h-5 mr-2" />
-                ) : (
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                )}
-                {inCart ? 'Added' : 'Redeploy'}
-              </Button>
+                  ) : (
+                    <RefreshCw className="w-5 h-5 mr-2" />
+                  )}
+                  {inCart ? 'Added' : 'Redeploy'}
+                </Button>
+              </div>
             </div>
           ) : (
             <Button
