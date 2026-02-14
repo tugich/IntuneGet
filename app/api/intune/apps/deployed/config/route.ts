@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     // Get the most recent successfully deployed job's package_config
     const { data, error } = await supabase
       .from('packaging_jobs')
-      .select('package_config, completed_at')
+      .select('package_config, completed_at, intune_app_id')
       .eq('user_id', user.userId)
       .eq('tenant_id', tenantResolution.tenantId)
       .eq('winget_id', wingetId)
@@ -53,12 +53,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         config: null,
         deployedAt: null,
+        intuneAppId: null,
       });
     }
 
     return NextResponse.json({
       config: data.package_config,
       deployedAt: data.completed_at,
+      intuneAppId: data.intune_app_id || null,
     });
   } catch {
     return NextResponse.json(

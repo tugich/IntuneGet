@@ -41,6 +41,7 @@ import type {
 import type { CartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
 import { useCartStore } from '@/stores/cart-store';
+import { useUpdateAppSettings } from '@/hooks/use-update-app-settings';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 
 interface PackageConfigProps {
@@ -49,6 +50,7 @@ interface PackageConfigProps {
   onClose: () => void;
   isDeployed?: boolean;
   deployedConfig?: CartItem | null;
+  intuneAppId?: string | null;
 }
 
 type ConfigSection =
@@ -64,7 +66,7 @@ type ConfigSection =
   | 'branding'
   | 'advanced';
 
-export function PackageConfig({ package: pkg, installers, onClose, isDeployed = false, deployedConfig }: PackageConfigProps) {
+export function PackageConfig({ package: pkg, installers, onClose, isDeployed = false, deployedConfig, intuneAppId }: PackageConfigProps) {
   // Selection state - pre-fill from deployed config when available
   const [selectedVersion, setSelectedVersion] = useState(
     deployedConfig?.version || pkg.version
@@ -105,6 +107,12 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   // Cart store
   const addItem = useCartStore((state) => state.addItem);
   const isInCart = useCartStore((state) => state.isInCart);
+
+  // Settings update mutation (for deployed apps with known Intune app ID)
+  const { updateSettings, isUpdating } = useUpdateAppSettings();
+  const [settingsSuccess, setSettingsSuccess] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const canUpdateSettings = isDeployed && !!intuneAppId;
 
   // Get selected installer
   const selectedInstaller = installers.find((i) => i.architecture === selectedArch) || installers[0];
@@ -165,6 +173,24 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
       onClose();
     } finally {
       setIsAddingToCart(false);
+    }
+  };
+
+  const handleUpdateSettings = async () => {
+    if (!intuneAppId) return;
+    setSettingsError(null);
+    setSettingsSuccess(false);
+    try {
+      await updateSettings({
+        intuneAppId,
+        wingetId: pkg.id,
+        assignments,
+        categories,
+      });
+      setSettingsSuccess(true);
+      setTimeout(() => onClose(), 1200);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Failed to update settings');
     }
   };
 
@@ -242,7 +268,9 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 <div className="text-sm">
                   <p className="text-accent-cyan font-medium">Editing deployed configuration</p>
                   <p className="text-accent-cyan/70 mt-1">
-                    Changes will be applied as a new deployment.
+                    {canUpdateSettings
+                      ? 'Update assignments and categories instantly with Update Settings, or redeploy to change the package configuration.'
+                      : 'Changes will be applied as a new deployment.'}
                     {deployedConfig ? ' Previous settings have been pre-filled.' : ' Using default settings (no previous config found).'}
                   </p>
                 </div>
@@ -1264,41 +1292,95 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
         </div>
 
         {/* Footer */}
-        <div className="flex-shrink-0 border-t border-overlay/10 p-4 bg-bg-surface/95">
-          <Button
-            onClick={handleAddToCart}
-            disabled={!selectedInstaller || inCart || isAddingToCart}
-            className={cn(
-              'w-full py-5 text-base font-medium',
-              inCart
-                ? 'bg-green-600/10 text-green-400 hover:bg-green-600/10 cursor-default'
-                : isDeployed
-                ? 'bg-accent-cyan hover:bg-accent-cyan-dim text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            )}
-          >
-            {isAddingToCart ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Adding...
-              </>
-            ) : inCart ? (
-              <>
-                <Check className="w-5 h-5 mr-2" />
-                Added
-              </>
-            ) : isDeployed ? (
-              <>
-                <RefreshCw className="w-5 h-5 mr-2" />
-                Add to Selection (Redeploy)
-              </>
-            ) : (
-              <>
-                <Plus className="w-5 h-5 mr-2" />
-                Add to Selection
-              </>
-            )}
-          </Button>
+        <div className="flex-shrink-0 border-t border-overlay/10 p-4 bg-bg-surface/95 space-y-2">
+          {settingsSuccess && (
+            <div className="flex items-center gap-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-sm text-green-400">
+              <Check className="w-4 h-4" />
+              Settings updated successfully
+            </div>
+          )}
+          {settingsError && (
+            <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-400">
+              <X className="w-4 h-4" />
+              {settingsError}
+            </div>
+          )}
+          {canUpdateSettings ? (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleUpdateSettings}
+                disabled={isUpdating || settingsSuccess}
+                className="flex-1 py-5 text-base font-medium bg-accent-cyan hover:bg-accent-cyan-dim text-white"
+              >
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : settingsSuccess ? (
+                  <>
+                    <Check className="w-5 h-5 mr-2" />
+                    Updated
+                  </>
+                ) : (
+                  <>
+                    <Settings className="w-5 h-5 mr-2" />
+                    Update Settings
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleAddToCart}
+                disabled={!selectedInstaller || inCart || isAddingToCart}
+                variant="outline"
+                className="py-5 text-base font-medium border-overlay/15 text-text-primary hover:bg-overlay/10"
+              >
+                {isAddingToCart ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : inCart ? (
+                  <Check className="w-5 h-5 mr-2" />
+                ) : (
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                )}
+                {inCart ? 'Added' : 'Redeploy'}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={handleAddToCart}
+              disabled={!selectedInstaller || inCart || isAddingToCart}
+              className={cn(
+                'w-full py-5 text-base font-medium',
+                inCart
+                  ? 'bg-green-600/10 text-green-400 hover:bg-green-600/10 cursor-default'
+                  : isDeployed
+                  ? 'bg-accent-cyan hover:bg-accent-cyan-dim text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              )}
+            >
+              {isAddingToCart ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : inCart ? (
+                <>
+                  <Check className="w-5 h-5 mr-2" />
+                  Added
+                </>
+              ) : isDeployed ? (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2" />
+                  Add to Selection (Redeploy)
+                </>
+              ) : (
+                <>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add to Selection
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

@@ -632,6 +632,101 @@ export function convertToGraphAssignments(
 }
 
 /**
+ * Get categories currently assigned to an app
+ */
+export async function getAppCategories(
+  accessToken: string,
+  appId: string
+): Promise<IntuneMobileAppCategory[]> {
+  const response = await fetch(
+    `${GRAPH_API_BASE}/deviceAppManagement/mobileApps/${appId}/categories`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to get app categories');
+  }
+
+  const data: GraphApiResponse<IntuneMobileAppCategory> = await response.json();
+  return data.value || [];
+}
+
+/**
+ * Add a category to an app via $ref
+ */
+export async function addAppCategory(
+  accessToken: string,
+  appId: string,
+  categoryId: string
+): Promise<void> {
+  const response = await fetch(
+    `${GRAPH_API_BASE}/deviceAppManagement/mobileApps/${appId}/categories/$ref`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        '@odata.id': `${GRAPH_API_BASE}/deviceAppManagement/mobileAppCategories/${categoryId}`,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to add category ${categoryId} to app`);
+  }
+}
+
+/**
+ * Remove a category from an app
+ */
+export async function removeAppCategory(
+  accessToken: string,
+  appId: string,
+  categoryId: string
+): Promise<void> {
+  const response = await fetch(
+    `${GRAPH_API_BASE}/deviceAppManagement/mobileApps/${appId}/categories/${categoryId}/$ref`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+
+  if (!response.ok && response.status !== 404) {
+    throw new Error(`Failed to remove category ${categoryId} from app`);
+  }
+}
+
+/**
+ * Sync app categories: diff current vs desired, add missing, remove stale
+ */
+export async function syncAppCategories(
+  accessToken: string,
+  appId: string,
+  desiredCategories: { id: string }[]
+): Promise<void> {
+  const currentCategories = await getAppCategories(accessToken, appId);
+  const currentIds = new Set(currentCategories.map((c) => c.id));
+  const desiredIds = new Set(desiredCategories.map((c) => c.id));
+
+  const toAdd = desiredCategories.filter((c) => !currentIds.has(c.id));
+  const toRemove = currentCategories.filter((c) => !desiredIds.has(c.id));
+
+  await Promise.all([
+    ...toAdd.map((c) => addAppCategory(accessToken, appId, c.id)),
+    ...toRemove.map((c) => removeAppCategory(accessToken, appId, c.id)),
+  ]);
+}
+
+/**
  * Get Intune portal URL for an app
  */
 export function getIntunePortalUrl(appId: string): string {

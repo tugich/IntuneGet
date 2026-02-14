@@ -98,7 +98,7 @@ export default function AppCatalogPage() {
   const { deployedSet } = useDeployedPackages();
 
   const isSelectedDeployed = selectedPackage ? deployedSet.has(selectedPackage.id) : false;
-  const { deployedConfig, isLoading: isLoadingDeployedConfig } = useDeployedConfig(
+  const { deployedConfig, intuneAppId, isLoading: isLoadingDeployedConfig } = useDeployedConfig(
     isSelectedDeployed ? selectedPackage?.id ?? null : null
   );
 
@@ -692,6 +692,7 @@ export default function AppCatalogPage() {
           onClose={handleCloseConfig}
           isDeployed={isSelectedDeployed}
           deployedConfig={deployedConfig}
+          intuneAppId={intuneAppId}
         />
       )}
 

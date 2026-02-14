@@ -8,6 +8,7 @@ import type { CartItem } from '@/types/upload';
 interface DeployedConfigResponse {
   config: CartItem | null;
   deployedAt: string | null;
+  intuneAppId: string | null;
 }
 
 export function useDeployedConfig(wingetId: string | null) {
@@ -49,6 +50,7 @@ export function useDeployedConfig(wingetId: string | null) {
   return {
     deployedConfig: query.data?.config ?? null,
     deployedAt: query.data?.deployedAt ?? null,
+    intuneAppId: query.data?.intuneAppId ?? null,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,
