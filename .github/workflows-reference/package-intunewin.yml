@@ -681,7 +681,7 @@ jobs:
               $content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::new("application/octet-stream")
 
               $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put, $blockUri)
-              $request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob")
+              [void]$request.Headers.TryAddWithoutValidation("x-ms-blob-type", "BlockBlob")
               $request.Content = $content
 
               $requests += $request
