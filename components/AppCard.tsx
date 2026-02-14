@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, memo, useCallback } from 'react';
-import { ExternalLink, Plus, Check, Loader2 } from 'lucide-react';
+import { ExternalLink, Plus, Check, Loader2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
@@ -51,6 +51,11 @@ function AppCardComponent({ package: pkg, onSelect, isDeployed = false }: AppCar
       [pkg.id, pkg.version]
     )
   );
+
+  const handleEditConfig = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(pkg);
+  };
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -191,35 +196,41 @@ function AppCardComponent({ package: pkg, onSelect, isDeployed = false }: AppCar
           )}
         </div>
 
-        <Button
-          size="sm"
-          onClick={handleQuickAdd}
-          disabled={isLoading || isDeployed || inCart}
-          className={
-            isDeployed || inCart
-              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
-              : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
-          }
-        >
-          {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : isDeployed ? (
-            <>
-              <Check className="w-4 h-4 mr-1.5" />
-              Already Deployed
-            </>
-          ) : inCart ? (
-            <>
-              <Check className="w-4 h-4 mr-1.5" />
-              Selected
-            </>
-          ) : (
-            <>
-              <Plus className="w-4 h-4 mr-1.5" />
-              Select
-            </>
-          )}
-        </Button>
+        {isDeployed ? (
+          <Button
+            size="sm"
+            onClick={handleEditConfig}
+            className="bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20 border border-accent-cyan/25"
+          >
+            <Settings className="w-4 h-4 mr-1.5" />
+            Edit Config
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleQuickAdd}
+            disabled={isLoading || inCart}
+            className={
+              inCart
+                ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
+                : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
+            }
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : inCart ? (
+              <>
+                <Check className="w-4 h-4 mr-1.5" />
+                Selected
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-1.5" />
+                Select
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

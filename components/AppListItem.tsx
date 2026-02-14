@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, memo, useCallback } from 'react';
-import { Plus, Check, Loader2 } from 'lucide-react';
+import { Plus, Check, Loader2, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
@@ -54,6 +54,11 @@ function AppListItemComponent({ package: pkg, onSelect, isDeployed = false }: Ap
       [pkg.id, pkg.version]
     )
   );
+
+  const handleEditConfig = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(pkg);
+  };
 
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -155,28 +160,36 @@ function AppListItemComponent({ package: pkg, onSelect, isDeployed = false }: Ap
             </div>
           )}
 
-          <Button
-            size="sm"
-            onClick={handleQuickAdd}
-            disabled={isLoading || isDeployed || inCart}
-            title={isDeployed ? 'Already Deployed' : undefined}
-            aria-label={isDeployed ? 'Already Deployed' : undefined}
-            className={`h-7 px-2 flex-shrink-0 ${
-              isDeployed || inCart
-                ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
-                : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
-            }`}
-          >
-            {isLoading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : isDeployed ? (
-              <Check className="w-3.5 h-3.5" />
-            ) : inCart ? (
-              <Check className="w-3.5 h-3.5" />
-            ) : (
-              <Plus className="w-3.5 h-3.5" />
-            )}
-          </Button>
+          {isDeployed ? (
+            <Button
+              size="sm"
+              onClick={handleEditConfig}
+              title="Edit Config"
+              aria-label="Edit Config"
+              className="h-7 px-2 flex-shrink-0 bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20 border border-accent-cyan/25"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleQuickAdd}
+              disabled={isLoading || inCart}
+              className={`h-7 px-2 flex-shrink-0 ${
+                inCart
+                  ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
+                  : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
+              }`}
+            >
+              {isLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : inCart ? (
+                <Check className="w-3.5 h-3.5" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </div>

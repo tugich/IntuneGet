@@ -12,6 +12,7 @@ import {
   Loader2,
   Shield,
   Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
@@ -241,6 +242,12 @@ export function UploadCart() {
                     <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs uppercase border border-overlay/5">
                       {item.installerType}
                     </span>
+                    {item.forceCreate && (
+                      <span className="px-2 py-1 bg-accent-cyan/10 rounded text-accent-cyan text-xs font-medium border border-accent-cyan/20 inline-flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3" />
+                        Redeploy
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

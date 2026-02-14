@@ -33,6 +33,7 @@ import {
   useInfinitePackages,
 } from '@/hooks/use-packages';
 import { useDeployedPackages } from '@/hooks/use-deployed-packages';
+import { useDeployedConfig } from '@/hooks/use-deployed-config';
 import type { NormalizedPackage } from '@/types/winget';
 import { getCategoryLabel } from '@/lib/category-utils';
 
@@ -95,6 +96,11 @@ export default function AppCatalogPage() {
     fetchNextPage,
   } = useInfinitePackages(20, selectedCategory, sortBy);
   const { deployedSet } = useDeployedPackages();
+
+  const isSelectedDeployed = selectedPackage ? deployedSet.has(selectedPackage.id) : false;
+  const { deployedConfig, isLoading: isLoadingDeployedConfig } = useDeployedConfig(
+    isSelectedDeployed ? selectedPackage?.id ?? null : null
+  );
 
   const { data: manifestData, isLoading: isLoadingInstallers } = usePackageManifest(
     selectedPackage?.id || '',
@@ -679,15 +685,17 @@ export default function AppCatalogPage() {
         </>
       )}
 
-      {selectedPackage && !isLoadingInstallers && selectedInstallers.length > 0 && (
+      {selectedPackage && !isLoadingInstallers && selectedInstallers.length > 0 && !(isSelectedDeployed && isLoadingDeployedConfig) && (
         <PackageConfig
           package={selectedPackage}
           installers={selectedInstallers}
           onClose={handleCloseConfig}
+          isDeployed={isSelectedDeployed}
+          deployedConfig={deployedConfig}
         />
       )}
 
-      {selectedPackage && isLoadingInstallers && (
+      {selectedPackage && (isLoadingInstallers || (isSelectedDeployed && isLoadingDeployedConfig)) && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} />
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-overlay/5 shadow-2xl flex items-center justify-center animate-slide-in-right">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect, memo, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight, Loader2, Plus, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight, Loader2, Plus, Check, Settings } from 'lucide-react';
 import { AppIcon } from '@/components/AppIcon';
 import { Button } from '@/components/ui/button';
 import type { NormalizedPackage } from '@/types/winget';
@@ -189,6 +189,11 @@ function CollectionCardComponent({ package: pkg, onSelect, isDeployed = false }:
     )
   );
 
+  const handleEditConfig = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(pkg);
+  };
+
   const handleQuickAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isDeployed || inCart) return;
@@ -259,29 +264,40 @@ function CollectionCardComponent({ package: pkg, onSelect, isDeployed = false }:
 
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-overlay/10">
         <span className="text-xs text-text-muted">v{pkg.version}</span>
-        <Button
-          size="sm"
-          onClick={handleQuickAdd}
-          disabled={isLoading || isDeployed || inCart}
-          title={isDeployed ? 'Already Deployed' : undefined}
-          aria-label={isDeployed ? 'Already Deployed' : undefined}
-          className={cn(
-            'h-7 px-2',
-            isDeployed || inCart
-              ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
-              : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
-          )}
-        >
-          {isLoading ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          ) : isDeployed ? (
-            <Check className="w-3.5 h-3.5" />
-          ) : inCart ? (
-            <Check className="w-3.5 h-3.5" />
-          ) : (
-            <Plus className="w-3.5 h-3.5" />
-          )}
-        </Button>
+        {isDeployed ? (
+          <Button
+            size="sm"
+            onClick={handleEditConfig}
+            title="Edit Config"
+            aria-label="Edit Config"
+            className={cn(
+              'h-7 px-2',
+              'bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20 border border-accent-cyan/25'
+            )}
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleQuickAdd}
+            disabled={isLoading || inCart}
+            className={cn(
+              'h-7 px-2',
+              inCart
+                ? 'bg-status-success/10 text-status-success hover:bg-status-success/10 cursor-default border border-status-success/20'
+                : 'bg-accent-cyan hover:bg-accent-cyan-dim text-white border-0'
+            )}
+          >
+            {isLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : inCart ? (
+              <Check className="w-3.5 h-3.5" />
+            ) : (
+              <Plus className="w-3.5 h-3.5" />
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

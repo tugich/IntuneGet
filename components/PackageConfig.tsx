@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   X,
   Settings,
@@ -38,7 +38,7 @@ import type {
   CustomPrompt,
   BalloonTipConfig,
 } from '@/types/psadt';
-import type { IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
+import type { CartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
 import { useCartStore } from '@/stores/cart-store';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
@@ -47,6 +47,8 @@ interface PackageConfigProps {
   package: NormalizedPackage;
   installers: NormalizedInstaller[];
   onClose: () => void;
+  isDeployed?: boolean;
+  deployedConfig?: CartItem | null;
 }
 
 type ConfigSection =
@@ -62,22 +64,39 @@ type ConfigSection =
   | 'branding'
   | 'advanced';
 
-export function PackageConfig({ package: pkg, installers, onClose }: PackageConfigProps) {
-  // Selection state
-  const [selectedVersion, setSelectedVersion] = useState(pkg.version);
-  const [selectedArch, setSelectedArch] = useState<WingetArchitecture>('x64');
-  const [selectedScope, setSelectedScope] = useState<WingetScope>('machine');
+export function PackageConfig({ package: pkg, installers, onClose, isDeployed = false, deployedConfig }: PackageConfigProps) {
+  // Selection state - pre-fill from deployed config when available
+  const [selectedVersion, setSelectedVersion] = useState(
+    deployedConfig?.version || pkg.version
+  );
+  const [selectedArch, setSelectedArch] = useState<WingetArchitecture>(() => {
+    const preferred = deployedConfig?.architecture || 'x64';
+    const available = new Set(installers.map((i) => i.architecture));
+    return available.has(preferred) ? preferred : (installers[0]?.architecture || 'x64');
+  });
+  const [selectedScope, setSelectedScope] = useState<WingetScope>(
+    deployedConfig?.installScope || 'machine'
+  );
   const [showVersions, setShowVersions] = useState(false);
 
-  // PSADT config state
-  const [config, setConfig] = useState<PSADTConfig>(() => ({
-    ...DEFAULT_PSADT_CONFIG,
-    processesToClose: getDefaultProcessesToClose(pkg.name, installers[0]?.type || 'exe'),
-  }));
+  // PSADT config state - pre-fill from deployed config when available
+  const [config, setConfig] = useState<PSADTConfig>(() => {
+    if (deployedConfig?.psadtConfig) {
+      return deployedConfig.psadtConfig;
+    }
+    return {
+      ...DEFAULT_PSADT_CONFIG,
+      processesToClose: getDefaultProcessesToClose(pkg.name, installers[0]?.type || 'exe'),
+    };
+  });
 
-  // Assignment configuration state
-  const [assignments, setAssignments] = useState<PackageAssignment[]>([]);
-  const [categories, setCategories] = useState<IntuneAppCategorySelection[]>([]);
+  // Assignment configuration state - pre-fill from deployed config
+  const [assignments, setAssignments] = useState<PackageAssignment[]>(
+    deployedConfig?.assignments || []
+  );
+  const [categories, setCategories] = useState<IntuneAppCategorySelection[]>(
+    deployedConfig?.categories || []
+  );
 
   // UI state
   const [expandedSection, setExpandedSection] = useState<ConfigSection | null>('behavior');
@@ -95,7 +114,13 @@ export function PackageConfig({ package: pkg, installers, onClose }: PackageConf
     : false;
 
   // Auto-select scope based on manifest's Scope field when installer changes
+  // Skip the initial mount when pre-filled from deployed config (user's previous choice takes priority)
+  const skipInitialScopeSync = useRef(!!deployedConfig);
   useEffect(() => {
+    if (skipInitialScopeSync.current) {
+      skipInitialScopeSync.current = false;
+      return;
+    }
     if (selectedInstaller?.scope) {
       setSelectedScope(selectedInstaller.scope as WingetScope);
     }
@@ -135,6 +160,7 @@ export function PackageConfig({ package: pkg, installers, onClose }: PackageConf
         psadtConfig: config,
         assignments: assignments.length > 0 ? assignments : undefined,
         categories: categories.length > 0 ? categories : undefined,
+        ...(isDeployed ? { forceCreate: true } : {}),
       });
       onClose();
     } finally {
@@ -209,6 +235,20 @@ export function PackageConfig({ package: pkg, installers, onClose }: PackageConf
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 space-y-6">
+            {/* Edit mode banner for deployed apps */}
+            {isDeployed && (
+              <div className="flex items-start gap-3 p-3 bg-accent-cyan/10 border border-accent-cyan/20 rounded-lg">
+                <RefreshCw className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="text-accent-cyan font-medium">Editing deployed configuration</p>
+                  <p className="text-accent-cyan/70 mt-1">
+                    Changes will be applied as a new deployment.
+                    {deployedConfig ? ' Previous settings have been pre-filled.' : ' Using default settings (no previous config found).'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Version & Architecture Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Version */}
@@ -1232,6 +1272,8 @@ export function PackageConfig({ package: pkg, installers, onClose }: PackageConf
               'w-full py-5 text-base font-medium',
               inCart
                 ? 'bg-green-600/10 text-green-400 hover:bg-green-600/10 cursor-default'
+                : isDeployed
+                ? 'bg-accent-cyan hover:bg-accent-cyan-dim text-white'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             )}
           >
@@ -1244,6 +1286,11 @@ export function PackageConfig({ package: pkg, installers, onClose }: PackageConf
               <>
                 <Check className="w-5 h-5 mr-2" />
                 Added
+              </>
+            ) : isDeployed ? (
+              <>
+                <RefreshCw className="w-5 h-5 mr-2" />
+                Add to Selection (Redeploy)
               </>
             ) : (
               <>

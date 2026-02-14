@@ -273,7 +273,7 @@ export async function POST(request: NextRequest) {
           assignments: item.assignments ? JSON.stringify(item.assignments) : undefined,
           categories: item.categories ? JSON.stringify(item.categories) : undefined,
           installScope: item.installScope,
-          forceCreate,
+          forceCreate: item.forceCreate || forceCreate,
         };
 
         // Trigger the GitHub Actions workflow and capture run ID
