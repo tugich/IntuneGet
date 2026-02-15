@@ -1,6 +1,7 @@
 'use client';
 
-import { Package, Calendar, User, Terminal, AlertCircle, Loader2, RefreshCw, ExternalLink, Users } from 'lucide-react';
+import { Package, Calendar, User, AlertCircle, Loader2, Search, RefreshCw, ExternalLink, Users } from 'lucide-react';
+import { CopyableCommand } from './CopyableCommand';
 import { Button } from '@/components/ui/button';
 import { SlidePanel } from '@/components/dashboard/animations/SlidePanel';
 import { useAppDetails } from '@/hooks/use-inventory';
@@ -83,8 +84,8 @@ export function InventoryAppDetails({ appId, onClose, onUpdate }: InventoryAppDe
       onClick={() => onUpdate(app.displayName)}
       className="w-full bg-accent-cyan hover:bg-accent-cyan-bright text-white"
     >
-      <RefreshCw className="w-4 h-4 mr-2" />
-      Check for Update
+      <Search className="w-4 h-4 mr-2" />
+      Find in App Catalog
     </Button>
   ) : undefined;
 
@@ -136,30 +137,10 @@ export function InventoryAppDetails({ appId, onClose, onUpdate }: InventoryAppDe
           {/* Commands */}
           <div className="space-y-4">
             {app.installCommandLine && (
-              <div>
-                <h4 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Terminal className="w-3.5 h-3.5" />
-                  Install Command
-                </h4>
-                <div className="bg-bg-deepest rounded-lg p-3 border border-overlay/5">
-                  <code className="block text-sm font-mono text-text-primary overflow-x-auto">
-                    {app.installCommandLine}
-                  </code>
-                </div>
-              </div>
+              <CopyableCommand command={app.installCommandLine} label="Install Command" />
             )}
             {app.uninstallCommandLine && (
-              <div>
-                <h4 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2 flex items-center gap-2">
-                  <Terminal className="w-3.5 h-3.5" />
-                  Uninstall Command
-                </h4>
-                <div className="bg-bg-deepest rounded-lg p-3 border border-overlay/5">
-                  <code className="block text-sm font-mono text-text-primary overflow-x-auto">
-                    {app.uninstallCommandLine}
-                  </code>
-                </div>
-              </div>
+              <CopyableCommand command={app.uninstallCommandLine} label="Uninstall Command" />
             )}
           </div>
 

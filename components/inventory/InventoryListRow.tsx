@@ -35,9 +35,20 @@ export const InventoryListRow = memo(function InventoryListRow({
     return `${mb.toFixed(1)} MB`;
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <motion.div
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${app.displayName}`}
       whileHover={prefersReducedMotion ? {} : { scale: 1.005, y: -1 }}
       whileTap={prefersReducedMotion ? {} : { scale: 0.995 }}
       transition={{ duration: 0.15 }}
@@ -71,10 +82,12 @@ export const InventoryListRow = memo(function InventoryListRow({
       </div>
 
       {/* Version */}
-      {app.displayVersion && (
+      {app.displayVersion ? (
         <span className="text-xs bg-overlay/5 text-text-muted px-1.5 py-0.5 rounded flex-shrink-0">
           v{app.displayVersion}
         </span>
+      ) : (
+        <span className="text-xs text-text-muted flex-shrink-0">--</span>
       )}
 
       {/* Size */}

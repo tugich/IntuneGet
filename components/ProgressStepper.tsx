@@ -55,6 +55,7 @@ export function ProgressStepper({
                 <motion.div
                   initial={prefersReducedMotion ? {} : { scale: 0.8 }}
                   animate={{ scale: 1 }}
+                  title={stage.description}
                   className={cn(
                     'w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300',
                     isFailedStage && 'bg-status-error/20 border-2 border-status-error',
@@ -63,7 +64,8 @@ export function ProgressStepper({
                     !isJobFailed && !isJobCompleted && isCurrent && 'bg-accent-cyan/20 border-2 border-accent-cyan',
                     isJobFailed && isCompleted && !isCurrent && 'bg-status-success/20 border-2 border-status-success',
                     isPending && !isJobCompleted && !isJobFailed && 'bg-bg-elevated border-2 border-overlay/10',
-                    isPending && isJobFailed && 'bg-bg-elevated border-2 border-overlay/10'
+                    isPending && isJobFailed && 'bg-bg-elevated border-2 border-overlay/10',
+                    isCurrent && !isJobFailed && !isJobCompleted && !prefersReducedMotion && 'animate-pulse'
                   )}
                 >
                   {isFailedStage ? (
@@ -71,7 +73,7 @@ export function ProgressStepper({
                   ) : isJobCompleted || isCompleted ? (
                     <Check className="w-4 h-4 text-status-success" />
                   ) : isCurrent ? (
-                    <Loader2 className="w-4 h-4 text-accent-cyan animate-spin" />
+                    <Loader2 className="w-4 h-4 text-accent-cyan animate-spin" aria-label="Processing" />
                   ) : (
                     <span className="w-2 h-2 rounded-full bg-text-muted" />
                   )}
@@ -124,7 +126,7 @@ export function ProgressStepper({
           isJobFailed ? 'text-status-error' : 'text-text-secondary'
         )}>
           {isJobFailed
-            ? statusMessage || (currentStage ? `Failed at: ${currentStage.label}` : 'Failed')
+            ? statusMessage || 'Failed'
             : statusMessage || currentStage?.description || 'Processing...'}
         </span>
         <div className="flex items-center gap-2 text-text-muted">

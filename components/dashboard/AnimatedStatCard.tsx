@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,6 +46,10 @@ interface AnimatedStatCardProps {
   suffix?: string;
   /** Number of decimal places */
   decimals?: number;
+  /** Click handler for using the card as a filter */
+  onClick?: () => void;
+  /** Whether this card's filter is currently active */
+  isActive?: boolean;
 }
 
 const colorStyles = {
@@ -109,7 +113,9 @@ export function AnimatedStatCard({
   iconPosition = 'right',
   prefix,
   suffix,
-  decimals = 0
+  decimals = 0,
+  onClick,
+  isActive = false
 }: AnimatedStatCardProps) {
   const prefersReducedMotion = useReducedMotion();
   const styles = colorStyles[color];
@@ -193,11 +199,18 @@ export function AnimatedStatCard({
       variants={cardVariants}
       initial="hidden"
       animate="visible"
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
       className={cn(
         'glass-light rounded-xl p-6 border transition-all duration-300 contain-layout',
         styles.border,
         styles.glow,
         `bg-gradient-to-br ${styles.gradient}`,
+        onClick && 'cursor-pointer',
+        isActive && 'ring-2 ring-accent-cyan ring-offset-1 ring-offset-bg-base',
+        onClick && 'focus-visible:ring-2 focus-visible:ring-accent-cyan focus-visible:outline-none',
         className
       )}
     >

@@ -9,6 +9,9 @@ export default function InventoryLoading() {
         <div className="h-4 w-80 bg-overlay/5 rounded animate-pulse" />
       </div>
 
+      {/* Stats skeleton */}
+      <SkeletonGrid count={4} columns={4} variant="stat" />
+
       {/* Filters skeleton */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex items-center gap-3 w-full sm:w-auto">

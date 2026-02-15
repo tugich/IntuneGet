@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Upload,
@@ -75,8 +75,26 @@ interface PackagingJob {
   };
 }
 
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 10) return 'just now';
+  if (diffSec < 60) return `${diffSec}s ago`;
+  if (diffMin < 60) return `${diffMin} min ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
 export default function UploadsPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { user, getAccessToken } = useMicrosoftAuth();
   const prefersReducedMotion = useReducedMotion();
 
@@ -181,7 +199,7 @@ export default function UploadsPage() {
       await fetchJobs();
     } catch (err) {
       console.error('Failed to cancel job:', err);
-      setError(err instanceof Error ? err.message : 'Failed to cancel job');
+      setError(err instanceof Error ? err.message : `Failed to ${dismiss ? 'dismiss' : 'cancel'} job`);
     } finally {
       setCancellingJobId(null);
     }
@@ -306,6 +324,7 @@ export default function UploadsPage() {
         description="Monitor your package deployments to Intune"
         gradient
         gradientColors="mixed"
+        badge={stats.active > 0 ? { text: 'Live', variant: 'success' as const } : undefined}
         actions={
           <div className="flex items-center gap-2">
             {(stats.completed + stats.failed) > 0 && (
@@ -383,6 +402,8 @@ export default function UploadsPage() {
           icon={Package}
           color="cyan"
           delay={0}
+          onClick={() => setFilter('all')}
+          isActive={filter === 'all'}
         />
         <AnimatedStatCard
           title="Active"
@@ -390,6 +411,8 @@ export default function UploadsPage() {
           icon={Clock}
           color="violet"
           delay={0.1}
+          onClick={() => setFilter('active')}
+          isActive={filter === 'active'}
         />
         <AnimatedStatCard
           title="Completed"
@@ -397,6 +420,8 @@ export default function UploadsPage() {
           icon={CheckCircle2}
           color="success"
           delay={0.2}
+          onClick={() => setFilter('completed')}
+          isActive={filter === 'completed'}
         />
         <AnimatedStatCard
           title="Failed"
@@ -404,6 +429,8 @@ export default function UploadsPage() {
           icon={XCircle}
           color="error"
           delay={0.3}
+          onClick={() => setFilter('failed')}
+          isActive={filter === 'failed'}
         />
       </StatCardGrid>
 
@@ -413,13 +440,18 @@ export default function UploadsPage() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
         className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="Filter uploads by status"
       >
         {filterButtons.map((f) => (
           <button
             key={f}
+            role="tab"
+            aria-selected={filter === f}
+            tabIndex={filter === f ? 0 : -1}
             onClick={() => setFilter(f)}
             className={cn(
-              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-accent-cyan focus-visible:outline-none',
               filter === f
                 ? 'bg-gradient-to-r from-accent-cyan to-accent-violet text-bg-elevated'
                 : 'bg-overlay/5 text-text-secondary hover:text-text-primary hover:bg-overlay/10 border border-overlay/5'
@@ -446,7 +478,7 @@ export default function UploadsPage() {
             filter === 'all'
               ? {
                   label: 'Browse App Catalog',
-                  onClick: () => (window.location.href = '/dashboard/apps'),
+                  onClick: () => router.push('/dashboard/apps'),
                 }
               : undefined
           }
@@ -511,48 +543,56 @@ function UploadJobCard({
       label: 'Queued',
       color: 'text-text-secondary',
       bg: 'bg-overlay/5',
+      border: 'border-l-overlay/20',
     },
     packaging: {
       icon: Package,
       label: 'Packaging',
       color: 'text-accent-cyan',
       bg: 'bg-accent-cyan/10',
+      border: 'border-l-accent-cyan',
     },
     uploading: {
       icon: Upload,
       label: 'Uploading',
       color: 'text-accent-violet',
       bg: 'bg-accent-violet/10',
+      border: 'border-l-accent-violet',
     },
     completed: {
       icon: CheckCircle2,
       label: 'Packaged',
       color: 'text-status-success',
       bg: 'bg-status-success/10',
+      border: 'border-l-status-success',
     },
     deployed: {
       icon: CheckCircle2,
       label: 'Deployed',
       color: 'text-status-success',
       bg: 'bg-status-success/10',
+      border: 'border-l-status-success',
     },
     failed: {
       icon: XCircle,
       label: 'Failed',
       color: 'text-status-error',
       bg: 'bg-status-error/10',
+      border: 'border-l-status-error',
     },
     cancelled: {
       icon: Ban,
       label: 'Cancelled',
       color: 'text-status-warning',
       bg: 'bg-status-warning/10',
+      border: 'border-l-status-warning',
     },
     duplicate_skipped: {
       icon: AlertCircle,
       label: 'Duplicate Found',
       color: 'text-status-warning',
       bg: 'bg-status-warning/10',
+      border: 'border-l-status-warning',
     },
   };
 
@@ -587,9 +627,10 @@ function UploadJobCard({
       layout
       variants={itemVariants}
       className={cn(
-        'glass-light border rounded-xl p-5 transition-all contain-layout',
+        'glass-light border border-l-[3px] rounded-xl p-5 transition-all contain-layout',
+        config.border,
         isHighlighted
-          ? 'border-accent-cyan/50 ring-1 ring-accent-cyan/20 shadow-glow-cyan'
+          ? 'border-accent-cyan/50 border-l-accent-cyan ring-1 ring-accent-cyan/20 shadow-glow-cyan'
           : 'border-overlay/5 hover:border-overlay/10'
       )}
     >
@@ -688,19 +729,26 @@ function UploadJobCard({
               )}
               <span
                 className={cn(
-                  'px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5',
+                  'px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5',
                   config.bg,
                   config.color
                 )}
               >
-                {isActive && job.status !== 'queued' && (
+                {isActive && job.status !== 'queued' ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
+                ) : job.status === 'queued' ? (
+                  <Clock className="w-3 h-3" />
+                ) : (
+                  <StatusIcon className="w-3 h-3" />
                 )}
                 {config.label}
               </span>
               {isStale && (
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-status-warning/10 text-status-warning">
-                  (stale)
+                <span
+                  className="px-2 py-1 rounded-full text-xs font-medium bg-status-warning/10 text-status-warning cursor-help"
+                  title="This job has been inactive for over 30 minutes. The pipeline may have stalled. Consider cancelling and retrying."
+                >
+                  Stale
                 </span>
               )}
             </div>
@@ -727,6 +775,22 @@ function UploadJobCard({
               errorCode={job.error_code}
               errorDetails={job.error_details}
             />
+          )}
+
+          {/* Retry button for failed jobs */}
+          {job.status === 'failed' && (
+            <div className="mt-3 flex items-center gap-3">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/10"
+                onClick={() => onForceRedeploy(job)}
+                disabled={isRedeploying}
+              >
+                {isRedeploying ? <Loader2 className="w-3 h-3 animate-spin mr-1.5" /> : <RefreshCw className="w-3 h-3 mr-1.5" />}
+                Retry Deployment
+              </Button>
+            </div>
           )}
 
           {/* Cancelled info */}
@@ -800,29 +864,6 @@ function UploadJobCard({
             );
           })()}
 
-          {/* Package ready - show upload to Intune option */}
-          {job.status === 'completed' && job.intunewin_url && !job.intune_app_id && (
-            <div className="mt-4 p-3 bg-status-success/10 border border-status-success/20 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-status-success flex-shrink-0 mt-0.5" />
-                  <p className="text-status-success text-sm">
-                    Package ready! Click to upload to your Intune tenant.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-status-success hover:bg-status-success/90 text-white"
-                  onClick={() => {
-                  }}
-                >
-                  <Play className="w-3 h-3 mr-1" />
-                  Upload to Intune
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Success - deployed to Intune */}
           {job.intune_app_url && job.status !== 'duplicate_skipped' && (
             <div className="mt-4">
@@ -841,9 +882,13 @@ function UploadJobCard({
 
           {/* Timestamps */}
           <div className="mt-4 flex items-center gap-4 text-xs text-text-muted">
-            <span>Created: {new Date(job.created_at).toLocaleString()}</span>
+            <span title={new Date(job.created_at).toLocaleString()}>
+              Created: {formatRelativeTime(job.created_at)}
+            </span>
             {job.completed_at && (
-              <span>Completed: {new Date(job.completed_at).toLocaleString()}</span>
+              <span title={new Date(job.completed_at).toLocaleString()}>
+                Completed: {formatRelativeTime(job.completed_at)}
+              </span>
             )}
           </div>
         </div>

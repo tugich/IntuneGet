@@ -35,9 +35,20 @@ export const InventoryAppCard = memo(function InventoryAppCard({
     return `${mb.toFixed(1)} MB`;
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
   return (
     <motion.div
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for ${app.displayName}`}
       whileHover={prefersReducedMotion ? {} : { scale: 1.015, y: -2 }}
       whileTap={prefersReducedMotion ? {} : { scale: 0.98 }}
       transition={{ duration: 0.2 }}
@@ -86,13 +97,13 @@ export const InventoryAppCard = memo(function InventoryAppCard({
             <span>{formatDate(app.createdDateTime)}</span>
             {app.size && (
               <>
-                <span className="text-black/20">&#183;</span>
+                <span className="text-text-muted/40">&#183;</span>
                 <span>{formatSize(app.size)}</span>
               </>
             )}
             {app.installExperience?.runAsAccount && (
               <>
-                <span className="text-black/20">&#183;</span>
+                <span className="text-text-muted/40">&#183;</span>
                 <span className="capitalize">{app.installExperience.runAsAccount}</span>
               </>
             )}

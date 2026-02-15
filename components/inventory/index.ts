@@ -2,4 +2,8 @@ export { InventoryAppCard } from './InventoryAppCard';
 export { InventoryAppDetails } from './InventoryAppDetails';
 export { InventoryFilters } from './InventoryFilters';
 export { InventoryListRow } from './InventoryListRow';
+export { InventoryPagination } from './InventoryPagination';
+export { InventoryListHeader } from './InventoryListHeader';
+export { PublisherFilter } from './PublisherFilter';
+export { CopyableCommand } from './CopyableCommand';
 export { UpdateBadge } from './UpdateBadge';

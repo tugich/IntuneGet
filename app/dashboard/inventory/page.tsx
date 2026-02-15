@@ -1,14 +1,22 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertCircle, RefreshCw, Package, Server, Building2, Clock, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useInventoryApps } from '@/hooks/use-inventory';
-import { InventoryAppCard, InventoryAppDetails, InventoryFilters, InventoryListRow } from '@/components/inventory';
+import {
+  InventoryAppCard,
+  InventoryAppDetails,
+  InventoryFilters,
+  InventoryListRow,
+  InventoryPagination,
+  InventoryListHeader,
+} from '@/components/inventory';
 import { PageHeader, AnimatedEmptyState, SkeletonGrid, AnimatedStatCard, StatCardGrid } from '@/components/dashboard';
 import { useUserSettings } from '@/components/providers/UserSettingsProvider';
+import { usePagination } from '@/hooks/use-pagination';
 
 type SortBy = 'name' | 'publisher' | 'created' | 'modified';
 type SortOrder = 'asc' | 'desc';
@@ -20,6 +28,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [selectedPublisher, setSelectedPublisher] = useState<string | null>(null);
   const { settings: userSettings, setViewMode: persistViewMode } = useUserSettings();
   const [viewMode, setViewModeLocal] = useState<'grid' | 'list'>(userSettings.viewMode);
   const setViewMode = useCallback((mode: 'grid' | 'list') => {
@@ -51,6 +60,14 @@ export default function InventoryPage() {
     };
   }, [apps]);
 
+  // Compute sorted unique publisher list for the filter dropdown
+  const publishersList = useMemo(() => {
+    const publishers = apps
+      .map((app) => app.publisher)
+      .filter((p): p is string => !!p);
+    return [...new Set(publishers)].sort((a, b) => a.localeCompare(b));
+  }, [apps]);
+
   // Filter and sort apps
   const filteredApps = useMemo(() => {
     let filtered = apps;
@@ -64,6 +81,11 @@ export default function InventoryPage() {
           app.publisher?.toLowerCase().includes(searchLower) ||
           app.description?.toLowerCase().includes(searchLower)
       );
+    }
+
+    // Filter by publisher
+    if (selectedPublisher) {
+      filtered = filtered.filter((app) => app.publisher === selectedPublisher);
     }
 
     // Sort
@@ -89,7 +111,26 @@ export default function InventoryPage() {
     });
 
     return filtered;
-  }, [apps, search, sortBy, sortOrder]);
+  }, [apps, search, sortBy, sortOrder, selectedPublisher]);
+
+  // Pagination
+  const {
+    pageItems,
+    page,
+    totalPages,
+    nextPage,
+    prevPage,
+    canGoNext,
+    canGoPrev,
+    startIndex,
+    endIndex,
+    setPage,
+  } = usePagination(filteredApps, { pageSize: 24 });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [search, sortBy, sortOrder, selectedPublisher, setPage]);
 
   const handleSortChange = (newSortBy: SortBy) => {
     if (newSortBy === sortBy) {
@@ -111,7 +152,7 @@ export default function InventoryPage() {
     visible: {
       opacity: 1,
       transition: prefersReducedMotion ? {} : {
-        staggerChildren: 0.05,
+        staggerChildren: 0.03,
         delayChildren: 0.1
       }
     }
@@ -136,6 +177,7 @@ export default function InventoryPage() {
           title="Inventory"
           description="Win32 applications deployed in your Intune tenant"
         />
+        <SkeletonGrid count={4} columns={4} variant="stat" />
         <SkeletonGrid count={6} columns={3} variant="content" />
       </div>
     );
@@ -236,46 +278,67 @@ export default function InventoryPage() {
           filteredCount={filteredApps.length}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          publishers={publishersList}
+          selectedPublisher={selectedPublisher}
+          onPublisherChange={setSelectedPublisher}
         />
       </motion.div>
 
       {/* Apps Grid / List */}
       {filteredApps.length > 0 ? (
-        viewMode === 'grid' ? (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-          >
-            {filteredApps.map((app) => (
-              <motion.div key={app.id} variants={itemVariants}>
-                <InventoryAppCard
-                  app={app}
-                  onClick={() => setSelectedAppId(app.id)}
-                  isSelected={selectedAppId === app.id}
-                />
+        <>
+          {viewMode === 'grid' ? (
+            <motion.div
+              key={page}
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            >
+              {pageItems.map((app) => (
+                <motion.div key={app.id} variants={itemVariants}>
+                  <InventoryAppCard
+                    app={app}
+                    onClick={() => setSelectedAppId(app.id)}
+                    isSelected={selectedAppId === app.id}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <>
+              <InventoryListHeader />
+              <motion.div
+                key={page}
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="space-y-2"
+              >
+                {pageItems.map((app) => (
+                  <motion.div key={app.id} variants={itemVariants}>
+                    <InventoryListRow
+                      app={app}
+                      onClick={() => setSelectedAppId(app.id)}
+                      isSelected={selectedAppId === app.id}
+                    />
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
-          </motion.div>
-        ) : (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="space-y-2"
-          >
-            {filteredApps.map((app) => (
-              <motion.div key={app.id} variants={itemVariants}>
-                <InventoryListRow
-                  app={app}
-                  onClick={() => setSelectedAppId(app.id)}
-                  isSelected={selectedAppId === app.id}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
-        )
+            </>
+          )}
+          <InventoryPagination
+            page={page}
+            totalPages={totalPages}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalItems={filteredApps.length}
+            canGoNext={canGoNext}
+            canGoPrev={canGoPrev}
+            onNextPage={nextPage}
+            onPrevPage={prevPage}
+          />
+        </>
       ) : apps.length > 0 ? (
         <AnimatedEmptyState
           icon={Package}
@@ -285,7 +348,10 @@ export default function InventoryPage() {
           showOrbs={false}
           action={{
             label: 'Clear Search',
-            onClick: () => setSearch(''),
+            onClick: () => {
+              setSearch('');
+              setSelectedPublisher(null);
+            },
             variant: 'secondary'
           }}
         />

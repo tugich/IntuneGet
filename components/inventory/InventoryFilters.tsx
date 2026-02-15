@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search, SortAsc, SortDesc, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
+import { PublisherFilter } from './PublisherFilter';
 import { cn } from '@/lib/utils';
 
 interface InventoryFiltersProps {
@@ -18,6 +19,9 @@ interface InventoryFiltersProps {
   filteredCount: number;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
+  publishers: string[];
+  selectedPublisher: string | null;
+  onPublisherChange: (publisher: string | null) => void;
 }
 
 const sortOptions = [
@@ -40,9 +44,13 @@ export function InventoryFilters({
   filteredCount,
   viewMode,
   onViewModeChange,
+  publishers,
+  selectedPublisher,
+  onPublisherChange,
 }: InventoryFiltersProps) {
   // Local state for immediate input feedback
   const [localSearch, setLocalSearch] = useState(search);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Debounce the search value
   const debouncedSearch = useDebounce(localSearch, SEARCH_DEBOUNCE_MS);
@@ -63,18 +71,46 @@ export function InventoryFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
+  // "/" keyboard shortcut to focus search
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        e.key === '/' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="glass-light rounded-xl p-4 border border-overlay/5">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        {/* Search */}
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <Input
-            type="text"
-            placeholder="Search apps..."
-            value={localSearch}
-            onChange={(e) => setLocalSearch(e.target.value)}
-            className="pl-10 bg-bg-elevated border-overlay/10 text-text-primary placeholder:text-text-muted focus:border-accent-cyan/50 focus:ring-accent-cyan/20"
+        {/* Search + Publisher Filter */}
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search apps... (press / to focus)"
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="pl-10 bg-bg-elevated border-overlay/10 text-text-primary placeholder:text-text-muted focus:border-accent-cyan/50 focus:ring-accent-cyan/20"
+            />
+          </div>
+          <PublisherFilter
+            publishers={publishers}
+            selectedPublisher={selectedPublisher}
+            onPublisherChange={onPublisherChange}
           />
         </div>
 
@@ -91,6 +127,7 @@ export function InventoryFilters({
                 variant="ghost"
                 size="sm"
                 onClick={() => onSortChange(option.value)}
+                aria-pressed={sortBy === option.value}
                 className={cn(
                   'text-sm transition-colors',
                   sortBy === option.value
@@ -105,6 +142,7 @@ export function InventoryFilters({
               variant="ghost"
               size="sm"
               onClick={onSortOrderToggle}
+              aria-label={`Sort ${sortOrder === 'asc' ? 'ascending' : 'descending'}`}
               className="text-text-secondary hover:text-text-primary hover:bg-overlay/5"
             >
               {sortOrder === 'asc' ? (
@@ -116,9 +154,10 @@ export function InventoryFilters({
           </div>
 
           {/* View Toggle */}
-          <div className="flex items-center gap-0.5 ml-2 border border-overlay/5 rounded-lg p-0.5">
+          <div className="flex items-center gap-0.5 ml-2 border border-overlay/5 rounded-lg p-0.5" role="group" aria-label="View mode">
             <button
               onClick={() => onViewModeChange('grid')}
+              aria-pressed={viewMode === 'grid'}
               className={cn(
                 'p-1.5 rounded-md transition-colors',
                 viewMode === 'grid'
@@ -131,6 +170,7 @@ export function InventoryFilters({
             </button>
             <button
               onClick={() => onViewModeChange('list')}
+              aria-pressed={viewMode === 'list'}
               className={cn(
                 'p-1.5 rounded-md transition-colors',
                 viewMode === 'list'
