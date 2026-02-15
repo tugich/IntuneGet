@@ -9,12 +9,17 @@ import {
   RefreshCw,
   Loader2,
   Trash2,
-  ChevronRight,
   CheckCircle2,
   AlertCircle,
   Clock,
   ArrowRight,
+  Package,
+  Upload,
+  Wand2,
+  ClipboardCheck,
+  Play,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -52,7 +57,6 @@ export default function SccmMigrationsPage() {
         throw new Error('Authentication required');
       }
 
-      // Fetch migrations and stats
       const [migrationsRes, statsRes] = await Promise.all([
         fetch('/api/sccm/migrations', {
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -104,10 +108,11 @@ export default function SccmMigrationsPage() {
         throw new Error('Failed to delete migration');
       }
 
+      toast.success('Migration deleted successfully');
       await fetchMigrations();
     } catch (err) {
       console.error('Failed to delete migration:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete migration');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete migration');
     } finally {
       setDeletingId(null);
     }
@@ -132,7 +137,6 @@ export default function SccmMigrationsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <PageHeader
         title="SCCM Migration"
         description="Migrate applications from SCCM to Intune"
@@ -163,7 +167,6 @@ export default function SccmMigrationsPage() {
         }
       />
 
-      {/* Error */}
       <AnimatePresence>
         {error && (
           <motion.div
@@ -173,79 +176,76 @@ export default function SccmMigrationsPage() {
             className="flex items-start gap-3 p-4 bg-status-error/10 border border-status-error/20 rounded-lg"
           >
             <AlertCircle className="w-5 h-5 text-status-error flex-shrink-0 mt-0.5" />
-            <div>
+            <div className="flex-1">
               <p className="text-status-error font-medium">Error</p>
               <p className="text-status-error/70 text-sm mt-1">{error}</p>
             </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setError(null); fetchMigrations(); }}
+              className="text-status-error hover:bg-status-error/10 text-xs"
+            >
+              Retry
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Stats */}
       {stats && (
         <StatCardGrid columns={4}>
-          <AnimatedStatCard
-            title="Migrations"
-            value={stats.totalMigrations}
-            icon={FolderKanban}
-            color="cyan"
-            delay={0}
-          />
-          <AnimatedStatCard
-            title="Total Apps"
-            value={stats.totalApps}
-            icon={FolderKanban}
-            color="violet"
-            delay={0.1}
-          />
-          <AnimatedStatCard
-            title="Migrated"
-            value={stats.migratedApps}
-            icon={CheckCircle2}
-            color="success"
-            delay={0.2}
-          />
-          <AnimatedStatCard
-            title="Pending"
-            value={stats.pendingMigration}
-            icon={Clock}
-            color="warning"
-            delay={0.3}
-          />
+          <AnimatedStatCard title="Migrations" value={stats.totalMigrations} icon={FolderKanban} color="cyan" delay={0} />
+          <AnimatedStatCard title="Total Apps" value={stats.totalApps} icon={Package} color="violet" delay={0.1} />
+          <AnimatedStatCard title="Migrated" value={stats.migratedApps} icon={CheckCircle2} color="success" delay={0.2} />
+          <AnimatedStatCard title="Pending" value={stats.pendingMigration} icon={Clock} color="warning" delay={0.3} />
         </StatCardGrid>
       )}
 
-      {/* Migrations List */}
       {migrations.length === 0 ? (
         <AnimatedEmptyState
           icon={FolderKanban}
           title="No migrations yet"
-          description="Create a new migration to import your SCCM applications"
+          description="Create a new migration to import your SCCM applications and start migrating to Intune"
           color="cyan"
           showOrbs
           action={{
             label: 'Create Migration',
             onClick: () => (window.location.href = '/dashboard/sccm/new'),
           }}
-        />
+        >
+          <div className="flex items-center justify-center gap-3 mt-2">
+            {[
+              { icon: Upload, label: 'Export' },
+              { icon: Wand2, label: 'Match' },
+              { icon: ClipboardCheck, label: 'Review' },
+              { icon: Play, label: 'Migrate' },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-full bg-overlay/5 flex items-center justify-center">
+                    <step.icon className="w-4 h-4 text-text-muted" />
+                  </div>
+                  <span className="text-xs text-text-muted mt-1">{step.label}</span>
+                </div>
+                {i < 3 && <div className="w-6 h-px bg-overlay/10 mt-[-12px]" />}
+              </div>
+            ))}
+          </div>
+        </AnimatedEmptyState>
       ) : (
         <motion.div
           initial="hidden"
           animate="visible"
           variants={{
             hidden: { opacity: 0 },
-            visible: {
-              opacity: 1,
-              transition: { staggerChildren: 0.05 },
-            },
+            visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
           }}
           className="space-y-4"
         >
-          {migrations.map((migration, index) => (
+          {migrations.map((migration) => (
             <MigrationCard
               key={migration.id}
               migration={migration}
-              index={index}
               onDelete={handleDelete}
               isDeleting={deletingId === migration.id}
             />
@@ -256,27 +256,25 @@ export default function SccmMigrationsPage() {
   );
 }
 
+const STATUS_CONFIG = {
+  importing: { label: 'Importing', color: 'text-accent-cyan', bg: 'bg-accent-cyan/10', border: 'border-l-accent-cyan', actionLabel: 'Importing...', actionDisabled: true },
+  matching: { label: 'Matching', color: 'text-accent-violet', bg: 'bg-accent-violet/10', border: 'border-l-accent-violet', actionLabel: 'View Matching', actionDisabled: false },
+  ready: { label: 'Ready', color: 'text-status-success', bg: 'bg-status-success/10', border: 'border-l-status-success', actionLabel: 'Review Matches', actionDisabled: false },
+  migrating: { label: 'Migrating', color: 'text-status-warning', bg: 'bg-status-warning/10', border: 'border-l-status-warning', actionLabel: 'Migrating...', actionDisabled: true },
+  completed: { label: 'Completed', color: 'text-status-success', bg: 'bg-status-success/10', border: 'border-l-status-success', actionLabel: 'View Results', actionDisabled: false },
+  error: { label: 'Error', color: 'text-status-error', bg: 'bg-status-error/10', border: 'border-l-status-error', actionLabel: 'View Details', actionDisabled: false },
+} as const;
+
 function MigrationCard({
   migration,
-  index,
   onDelete,
   isDeleting,
 }: {
   migration: SccmMigration;
-  index: number;
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
-  const statusConfig = {
-    importing: { label: 'Importing', color: 'text-accent-cyan', bg: 'bg-accent-cyan/10' },
-    matching: { label: 'Matching', color: 'text-accent-violet', bg: 'bg-accent-violet/10' },
-    ready: { label: 'Ready', color: 'text-status-success', bg: 'bg-status-success/10' },
-    migrating: { label: 'Migrating', color: 'text-status-warning', bg: 'bg-status-warning/10' },
-    completed: { label: 'Completed', color: 'text-status-success', bg: 'bg-status-success/10' },
-    error: { label: 'Error', color: 'text-status-error', bg: 'bg-status-error/10' },
-  };
-
-  const config = statusConfig[migration.status] || statusConfig.ready;
+  const config = STATUS_CONFIG[migration.status] || STATUS_CONFIG.ready;
   const migrationRate = migration.totalApps > 0
     ? Math.round((migration.migratedApps / migration.totalApps) * 100)
     : 0;
@@ -287,23 +285,23 @@ function MigrationCard({
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0 },
       }}
-      className="glass-light border border-overlay/5 rounded-xl p-5 hover:border-overlay/10 transition-all group"
+      className={cn(
+        'glass-light border border-overlay/5 border-l-4 rounded-xl p-5 transition-all group',
+        'hover:border-overlay/10 hover:translate-y-[-2px] hover:shadow-card',
+        config.border
+      )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <h3 className="text-text-primary font-medium truncate">{migration.name}</h3>
-            <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', config.bg, config.color)}>
-              {config.label}
-            </span>
           </div>
 
           {migration.description && (
             <p className="text-text-muted text-sm mt-1 line-clamp-1">{migration.description}</p>
           )}
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-overlay/5">
             <div>
               <p className="text-text-muted text-xs">Total Apps</p>
               <p className="text-text-primary font-medium">{migration.totalApps}</p>
@@ -327,7 +325,6 @@ function MigrationCard({
             </div>
           </div>
 
-          {/* Progress Bar */}
           {migration.totalApps > 0 && (
             <div className="mt-4">
               <div className="flex items-center justify-between text-xs mb-1">
@@ -343,7 +340,6 @@ function MigrationCard({
             </div>
           )}
 
-          {/* Timestamps */}
           <div className="flex items-center gap-4 mt-4 text-xs text-text-muted">
             <span>Created: {new Date(migration.createdAt).toLocaleDateString()}</span>
             {migration.lastMigrationAt && (
@@ -352,49 +348,60 @@ function MigrationCard({
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+        <div className="flex flex-col items-end gap-3">
+          <span className={cn('px-2.5 py-1 rounded-full text-xs font-semibold', config.bg, config.color)}>
+            {config.label}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-text-muted hover:text-status-error hover:bg-status-error/10"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Migration?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete &quot;{migration.name}&quot; and all associated app data.
+                    This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(migration.id)}>
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <Link href={`/dashboard/sccm/${migration.id}`}>
               <Button
                 size="sm"
-                variant="ghost"
-                className="text-text-muted hover:text-status-error hover:bg-status-error/10"
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
+                disabled={config.actionDisabled}
+                className={cn(
+                  config.actionDisabled
+                    ? 'bg-overlay/10 text-text-muted cursor-not-allowed'
+                    : 'bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90'
                 )}
+              >
+                {config.actionDisabled && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {config.actionLabel}
+                {!config.actionDisabled && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Migration?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete &quot;{migration.name}&quot; and all associated app data.
-                  This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(migration.id)}>
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          <Link href={`/dashboard/sccm/${migration.id}`}>
-            <Button
-              size="sm"
-              className="bg-gradient-to-r from-accent-cyan to-accent-violet hover:opacity-90"
-            >
-              Open
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
+            </Link>
+          </div>
         </div>
       </div>
     </motion.div>

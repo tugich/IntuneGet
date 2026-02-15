@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, useMemo, use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,19 +15,23 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  ChevronsDown,
+  ChevronsUp,
+  Info,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { useCartStore } from '@/stores/cart-store';
 import { PageHeader } from '@/components/dashboard';
+import { SccmMigrationStepper } from '@/components/sccm';
 import type {
   SccmMigrationPreviewItem,
   SccmMigrationPreviewResponse,
   SccmMigrationResult,
   SccmMigrationOptions,
 } from '@/types/sccm';
-import type { CartItem } from '@/types/upload';
 
 interface PageProps {
   params: Promise<{ migrationId: string }>;
@@ -56,7 +60,18 @@ export default function MigratePage({ params }: PageProps) {
     dryRun: false,
   });
 
-  const appIds = searchParams.get('apps')?.split(',').filter(Boolean) || [];
+  const appIds = useMemo(() => {
+    const source = searchParams.get('source');
+    if (source === 'session') {
+      try {
+        const stored = sessionStorage.getItem(`sccm-migrate-${resolvedParams.migrationId}`);
+        if (stored) return JSON.parse(stored) as string[];
+      } catch {
+        // Fall through to URL params
+      }
+    }
+    return searchParams.get('apps')?.split(',').filter(Boolean) || [];
+  }, [searchParams, resolvedParams.migrationId]);
 
   const fetchPreview = useCallback(async () => {
     if (appIds.length === 0) {
@@ -88,7 +103,9 @@ export default function MigratePage({ params }: PageProps) {
       setPreview(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load preview');
+      const message = err instanceof Error ? err.message : 'Failed to load preview';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -126,6 +143,11 @@ export default function MigratePage({ params }: PageProps) {
       const data = await response.json();
       setResult(data);
 
+      // Clean up sessionStorage
+      sessionStorage.removeItem(`sccm-migrate-${resolvedParams.migrationId}`);
+
+      toast.success(`Migrated ${data.successful} of ${data.totalAttempted} apps`);
+
       // Add cart items
       if (data.cartItems && Array.isArray(data.cartItems)) {
         for (const item of data.cartItems) {
@@ -134,7 +156,9 @@ export default function MigratePage({ params }: PageProps) {
         openCart();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Migration failed');
+      const message = err instanceof Error ? err.message : 'Migration failed';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsMigrating(false);
     }
@@ -150,11 +174,26 @@ export default function MigratePage({ params }: PageProps) {
     setExpandedItems(newExpanded);
   };
 
+  const handleExpandAll = () => {
+    if (preview) {
+      setExpandedItems(new Set(preview.items.map(i => i.appId)));
+    }
+  };
+
+  const handleCollapseAll = () => {
+    setExpandedItems(new Set());
+  };
+
+  const currentStep = result ? 4 : 3;
+
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mb-4" />
-        <p className="text-text-secondary">Generating migration preview...</p>
+      <div className="space-y-6">
+        <SccmMigrationStepper currentStep={3} migrationId={resolvedParams.migrationId} />
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <Loader2 className="w-10 h-10 text-accent-cyan animate-spin mb-4" />
+          <p className="text-text-secondary">Generating migration preview...</p>
+        </div>
       </div>
     );
   }
@@ -162,6 +201,8 @@ export default function MigratePage({ params }: PageProps) {
   if (result) {
     return (
       <div className="space-y-6">
+        <SccmMigrationStepper currentStep={4} migrationId={resolvedParams.migrationId} />
+
         <PageHeader
           title="Migration Complete"
           description={`Successfully migrated ${result.successful} of ${result.totalAttempted} applications`}
@@ -213,6 +254,8 @@ export default function MigratePage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <SccmMigrationStepper currentStep={currentStep as 1 | 2 | 3 | 4} migrationId={resolvedParams.migrationId} />
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link href={`/dashboard/sccm/${resolvedParams.migrationId}`}>
@@ -240,17 +283,31 @@ export default function MigratePage({ params }: PageProps) {
             className="flex items-start gap-3 p-4 bg-status-error/10 border border-status-error/20 rounded-lg"
           >
             <AlertCircle className="w-5 h-5 text-status-error flex-shrink-0" />
-            <p className="text-status-error text-sm">{error}</p>
+            <div className="flex-1">
+              <p className="text-status-error text-sm">{error}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setError(null); fetchPreview(); }}
+              className="text-status-error hover:bg-status-error/10 text-xs"
+            >
+              Retry
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Options */}
       <div className="glass-light rounded-xl p-6 border border-overlay/5">
-        <h3 className="text-text-primary font-medium mb-4 flex items-center gap-2">
+        <h3 className="text-text-primary font-medium mb-2 flex items-center gap-2">
           <Settings className="w-5 h-5 text-text-secondary" />
           Migration Options
         </h3>
+
+        <p className="text-text-muted text-sm mb-4">
+          Configure how SCCM settings are converted. Detection rules take precedence over WinGet defaults when both are enabled.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <label className="flex items-center gap-3 p-3 bg-overlay/5 rounded-lg cursor-pointer hover:bg-overlay/10 transition-colors">
@@ -313,6 +370,41 @@ export default function MigratePage({ params }: PageProps) {
             <p className="text-text-muted text-sm">Warnings</p>
             <p className="text-2xl font-bold text-status-warning">{preview.warnings.length}</p>
           </div>
+        </div>
+      )}
+
+      {/* Blocked apps hint */}
+      {preview && preview.blocked > 0 && (
+        <div className="flex items-start gap-3 p-4 bg-status-warning/5 border border-status-warning/20 rounded-lg">
+          <Info className="w-5 h-5 text-status-warning flex-shrink-0 mt-0.5" />
+          <p className="text-text-secondary text-sm">
+            {preview.blocked} app{preview.blocked !== 1 ? 's are' : ' is'} blocked from migration.
+            Go back to the matching page to link them to a WinGet package or exclude them.
+          </p>
+        </div>
+      )}
+
+      {/* Expand/Collapse All */}
+      {preview && preview.items.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExpandAll}
+            className="text-text-muted text-xs"
+          >
+            <ChevronsDown className="w-3.5 h-3.5 mr-1" />
+            Expand All
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCollapseAll}
+            className="text-text-muted text-xs"
+          >
+            <ChevronsUp className="w-3.5 h-3.5 mr-1" />
+            Collapse All
+          </Button>
         </div>
       )}
 

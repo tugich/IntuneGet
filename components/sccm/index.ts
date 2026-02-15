@@ -9,3 +9,4 @@ export {
   getMatchStatusColors,
   getMatchStatusLabel,
 } from './SccmMatchStatusBadge';
+export { SccmMigrationStepper } from './SccmMigrationStepper';

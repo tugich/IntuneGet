@@ -16,10 +16,12 @@ import {
   Download,
   Terminal,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { PageHeader } from '@/components/dashboard';
+import { SccmMigrationStepper } from '@/components/sccm';
 import type { SccmImportResponse } from '@/types/sccm';
 
 type FileType = 'csv' | 'json';
@@ -51,6 +53,21 @@ export default function NewMigrationPage() {
   });
 
   const [isDragging, setIsDragging] = useState(false);
+
+  const getFilePreview = () => {
+    if (!state.fileContent) return null;
+    if (state.fileType === 'csv') {
+      const lines = state.fileContent.split('\n').filter(l => l.trim());
+      return { rows: Math.max(0, lines.length - 1), type: 'CSV' };
+    }
+    try {
+      const json = JSON.parse(state.fileContent);
+      const apps = json.applications || json;
+      return { rows: Array.isArray(apps) ? apps.length : 0, type: 'JSON' };
+    } catch {
+      return null;
+    }
+  };
 
   const handleFileSelect = useCallback(async (file: File) => {
     const fileName = file.name;
@@ -84,7 +101,7 @@ export default function NewMigrationPage() {
         migrationName,
         error: null,
       }));
-    } catch (err) {
+    } catch {
       setState(prev => ({
         ...prev,
         error: 'Failed to read file',
@@ -153,16 +170,20 @@ export default function NewMigrationPage() {
         throw new Error(data.errors?.[0]?.message || 'Failed to import applications');
       }
 
+      toast.success(`Successfully imported ${data.validApps} applications`);
+
       setState(prev => ({
         ...prev,
         step: 'complete',
         result: data,
       }));
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Import failed';
+      toast.error(message);
       setState(prev => ({
         ...prev,
         step: 'error',
-        error: err instanceof Error ? err.message : 'Import failed',
+        error: message,
       }));
     }
   };
@@ -175,6 +196,8 @@ export default function NewMigrationPage() {
     link.click();
     document.body.removeChild(link);
   };
+
+  const filePreview = getFilePreview();
 
   const renderUploadStep = () => (
     <div className="max-w-2xl mx-auto">
@@ -207,7 +230,7 @@ export default function NewMigrationPage() {
                 # Run on SCCM server with ConfigMgr console installed
               </p>
               <p className="text-xs text-accent-cyan font-mono mt-1">
-                .\Export-SCCMApps.ps1 -OutputPath "C:\Exports\apps.json"
+                .\Export-SCCMApps.ps1 -OutputPath &quot;C:\Exports\apps.json&quot;
               </p>
             </div>
           </div>
@@ -256,6 +279,11 @@ export default function NewMigrationPage() {
                 <p className="text-text-primary font-medium">{state.fileName}</p>
                 <p className="text-text-muted text-sm mt-1">
                   {state.fileType?.toUpperCase()} file ready to import
+                  {filePreview && (
+                    <span className="ml-1 text-accent-cyan">
+                      -- {filePreview.rows} application{filePreview.rows !== 1 ? 's' : ''} detected
+                    </span>
+                  )}
                 </p>
               </div>
               <Button
@@ -292,19 +320,21 @@ export default function NewMigrationPage() {
         </div>
       </div>
 
-      {/* File format info */}
-      <div className="mt-6 p-4 bg-accent-cyan/5 border border-accent-cyan/20 rounded-lg">
-        <div className="flex items-start gap-3">
-          <Info className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="text-accent-cyan font-medium">Expected CSV columns:</p>
-            <p className="text-text-secondary mt-1">
-              CI_ID, LocalizedDisplayName, Manufacturer, SoftwareVersion, IsDeployed,
-              DeploymentCount, InstallCommand, UninstallCommand, InstallBehavior, Technology
-            </p>
+      {/* File format info - only when no file selected */}
+      {!state.fileContent && (
+        <div className="mt-6 p-4 bg-accent-cyan/5 border border-accent-cyan/20 rounded-lg">
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="text-accent-cyan font-medium">Expected CSV columns:</p>
+              <p className="text-text-secondary mt-1">
+                CI_ID, LocalizedDisplayName, Manufacturer, SoftwareVersion, IsDeployed,
+                DeploymentCount, InstallCommand, UninstallCommand, InstallBehavior, Technology
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Migration details */}
       {state.fileContent && (
@@ -455,6 +485,8 @@ export default function NewMigrationPage() {
         gradient
         gradientColors="cyan"
       />
+
+      <SccmMigrationStepper currentStep={1} />
 
       <div className="glass-light rounded-xl p-8 border border-overlay/5">
         {state.step === 'upload' && renderUploadStep()}
