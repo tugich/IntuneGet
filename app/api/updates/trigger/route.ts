@@ -412,9 +412,11 @@ export async function POST(request: NextRequest) {
         installerInfo.currentIntuneAppId = updateResult.intune_app_id;
 
         // Trigger the update (creates packaging job + history record in DB)
+        // Manual triggers skip rate limits since the user explicitly confirmed
         const triggerResult = await autoUpdateTrigger.triggerAutoUpdate(
           policy as AppUpdatePolicy,
-          installerInfo
+          installerInfo,
+          { skipRateLimits: true }
         );
 
         if (triggerResult.success && triggerResult.packagingJobId) {

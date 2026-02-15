@@ -13,20 +13,19 @@ import {
   XCircle,
   ArrowUpDown,
   Filter,
+  Loader2,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +48,7 @@ import { useMspOptional } from '@/hooks/useMspOptional';
 import { fadeIn } from '@/lib/animations/variants';
 import { cn } from '@/lib/utils';
 import { classifyUpdateType } from '@/types/update-policies';
-import type { AvailableUpdate, UpdatePolicyType, UpdateType } from '@/types/update-policies';
+import type { AvailableUpdate, TriggerUpdateResponse, UpdatePolicyType, UpdateType } from '@/types/update-policies';
 
 type SortOption = 'name' | 'severity' | 'type' | 'detected';
 
@@ -68,6 +67,14 @@ export default function UpdatesPage() {
   const [sortBy, setSortBy] = useState<SortOption>('severity');
   const [activeTab, setActiveTab] = useState<'available' | 'history'>('available');
   const [updatingIds, setUpdatingIds] = useState<Set<string>>(new Set());
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    phase: 'confirm' | 'updating' | 'done';
+    completed: number;
+    failed: number;
+    total: number;
+    errors: { name: string; error: string }[];
+  }>({ phase: 'confirm', completed: 0, failed: 0, total: 0, errors: [] });
   const shouldReduceMotion = useReducedMotion();
   const { isMspUser, selectedTenantId, managedTenants } = useMspOptional();
   const tenantId = isMspUser ? selectedTenantId || undefined : undefined;
@@ -230,26 +237,49 @@ export default function UpdatesPage() {
   }, [updatePolicy, refetchUpdates]);
 
   const handleBulkUpdate = useCallback(async () => {
-    // Mark all eligible updates as updating at once
+    const total = eligibleForBulkUpdate.length;
+    setBulkProgress({ phase: 'updating', completed: 0, failed: 0, total, errors: [] });
     setUpdatingIds(new Set(eligibleForBulkUpdate.map((u) => u.id)));
+
+    let completed = 0;
+    let failed = 0;
+    const errors: { name: string; error: string }[] = [];
 
     try {
       // Use bulk API - batch into groups of 10 (API limit)
       const batchSize = 10;
       for (let i = 0; i < eligibleForBulkUpdate.length; i += batchSize) {
         const batch = eligibleForBulkUpdate.slice(i, i + batchSize);
-        await triggerUpdate({
-          updates: batch.map((u) => ({
-            winget_id: u.winget_id,
-            tenant_id: u.tenant_id,
-          })),
-        });
+        try {
+          const response: TriggerUpdateResponse = await triggerUpdate({
+            updates: batch.map((u) => ({
+              winget_id: u.winget_id,
+              tenant_id: u.tenant_id,
+            })),
+          });
+          completed += response.triggered;
+          failed += response.failed;
+          for (const result of response.results) {
+            if (!result.success && result.error) {
+              const app = batch.find((u) => u.winget_id === result.winget_id);
+              errors.push({ name: app?.display_name || result.winget_id, error: result.error });
+            }
+          }
+        } catch (err) {
+          // Entire batch failed
+          failed += batch.length;
+          errors.push({
+            name: `Batch of ${batch.length} apps`,
+            error: err instanceof Error ? err.message : 'Request failed',
+          });
+        }
+        setBulkProgress({ phase: 'updating', completed, failed, total, errors });
       }
-      router.push('/dashboard/uploads');
     } finally {
       setUpdatingIds(new Set());
+      setBulkProgress({ phase: 'done', completed, failed, total, errors });
     }
-  }, [eligibleForBulkUpdate, triggerUpdate, router]);
+  }, [eligibleForBulkUpdate, triggerUpdate]);
 
   const handleRefresh = useCallback(async () => {
     await refreshUpdates();
@@ -307,63 +337,178 @@ export default function UpdatesPage() {
               Refresh
             </Button>
             {eligibleForBulkUpdate.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="bg-accent-cyan hover:bg-accent-cyan-bright text-bg-deepest font-medium">
-                    Update All ({eligibleForBulkUpdate.length})
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-bg-surface border-overlay/10">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="text-text-primary">
-                      Update {eligibleForBulkUpdate.length} app{eligibleForBulkUpdate.length !== 1 ? 's' : ''}?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription className="text-text-secondary" asChild>
-                      <div>
-                        <span className="block mb-2">
-                          This will trigger updates for the following apps:
-                        </span>
-                        {/* Warn about major updates */}
-                        {eligibleForBulkUpdate.some(u => classifyUpdateType(u.current_version, u.latest_version) === 'major') && (
-                          <span className="flex items-center gap-2 px-3 py-2 mb-2 bg-status-warning/10 border border-status-warning/20 rounded-lg text-sm text-status-warning">
-                            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                            Includes major version updates -- review carefully
-                          </span>
-                        )}
-                        <span className="block max-h-40 overflow-y-auto space-y-1">
-                          {eligibleForBulkUpdate.map(u => {
-                            const type = classifyUpdateType(u.current_version, u.latest_version);
-                            return (
-                              <span key={u.id} className="flex items-center gap-2 text-sm text-text-muted">
-                                <span className={cn(
-                                  'text-[10px] font-bold uppercase tracking-wide px-1 py-0.5 rounded border',
-                                  type === 'major' ? 'text-status-warning bg-status-warning/10 border-status-warning/20' :
-                                  type === 'minor' ? 'text-accent-cyan bg-accent-cyan/10 border-accent-cyan/20' :
-                                  'text-text-muted bg-overlay/5 border-overlay/10'
-                                )}>
-                                  {type}
-                                </span>
-                                {u.display_name} ({u.current_version} &rarr; {u.latest_version})
+              <>
+                <Button
+                  onClick={() => {
+                    setBulkProgress({ phase: 'confirm', completed: 0, failed: 0, total: eligibleForBulkUpdate.length, errors: [] });
+                    setBulkDialogOpen(true);
+                  }}
+                  className="bg-accent-cyan hover:bg-accent-cyan-bright text-bg-deepest font-medium"
+                >
+                  Update All ({eligibleForBulkUpdate.length})
+                </Button>
+                <Dialog
+                  open={bulkDialogOpen}
+                  onOpenChange={(open) => {
+                    if (!open && bulkProgress.phase === 'updating') return;
+                    setBulkDialogOpen(open);
+                  }}
+                >
+                  <DialogContent
+                    className="bg-bg-surface border-overlay/10"
+                    hideCloseButton={bulkProgress.phase === 'updating'}
+                    onInteractOutside={(e) => {
+                      if (bulkProgress.phase === 'updating') e.preventDefault();
+                    }}
+                  >
+                    {bulkProgress.phase === 'confirm' && (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Update {eligibleForBulkUpdate.length} app{eligibleForBulkUpdate.length !== 1 ? 's' : ''}?
+                          </DialogTitle>
+                          <DialogDescription asChild>
+                            <div>
+                              <span className="block mb-2">
+                                This will trigger updates for the following apps:
                               </span>
-                            );
-                          })}
-                        </span>
-                      </div>
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="border-overlay/10 text-text-secondary hover:bg-overlay/5">
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleBulkUpdate}
-                      className="bg-accent-cyan hover:bg-accent-cyan-bright text-bg-deepest font-medium"
-                    >
-                      Update All
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                              {eligibleForBulkUpdate.some(u => classifyUpdateType(u.current_version, u.latest_version) === 'major') && (
+                                <span className="flex items-center gap-2 px-3 py-2 mb-2 bg-status-warning/10 border border-status-warning/20 rounded-lg text-sm text-status-warning">
+                                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                                  Includes major version updates -- review carefully
+                                </span>
+                              )}
+                              <span className="block max-h-40 overflow-y-auto space-y-1">
+                                {eligibleForBulkUpdate.map(u => {
+                                  const type = classifyUpdateType(u.current_version, u.latest_version);
+                                  return (
+                                    <span key={u.id} className="flex items-center gap-2 text-sm text-text-muted">
+                                      <span className={cn(
+                                        'text-[10px] font-bold uppercase tracking-wide px-1 py-0.5 rounded border',
+                                        type === 'major' ? 'text-status-warning bg-status-warning/10 border-status-warning/20' :
+                                        type === 'minor' ? 'text-accent-cyan bg-accent-cyan/10 border-accent-cyan/20' :
+                                        'text-text-muted bg-overlay/5 border-overlay/10'
+                                      )}>
+                                        {type}
+                                      </span>
+                                      {u.display_name} ({u.current_version} &rarr; {u.latest_version})
+                                    </span>
+                                  );
+                                })}
+                              </span>
+                            </div>
+                          </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setBulkDialogOpen(false)}
+                            className="border-overlay/10 text-text-secondary hover:bg-overlay/5"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={() => void handleBulkUpdate()}
+                            className="bg-accent-cyan hover:bg-accent-cyan-bright text-bg-deepest font-medium"
+                          >
+                            Update All
+                          </Button>
+                        </DialogFooter>
+                      </>
+                    )}
+
+                    {bulkProgress.phase === 'updating' && (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>
+                            Updating apps...
+                          </DialogTitle>
+                          <DialogDescription>
+                            Processing {bulkProgress.completed + bulkProgress.failed} of {bulkProgress.total} apps
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="px-6 pb-6 space-y-4">
+                          <div className="w-full h-2 bg-overlay/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-accent-cyan rounded-full transition-all duration-300"
+                              style={{ width: `${bulkProgress.total > 0 ? ((bulkProgress.completed + bulkProgress.failed) / bulkProgress.total) * 100 : 0}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-center gap-2 text-sm text-text-secondary">
+                            <Loader2 className="w-4 h-4 animate-spin text-accent-cyan" />
+                            <span>
+                              {bulkProgress.completed} triggered
+                              {bulkProgress.failed > 0 && (
+                                <span className="text-status-error">, {bulkProgress.failed} failed</span>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {bulkProgress.phase === 'done' && (
+                      <>
+                        <DialogHeader>
+                          <DialogTitle>
+                            {bulkProgress.failed === 0 ? 'All updates triggered' : 'Updates completed with errors'}
+                          </DialogTitle>
+                          <DialogDescription>
+                            {bulkProgress.completed} of {bulkProgress.total} app{bulkProgress.total !== 1 ? 's' : ''} triggered successfully
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="px-6 pb-2 space-y-3">
+                          <div className="flex items-center gap-4 text-sm">
+                            {bulkProgress.completed > 0 && (
+                              <span className="flex items-center gap-1.5 text-status-success">
+                                <CheckCircle2 className="w-4 h-4" />
+                                {bulkProgress.completed} triggered
+                              </span>
+                            )}
+                            {bulkProgress.failed > 0 && (
+                              <span className="flex items-center gap-1.5 text-status-error">
+                                <XCircle className="w-4 h-4" />
+                                {bulkProgress.failed} failed
+                              </span>
+                            )}
+                          </div>
+                          {bulkProgress.errors.length > 0 && (
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {bulkProgress.errors.map((err, i) => (
+                                <div key={i} className="flex items-start gap-2 text-xs text-status-error bg-status-error/5 border border-status-error/10 rounded-md px-2.5 py-1.5">
+                                  <XCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                                  <span><span className="font-medium">{err.name}:</span> {err.error}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setBulkDialogOpen(false)}
+                            className="text-text-secondary hover:bg-overlay/5"
+                          >
+                            Close
+                          </Button>
+                          {bulkProgress.completed > 0 && (
+                            <Button
+                              onClick={() => {
+                                setBulkDialogOpen(false);
+                                router.push('/dashboard/uploads');
+                              }}
+                              className="bg-accent-cyan hover:bg-accent-cyan-bright text-bg-deepest font-medium"
+                            >
+                              View Uploads
+                              <ArrowRight className="w-4 h-4 ml-1.5" />
+                            </Button>
+                          )}
+                        </DialogFooter>
+                      </>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
           </div>
         }

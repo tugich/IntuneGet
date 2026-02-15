@@ -110,7 +110,8 @@ export class AutoUpdateTrigger {
    */
   async triggerAutoUpdate(
     policy: AppUpdatePolicy,
-    updateInfo: UpdateInfo
+    updateInfo: UpdateInfo,
+    options?: { skipRateLimits?: boolean }
   ): Promise<TriggerResult> {
     try {
       // Safety check 1: Verify policy allows auto-update
@@ -138,14 +139,16 @@ export class AutoUpdateTrigger {
         };
       }
 
-      // Safety check 4: Check rate limits
-      const rateLimitResult = await this.checkRateLimits(policy.user_id, policy.tenant_id, policy.id);
-      if (!rateLimitResult.allowed) {
-        return {
-          success: false,
-          skipped: true,
-          skipReason: rateLimitResult.reason,
-        };
+      // Safety check 4: Check rate limits (skipped for manual bulk triggers)
+      if (!options?.skipRateLimits) {
+        const rateLimitResult = await this.checkRateLimits(policy.user_id, policy.tenant_id, policy.id);
+        if (!rateLimitResult.allowed) {
+          return {
+            success: false,
+            skipped: true,
+            skipReason: rateLimitResult.reason,
+          };
+        }
       }
 
       // Safety check 5: Verify tenant consent is still active
