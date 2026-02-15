@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     This script extracts application icons from installer files and converts
-    them to PNG format at multiple sizes (16, 32, 64, 128, 256 pixels).
+    them to PNG format at multiple sizes (32, 64, 128 pixels).
 
 .PARAMETER InstallerPath
     Path to the installer file (EXE, MSI, or MSIX)
@@ -34,7 +34,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Icon sizes to generate
-$IconSizes = @(16, 32, 64, 128, 256)
+$IconSizes = @(32, 64, 128)
 
 # Ensure output directory exists
 if (-not (Test-Path $OutputDir)) {

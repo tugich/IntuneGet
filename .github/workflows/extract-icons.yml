@@ -24,6 +24,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+      skip_binary:
+        description: 'Skip binary extraction (run web icon fetch only)'
+        required: false
+        default: 'false'
+        type: boolean
 
 # Prevent concurrent runs that could cause git conflicts
 # Use same group as build-app-list and sync-manifests to ensure sequential execution
@@ -38,14 +43,20 @@ permissions:
   contents: write
 
 jobs:
-  extract-icons:
-    runs-on: windows-latest
-    timeout-minutes: 180
-    # Only run if triggered manually, by schedule, or if the upstream workflow succeeded
+  # ============================================================
+  # Job 1: Fetch icons from web sources (GitHub avatars, favicons)
+  # Runs on Ubuntu -- fast and cheap
+  # ============================================================
+  extract-web-icons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    outputs:
+      web_committed: ${{ steps.commit-web-icons.outputs.committed }}
 
     steps:
       - name: Checkout repository
@@ -64,11 +75,192 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Fetch web icons
+        id: fetch-web-icons
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAX_APPS: ${{ env.MAX_APPS }}
+          ICONS_DIR: public/icons
+        run: node .github/scripts/fetch-web-icons.mjs
+
+      - name: Commit web icons
+        id: commit-web-icons
+        if: steps.fetch-web-icons.outputs.total_hits != '0'
+        shell: bash
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          STASH_CREATED=false
+          git add public/icons/ || true
+          if ! git diff --staged --quiet 2>/dev/null; then
+            git stash --include-untracked
+            STASH_CREATED=true
+          fi
+
+          git fetch origin main
+          git checkout main || git checkout -b main origin/main
+          git pull origin main
+
+          if [ "$STASH_CREATED" = true ]; then
+            git stash pop || true
+          fi
+
+          git add public/icons/ || true
+
+          if git diff --staged --quiet; then
+            echo "No new web icons to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
+            echo "committed_apps=" >> $GITHUB_OUTPUT
+          else
+            COMMITTED_APPS=$(git diff --staged --name-only | grep "icon-64.png" | sed 's|public/icons/\(.*\)/icon-64.png|\1|' | tr '\n' ',' | sed 's/,$//')
+            ICON_COUNT=$(echo "$COMMITTED_APPS" | tr ',' '\n' | grep -c . || echo "0")
+
+            git commit -m "chore: add web-sourced icons for $ICON_COUNT apps"
+
+            PUSH_SUCCESS=false
+            for i in 1 2 3; do
+              if git pull --rebase origin main && git push origin main; then
+                PUSH_SUCCESS=true
+                break
+              fi
+              echo "Retry $i: pull/push failed, retrying..."
+              sleep 5
+            done
+
+            if [ "$PUSH_SUCCESS" = true ]; then
+              echo "committed=true" >> $GITHUB_OUTPUT
+              echo "committed_apps=$COMMITTED_APPS" >> $GITHUB_OUTPUT
+            else
+              echo "committed=false" >> $GITHUB_OUTPUT
+              echo "committed_apps=" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Update database with web icons
+        if: steps.commit-web-icons.outputs.committed == 'true'
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          COMMITTED_APPS: ${{ steps.commit-web-icons.outputs.committed_apps }}
+        run: |
+          node << 'EOF'
+          const fs = require('fs');
+          const { createClient } = require('@supabase/supabase-js');
+
+          const supabaseUrl = process.env.SUPABASE_URL;
+          const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+          const committedApps = process.env.COMMITTED_APPS ? process.env.COMMITTED_APPS.split(',').filter(Boolean) : [];
+
+          if (!supabaseUrl || !supabaseKey || committedApps.length === 0) {
+            console.log('No apps to update');
+            process.exit(0);
+          }
+
+          const supabase = createClient(supabaseUrl, supabaseKey);
+
+          async function updateDatabase() {
+            const results = JSON.parse(fs.readFileSync('web-icon-results.json', 'utf8'));
+            const toUpdate = results.filter(r =>
+              r.status === 'success' && committedApps.includes(r.winget_id)
+            );
+
+            console.log(`Updating database for ${toUpdate.length} web-sourced icons`);
+
+            for (const result of toUpdate) {
+              const { error } = await supabase
+                .from('curated_apps')
+                .update({
+                  icon_path: result.icon_path,
+                  has_icon: true,
+                  icon_source: result.icon_source,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('winget_id', result.winget_id);
+
+              if (error) {
+                console.error(`Failed to update ${result.winget_id}:`, error.message);
+              }
+            }
+
+            await supabase.from('curated_sync_status').upsert({
+              id: 'extract-icons-web',
+              last_run_completed_at: new Date().toISOString(),
+              last_run_status: 'success',
+              items_processed: toUpdate.length,
+              metadata: {
+                github_avatars: toUpdate.filter(r => r.icon_source === 'github_avatar').length,
+                favicons: toUpdate.filter(r => r.icon_source === 'favicon').length
+              },
+              updated_at: new Date().toISOString()
+            });
+
+            console.log(`Updated ${toUpdate.length} apps with web icon paths`);
+          }
+
+          updateDatabase().catch(err => {
+            console.error('Database update failed:', err);
+            process.exit(1);
+          });
+          EOF
+
+      - name: Web icons summary
+        if: always()
+        run: |
+          if [ -f web-icon-results.json ]; then
+            echo "## Web Icon Fetch Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            SUCCESS=$(jq '[.[] | select(.status == "success")] | length' web-icon-results.json)
+            GITHUB=$(jq '[.[] | select(.icon_source == "github_avatar")] | length' web-icon-results.json)
+            FAVICON=$(jq '[.[] | select(.icon_source == "favicon")] | length' web-icon-results.json)
+            TOTAL=$(jq 'length' web-icon-results.json)
+            echo "- **GitHub avatars:** $GITHUB" >> $GITHUB_STEP_SUMMARY
+            echo "- **Favicons:** $FAVICON" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total success:** $SUCCESS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total processed:** $TOTAL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================
+  # Job 2: Extract icons from installer binaries (EXE/MSI/MSIX)
+  # Runs on Windows -- slower but highest quality
+  # ============================================================
+  extract-binary-icons:
+    runs-on: windows-latest
+    needs: [extract-web-icons]
+    timeout-minutes: 180
+    if: >
+      inputs.skip_binary != 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'schedule' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Pull latest (includes web icons)
+        run: git pull origin main
+        shell: bash
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install ImageMagick and 7-Zip
         run: |
           choco install imagemagick.app 7zip -y --no-progress
           refreshenv
-          # Verify 7-Zip installation
           if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
             Write-Host "7-Zip installed successfully"
           } else {
@@ -107,20 +299,21 @@ jobs:
           async function getApps() {
             let query = supabase
               .from('curated_apps')
-              .select('winget_id, name, publisher, latest_version');
+              .select('winget_id, name, publisher, latest_version, icon_extraction_attempts');
 
-            // Filter by specific app IDs if provided
             if (appIds !== 'all') {
               const targetIds = appIds.split(',').map(id => id.trim());
               query = query.in('winget_id', targetIds);
             }
 
-            // Filter apps without icons (unless force refresh)
             if (!forceRefresh) {
               query = query.or('has_icon.is.null,has_icon.eq.false');
             }
 
-            // Limit number of apps
+            if (!forceRefresh) {
+              query = query.or('icon_extraction_attempts.is.null,icon_extraction_attempts.lt.3');
+            }
+
             query = query.limit(maxApps);
 
             const { data: apps, error } = await query;
@@ -130,7 +323,6 @@ jobs:
               process.exit(1);
             }
 
-            // Batch-fetch known installer URLs from version_history
             const wingetIds = apps.map(a => a.winget_id);
             const installerUrlMap = {};
             if (wingetIds.length > 0) {
@@ -151,24 +343,25 @@ jobs:
               console.log(`Found ${Object.keys(installerUrlMap).length} cached installer URLs from version_history`);
             }
 
-            // Additional local filtering for apps that don't have icon files
             const appsToProcess = [];
             for (const app of apps) {
               const iconPath = `public/icons/${app.winget_id}/icon-64.png`;
               if (forceRefresh || !fs.existsSync(iconPath)) {
-                // Attach cached installer URL if available
+                const attempts = app.icon_extraction_attempts || 0;
+                if (!forceRefresh && attempts >= 3) {
+                  console.log(`Skipping ${app.winget_id} (${attempts} failed attempts)`);
+                  continue;
+                }
                 app.cached_installer_url = installerUrlMap[app.winget_id] || null;
                 appsToProcess.push(app);
               }
               if (appsToProcess.length >= maxApps) break;
             }
 
-            console.log(`Processing ${appsToProcess.length} apps for icon extraction`);
+            console.log(`Processing ${appsToProcess.length} apps for binary icon extraction`);
 
-            // Save apps to process
             fs.writeFileSync('apps-to-process.json', JSON.stringify(appsToProcess, null, 2));
 
-            // Output count for GitHub Actions
             const outputFile = process.env.GITHUB_OUTPUT;
             if (outputFile) {
               fs.appendFileSync(outputFile, `app_count=${appsToProcess.length}\n`);
@@ -190,7 +383,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Continue'
 
-          # Load apps to process
           $apps = Get-Content "apps-to-process.json" | ConvertFrom-Json
 
           $extracted = 0
@@ -201,12 +393,12 @@ jobs:
             $wingetId = $app.winget_id
             Write-Host "`n=== Processing $wingetId ===" -ForegroundColor Cyan
 
+            $failureReason = $null
+
             try {
-              # Create icon directory
               $iconDir = "public/icons/$wingetId"
               New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
 
-              # Get installer URL using three-tier fallback
               $installerUrl = $null
               $installerPath = $null
 
@@ -214,23 +406,19 @@ jobs:
               $publisher = $parts[0]
               $firstLetter = $publisher.Substring(0,1).ToLower()
 
-              # Raw URLs: NO encoding (matches sync-manifests.yml pattern)
               $namePath = $parts[1..($parts.Length-1)] -join '/'
               $rawBaseUrl = "https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/$firstLetter/$publisher/$namePath"
 
-              # API URLs: YES encoding (only used for version listing fallback)
               $encodedParts = $parts[1..($parts.Length-1)] | ForEach-Object { [uri]::EscapeDataString($_) }
               $encodedNamePath = $encodedParts -join '/'
               $encodedPublisher = [uri]::EscapeDataString($publisher)
               $apiBaseUrl = "https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/$firstLetter/$encodedPublisher/$encodedNamePath"
 
-              # --- Tier 1: Use cached installer URL from version_history ---
               if ($app.cached_installer_url) {
                 Write-Host "Tier 1: Using cached installer URL from version_history"
                 $installerUrl = $app.cached_installer_url
               }
 
-              # --- Tier 2: Use latest_version from curated_apps + raw URL (no API call) ---
               if (-not $installerUrl -and $app.latest_version) {
                 try {
                   $latestVersion = $app.latest_version
@@ -250,7 +438,6 @@ jobs:
                 }
               }
 
-              # --- Tier 3: Fall back to GitHub API version listing ---
               if (-not $installerUrl) {
                 try {
                   Write-Host "Tier 3: Listing versions via GitHub API"
@@ -280,11 +467,17 @@ jobs:
 
               if (-not $installerUrl) {
                 Write-Warning "No installer URL found for $wingetId"
+                $failureReason = 'no_installer_url'
                 $failed++
+                $results += @{
+                  winget_id = $wingetId
+                  status = 'failed'
+                  error = 'no_installer_url'
+                  failure_reason = $failureReason
+                }
                 continue
               }
 
-              # Download installer
               $extension = if ($installerUrl -match '\.msi(\?|$)') { '.msi' }
                           elseif ($installerUrl -match '\.msixbundle(\?|$)') { '.msixbundle' }
                           elseif ($installerUrl -match '\.msix(\?|$)') { '.msix' }
@@ -298,38 +491,55 @@ jobs:
                 Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing -MaximumRedirection 5 -TimeoutSec 90
               } catch {
                 Write-Warning "Download failed or timed out for ${wingetId}: $_"
+                $failureReason = 'download_timeout'
                 $failed++
                 $results += @{
                   winget_id = $wingetId
                   status = 'failed'
                   error = "Download timeout or error"
+                  failure_reason = $failureReason
                 }
                 continue
               }
 
               if (-not (Test-Path $installerPath)) {
                 Write-Warning "Failed to download installer for $wingetId"
+                $failureReason = 'download_failed'
                 $failed++
+                $results += @{
+                  winget_id = $wingetId
+                  status = 'failed'
+                  error = 'download_failed'
+                  failure_reason = $failureReason
+                }
                 continue
               }
 
-              # Skip excessively large installers (>500MB) - not worth processing for icon extraction
               $fileSize = (Get-Item $installerPath).Length
               $fileSizeMB = [math]::Round($fileSize / 1MB, 1)
               Write-Host "Downloaded $fileSizeMB MB"
               if ($fileSize -gt 500MB) {
                 Write-Warning "Installer too large ($fileSizeMB MB) for $wingetId, skipping"
                 Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
+                $failureReason = 'installer_too_large'
                 $failed++
                 $results += @{
                   winget_id = $wingetId
                   status = 'failed'
                   error = "Installer too large: ${fileSizeMB}MB"
+                  failure_reason = $failureReason
                 }
                 continue
               }
 
-              # Extract icon using PowerShell script (capture exit code, don't fail on error)
+              $iconSourceType = switch ($extension) {
+                '.msi' { 'binary_msi' }
+                '.msix' { 'binary_msix' }
+                '.msixbundle' { 'binary_msix' }
+                '.appx' { 'binary_msix' }
+                default { 'binary_exe' }
+              }
+
               $extractResult = & "$env:GITHUB_WORKSPACE\.github\scripts\extract-icon.ps1" `
                 -InstallerPath $installerPath `
                 -OutputDir $iconDir `
@@ -341,7 +551,6 @@ jobs:
                 Write-Host $extractResult
               }
 
-              # Check if icon was extracted
               if (Test-Path "$iconDir/icon-64.png") {
                 Write-Host "Successfully extracted icon for $wingetId" -ForegroundColor Green
                 $extracted++
@@ -349,47 +558,47 @@ jobs:
                   winget_id = $wingetId
                   status = 'success'
                   icon_path = "/icons/$wingetId/"
+                  icon_source = $iconSourceType
                 }
               } else {
                 Write-Warning "No icon extracted for $wingetId"
+                $failureReason = 'no_icon_in_binary'
                 $failed++
                 $results += @{
                   winget_id = $wingetId
                   status = 'failed'
                   error = 'No icon extracted'
+                  failure_reason = $failureReason
                 }
               }
             } catch {
               Write-Warning "Error processing $wingetId : $_"
+              $failureReason = 'extraction_error'
               $failed++
               $results += @{
                 winget_id = $wingetId
                 status = 'failed'
                 error = $_.ToString()
+                failure_reason = $failureReason
               }
             } finally {
-              # Cleanup
               if ($installerPath -and (Test-Path $installerPath)) {
                 Remove-Item $installerPath -Force -ErrorAction SilentlyContinue
               }
             }
 
-            # Brief pause between apps
             Start-Sleep -Seconds 1
           }
 
-          Write-Host "`n=== Icon Extraction Summary ===" -ForegroundColor Cyan
+          Write-Host "`n=== Binary Icon Extraction Summary ===" -ForegroundColor Cyan
           Write-Host "Extracted: $extracted"
           Write-Host "Failed: $failed"
 
-          # Save results
           $results | ConvertTo-Json -Depth 10 | Out-File "icon-results.json" -Encoding UTF8
 
           echo "extracted=$extracted" >> $env:GITHUB_OUTPUT
           echo "failed=$failed" >> $env:GITHUB_OUTPUT
 
-          # Don't fail the workflow even if some icons failed to extract
-          # This allows partial success and prevents blocking other steps
           exit 0
 
       - name: Commit icons
@@ -400,8 +609,6 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # Stash extracted icons before switching branches
-          # (workflow_run trigger causes detached HEAD, so checkout would fail with uncommitted changes)
           STASH_CREATED=false
           git add public/icons/ || true
           if ! git diff --staged --quiet 2>/dev/null; then
@@ -409,17 +616,14 @@ jobs:
             STASH_CREATED=true
           fi
 
-          # Fetch latest and checkout main branch
           git fetch origin main
           git checkout main || git checkout -b main origin/main
           git pull origin main
 
-          # Restore the extracted icons onto main (only if we actually stashed)
           if [ "$STASH_CREATED" = true ]; then
             git stash pop || true
           fi
 
-          # Stage the new icons
           git add public/icons/ || true
 
           if git diff --staged --quiet; then
@@ -427,13 +631,11 @@ jobs:
             echo "committed=false" >> $GITHUB_OUTPUT
             echo "committed_apps=" >> $GITHUB_OUTPUT
           else
-            # Get list of apps with committed icons (extract winget_id from path)
             COMMITTED_APPS=$(git diff --staged --name-only | grep "icon-64.png" | sed 's|public/icons/\(.*\)/icon-64.png|\1|' | tr '\n' ',' | sed 's/,$//')
             ICON_COUNT=$(echo "$COMMITTED_APPS" | tr ',' '\n' | grep -c . || echo "0")
 
             git commit -m "chore: add icons for $ICON_COUNT apps"
 
-            # Push with retry for race conditions
             PUSH_SUCCESS=false
             for i in 1 2 3; do
               if git pull --rebase origin main && git push origin main; then
@@ -447,16 +649,14 @@ jobs:
             if [ "$PUSH_SUCCESS" = true ]; then
               echo "committed=true" >> $GITHUB_OUTPUT
               echo "committed_apps=$COMMITTED_APPS" >> $GITHUB_OUTPUT
-              echo "Successfully committed icons for: $COMMITTED_APPS"
             else
               echo "committed=false" >> $GITHUB_OUTPUT
               echo "committed_apps=" >> $GITHUB_OUTPUT
-              echo "Failed to push icons to repository"
             fi
           fi
 
       - name: Update database
-        if: steps.commit-icons.outputs.committed == 'true'
+        if: steps.get-apps.outputs.app_count != '0'
         shell: bash
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -476,22 +676,16 @@ jobs:
             process.exit(0);
           }
 
-          if (committedApps.length === 0) {
-            console.log('No apps to update in database');
-            process.exit(0);
-          }
-
           const supabase = createClient(supabaseUrl, supabaseKey);
 
           async function updateDatabase() {
             const results = JSON.parse(fs.readFileSync('icon-results.json', 'utf8'));
 
-            // Only update apps that were actually committed
             const toUpdate = results.filter(r =>
               r.status === 'success' && committedApps.includes(r.winget_id)
             );
 
-            console.log(`Updating database for ${toUpdate.length} committed apps`);
+            console.log(`Updating database for ${toUpdate.length} committed binary icons`);
 
             for (const result of toUpdate) {
               const { error } = await supabase
@@ -499,6 +693,10 @@ jobs:
                 .update({
                   icon_path: result.icon_path,
                   has_icon: true,
+                  icon_source: result.icon_source || 'binary_exe',
+                  icon_extraction_attempts: 0,
+                  icon_failure_reason: null,
+                  icon_last_attempted_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 })
                 .eq('winget_id', result.winget_id);
@@ -506,11 +704,33 @@ jobs:
               if (error) {
                 console.error(`Failed to update ${result.winget_id}:`, error.message);
               } else {
-                console.log(`Updated ${result.winget_id}`);
+                console.log(`Updated ${result.winget_id} (source: ${result.icon_source})`);
               }
             }
 
-            // Update sync status
+            const failedResults = results.filter(r => r.status === 'failed');
+            console.log(`Recording ${failedResults.length} failed extraction attempts`);
+
+            for (const result of failedResults) {
+              const { data: current } = await supabase
+                .from('curated_apps')
+                .select('icon_extraction_attempts')
+                .eq('winget_id', result.winget_id)
+                .single();
+
+              const currentAttempts = current?.icon_extraction_attempts || 0;
+
+              await supabase
+                .from('curated_apps')
+                .update({
+                  icon_extraction_attempts: currentAttempts + 1,
+                  icon_failure_reason: result.failure_reason || 'unknown',
+                  icon_last_attempted_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('winget_id', result.winget_id);
+            }
+
             await supabase.from('curated_sync_status').upsert({
               id: 'extract-icons',
               last_run_completed_at: new Date().toISOString(),
@@ -519,19 +739,21 @@ jobs:
               metadata: {
                 total: results.length,
                 successful: toUpdate.length,
-                failed: results.filter(r => r.status === 'failed').length
+                failed: failedResults.length,
+                failure_breakdown: failedResults.reduce((acc, r) => {
+                  const reason = r.failure_reason || 'unknown';
+                  acc[reason] = (acc[reason] || 0) + 1;
+                  return acc;
+                }, {})
               },
               updated_at: new Date().toISOString()
             });
 
-            console.log(`Updated ${toUpdate.length} apps with icon paths`);
+            console.log('Database update complete');
           }
 
           updateDatabase()
-            .then(() => {
-              console.log('Database update complete');
-              process.exit(0);
-            })
+            .then(() => process.exit(0))
             .catch(err => {
               console.error('Database update failed:', err);
               process.exit(1);
@@ -546,27 +768,37 @@ jobs:
             $failed = ($results | Where-Object { $_.status -eq 'failed' }).Count
 
             @"
-          ## Icon Extraction Summary
+          ## Binary Icon Extraction Summary
 
           - **Successfully extracted:** $success
           - **Failed:** $failed
           - **Total processed:** $($results.Count)
 
+          ### Failure Breakdown
+          "@ | Out-File -Append $env:GITHUB_STEP_SUMMARY
+
+            $failureGroups = $results | Where-Object { $_.status -eq 'failed' } | Group-Object -Property failure_reason
+            foreach ($group in $failureGroups) {
+              "- **$($group.Name):** $($group.Count)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+            }
+
+            @"
+
           ### Extracted Icons
           "@ | Out-File -Append $env:GITHUB_STEP_SUMMARY
 
             foreach ($r in ($results | Where-Object { $_.status -eq 'success' } | Select-Object -First 20)) {
-              "- $($r.winget_id)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+              "- $($r.winget_id) ($($r.icon_source))" | Out-File -Append $env:GITHUB_STEP_SUMMARY
             }
 
             if ($failed -gt 0) {
               @"
 
-          ### Failed Extractions
+          ### Failed Extractions (first 10)
           "@ | Out-File -Append $env:GITHUB_STEP_SUMMARY
 
               foreach ($r in ($results | Where-Object { $_.status -eq 'failed' } | Select-Object -First 10)) {
-                "- $($r.winget_id): $($r.error)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+                "- $($r.winget_id): $($r.failure_reason) - $($r.error)" | Out-File -Append $env:GITHUB_STEP_SUMMARY
               }
             }
           }
