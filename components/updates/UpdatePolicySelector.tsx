@@ -16,6 +16,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { UpdatePolicyType } from '@/types/update-policies';
@@ -34,34 +35,44 @@ const policyOptions: {
   description: string;
   icon: typeof RefreshCw;
   color: string;
+  bgColor: string;
+  group: 'active' | 'passive';
 }[] = [
   {
     type: 'auto_update',
     label: 'Auto-update',
-    description: 'Automatically deploy updates',
+    description: 'Deploy new versions automatically',
     icon: RefreshCw,
     color: 'text-status-success',
+    bgColor: 'bg-status-success/10',
+    group: 'active',
   },
   {
     type: 'notify',
     label: 'Notify only',
-    description: 'Get notified about updates',
+    description: 'Show updates, require manual trigger',
     icon: Bell,
     color: 'text-accent-cyan',
+    bgColor: 'bg-accent-cyan/10',
+    group: 'active',
   },
   {
     type: 'ignore',
     label: 'Ignore',
-    description: 'Skip all updates',
+    description: 'Hide from updates list',
     icon: BellOff,
     color: 'text-text-muted',
+    bgColor: 'bg-overlay/5',
+    group: 'passive',
   },
   {
     type: 'pin_version',
     label: 'Pin version',
-    description: 'Stay on current version',
+    description: 'Lock to current deployed version',
     icon: Pin,
     color: 'text-status-warning',
+    bgColor: 'bg-status-warning/10',
+    group: 'passive',
   },
 ];
 
@@ -87,6 +98,9 @@ export function UpdatePolicySelector({
     }
   };
 
+  const activeOptions = policyOptions.filter((o) => o.group === 'active');
+  const passiveOptions = policyOptions.filter((o) => o.group === 'passive');
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -94,7 +108,7 @@ export function UpdatePolicySelector({
           variant="ghost"
           disabled={disabled || isUpdating}
           className={cn(
-            'text-text-secondary hover:text-text-primary hover:bg-overlay/5',
+            'text-text-secondary hover:text-text-primary hover:bg-overlay/5 transition-all',
             size === 'sm' && 'h-8 px-2 text-sm'
           )}
         >
@@ -102,39 +116,77 @@ export function UpdatePolicySelector({
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <>
-              <selectedOption.icon
-                className={cn('w-4 h-4', selectedOption.color, showLabel && 'mr-2')}
-              />
-              {showLabel && selectedOption.label}
-              <ChevronDown className="w-4 h-4 ml-1 opacity-50" />
+              <div className={cn('w-5 h-5 rounded flex items-center justify-center mr-1.5', selectedOption.bgColor)}>
+                <selectedOption.icon
+                  className={cn('w-3 h-3', selectedOption.color)}
+                />
+              </div>
+              {showLabel && (
+                <span className="text-[13px]">{selectedOption.label}</span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-40" />
             </>
           )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-56 bg-bg-elevated border-overlay/10 shadow-soft-lg"
+        className="w-60 bg-bg-elevated border-overlay/10 shadow-soft-lg p-1"
       >
-        {policyOptions.map((option) => (
+        {activeOptions.map((option) => (
           <DropdownMenuItem
             key={option.type}
             onClick={() => handleSelect(option.type)}
             className={cn(
-              'flex items-start gap-3 p-3 cursor-pointer',
-              'hover:bg-overlay/5 focus:bg-overlay/5'
+              'flex items-start gap-2.5 p-2.5 cursor-pointer rounded-md',
+              'hover:bg-overlay/5 focus:bg-overlay/5',
+              option.type === currentPolicy && 'bg-overlay/[0.03]'
             )}
           >
-            <option.icon className={cn('w-4 h-4 mt-0.5', option.color)} />
-            <div className="flex-1">
+            <div className={cn('w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5', option.bgColor)}>
+              <option.icon className={cn('w-3.5 h-3.5', option.color)} />
+            </div>
+            <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-text-primary">
                   {option.label}
                 </span>
                 {option.type === currentPolicy && (
-                  <Check className="w-4 h-4 text-status-success" />
+                  <Check className="w-3.5 h-3.5 text-status-success flex-shrink-0" />
                 )}
               </div>
-              <p className="text-xs text-text-muted mt-0.5">
+              <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                {option.description}
+              </p>
+            </div>
+          </DropdownMenuItem>
+        ))}
+
+        <DropdownMenuSeparator className="bg-overlay/[0.06] my-1" />
+
+        {passiveOptions.map((option) => (
+          <DropdownMenuItem
+            key={option.type}
+            onClick={() => handleSelect(option.type)}
+            className={cn(
+              'flex items-start gap-2.5 p-2.5 cursor-pointer rounded-md',
+              'hover:bg-overlay/5 focus:bg-overlay/5',
+              option.type === currentPolicy && 'bg-overlay/[0.03]'
+            )}
+          >
+            <div className={cn('w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5', option.bgColor)}>
+              <option.icon className={cn('w-3.5 h-3.5', option.color)} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-text-primary">
+                  {option.label}
+                </span>
+                {option.type === currentPolicy && (
+                  <Check className="w-3.5 h-3.5 text-status-success flex-shrink-0" />
+                )}
+              </div>
+              <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
                 {option.description}
               </p>
             </div>
