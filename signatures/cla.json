@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "pl4nty",
+      "id": 21111317,
+      "comment_id": 3908334637,
+      "created_at": "2026-02-16T12:50:10Z",
+      "repoId": 988380262,
+      "pullRequestNo": 42
+    }
+  ]
 }
