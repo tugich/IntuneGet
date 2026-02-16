@@ -84,11 +84,17 @@ export async function GET(request: NextRequest) {
     const { data: policies } = await policiesQuery;
 
     // Query upload_history to determine which apps were deployed through IntuneGet
-    const { data: deployedApps } = await supabase
+    let deployedQuery = supabase
       .from('upload_history')
       .select('winget_id, intune_tenant_id')
       .eq('user_id', user.userId)
       .in('winget_id', wingetIds);
+
+    if (tenantId) {
+      deployedQuery = deployedQuery.eq('intune_tenant_id', tenantId);
+    }
+
+    const { data: deployedApps } = await deployedQuery;
 
     const deployedSet = new Set<string>();
     if (deployedApps) {

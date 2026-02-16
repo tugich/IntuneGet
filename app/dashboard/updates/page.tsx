@@ -234,9 +234,10 @@ export default function UpdatesPage() {
 
   const handleConfirmNewApp = useCallback(async () => {
     setNewAppDialogOpen(false);
-    if (pendingNewAppUpdate) {
-      await executeTriggerUpdate(pendingNewAppUpdate);
-      setPendingNewAppUpdate(null);
+    const updateToTrigger = pendingNewAppUpdate;
+    setPendingNewAppUpdate(null);
+    if (updateToTrigger) {
+      await executeTriggerUpdate(updateToTrigger);
     }
   }, [pendingNewAppUpdate, executeTriggerUpdate]);
 

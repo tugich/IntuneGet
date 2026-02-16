@@ -593,7 +593,7 @@ async function buildDefaultDeploymentConfig(
       installerUrl = x64Installer.InstallerUrl || installerUrl;
       installerSha256 = x64Installer.InstallerSha256 || installerSha256;
       installerType = x64Installer.InstallerType || installerType;
-    } else {
+    } else if (installers.length > 0) {
       // Use first available installer's architecture
       const first = installers[0];
       if (first?.Architecture) {
