@@ -286,12 +286,26 @@ jobs:
               apps = apps.slice(0, appLimit);
             }
 
-            console.log(`Syncing manifests for ${apps.length} apps (mode: ${syncMode})...`);
+            console.log(`\n========================================`);
+            console.log(`  Sync Winget Manifests`);
+            console.log(`========================================`);
+            console.log(`  Mode:          ${syncMode}`);
+            console.log(`  Force refresh: ${forceRefresh}`);
+            console.log(`  Apps to sync:  ${apps.length}`);
+            console.log(`  Batch size:    ${batchSize}`);
+            console.log(`  Batch delay:   ${batchDelay}ms`);
+            console.log(`  Authenticated: ${!!GITHUB_TOKEN}`);
+            console.log(`========================================\n`);
 
             let synced = 0;
             let failed = 0;
             let skipped = 0;
+            let failedApps = [];
+            let skippedNoVersions = 0;
+            let skippedExisting = 0;
+            let skippedNoManifest = 0;
             let newVersions = [];
+            const startTime = Date.now();
 
             // Process in batches
             // With GITHUB_TOKEN: 5000 req/hr. Without: 60 req/hr.
@@ -309,6 +323,7 @@ jobs:
 
                   if (versions.length === 0) {
                     skipped++;
+                    skippedNoVersions++;
                     return;
                   }
 
@@ -325,6 +340,7 @@ jobs:
 
                     if (existing) {
                       skipped++;
+                      skippedExisting++;
                       return;
                     }
                   }
@@ -334,6 +350,8 @@ jobs:
 
                   if (!installerManifest) {
                     failed++;
+                    skippedNoManifest++;
+                    failedApps.push({ id: app.winget_id, reason: 'no installer manifest' });
                     return;
                   }
 
@@ -389,8 +407,9 @@ jobs:
                     });
 
                   if (vhError) {
-                    console.error(`Failed to upsert version for ${app.winget_id}:`, vhError.message);
+                    console.error(`  [FAIL] ${app.winget_id}: DB upsert error - ${vhError.message}`);
                     failed++;
+                    failedApps.push({ id: app.winget_id, reason: `DB: ${vhError.message}` });
                     return;
                   }
 
@@ -409,7 +428,7 @@ jobs:
                     .eq('winget_id', app.winget_id);
 
                   if (caError) {
-                    console.error(`Failed to update curated_apps for ${app.winget_id}:`, caError.message);
+                    console.error(`  [WARN] ${app.winget_id}: curated_apps update failed - ${caError.message}`);
                   }
 
                   // Track new versions
@@ -424,6 +443,7 @@ jobs:
                   synced++;
                 } catch (e) {
                   failed++;
+                  failedApps.push({ id: app.winget_id, reason: e.message || String(e) });
                 }
               }));
 
@@ -432,9 +452,12 @@ jobs:
                 await delay(batchDelay);
               }
 
-              // Progress logging every 100 apps
-              if ((i / batchSize) % 10 === 0 || i + batchSize >= apps.length) {
-                console.log(`Progress: ${Math.min(i + batchSize, apps.length)}/${apps.length} (synced: ${synced}, failed: ${failed}, skipped: ${skipped})`);
+              // Progress logging every 5 batches or at the end
+              const processed = Math.min(i + batchSize, apps.length);
+              if ((i / batchSize) % 5 === 0 || processed >= apps.length) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                const rate = (processed / (Date.now() - startTime) * 1000).toFixed(1);
+                console.log(`  [${elapsed}s] ${processed}/${apps.length} | synced: ${synced} | failed: ${failed} | skipped: ${skipped} (no-versions: ${skippedNoVersions}, existing: ${skippedExisting}, no-manifest: ${skippedNoManifest}) | ${rate} apps/s`);
               }
             }
 
@@ -455,10 +478,32 @@ jobs:
               updated_at: new Date().toISOString()
             });
 
-            console.log(`\nSync complete: ${synced} synced, ${failed} failed, ${skipped} skipped`);
+            const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+
+            console.log(`\n========================================`);
+            console.log(`  Sync Complete`);
+            console.log(`========================================`);
+            console.log(`  Duration:    ${totalTime}s`);
+            console.log(`  Synced:      ${synced}`);
+            console.log(`  Failed:      ${failed}`);
+            console.log(`  Skipped:     ${skipped}`);
+            console.log(`    - No versions found: ${skippedNoVersions}`);
+            console.log(`    - Already up to date: ${skippedExisting}`);
+            console.log(`    - No manifest found:  ${skippedNoManifest}`);
+            console.log(`========================================`);
+
+            if (failedApps.length > 0) {
+              console.log(`\nFailed apps (showing first 30):`);
+              for (const f of failedApps.slice(0, 30)) {
+                console.log(`  - ${f.id}: ${f.reason}`);
+              }
+              if (failedApps.length > 30) {
+                console.log(`  ... and ${failedApps.length - 30} more`);
+              }
+            }
 
             if (newVersions.length > 0) {
-              console.log('\nNew versions detected:');
+              console.log(`\nNew versions detected:`);
               for (const v of newVersions.slice(0, 20)) {
                 console.log(`  ${v.winget_id}: ${v.old_version} -> ${v.new_version}`);
               }
