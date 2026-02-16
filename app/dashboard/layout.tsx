@@ -8,6 +8,8 @@ import {
   AlertTriangle,
   RefreshCw,
   Loader2,
+  Info,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toaster } from 'sonner';
@@ -44,6 +46,7 @@ export default function DashboardLayout({
   const [showRetryBanner, setShowRetryBanner] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [migrationBannerDismissed, setMigrationBannerDismissed] = useState(true);
   const cartItemCount = useCartStore((state) => state.getItemCount());
   const toggleCart = useCartStore((state) => state.toggleCart);
 
@@ -58,6 +61,9 @@ export default function DashboardLayout({
 
   useEffect(() => {
     setIsLoading(false);
+    setMigrationBannerDismissed(
+      localStorage.getItem('migration-banner-dismissed') === 'true'
+    );
   }, []);
 
   useEffect(() => {
@@ -100,6 +106,11 @@ export default function DashboardLayout({
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const dismissMigrationBanner = () => {
+    localStorage.setItem('migration-banner-dismissed', 'true');
+    setMigrationBannerDismissed(true);
   };
 
   if (isLoading || isCheckingOnboarding) {
@@ -207,6 +218,32 @@ export default function DashboardLayout({
                   </>
                 )}
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Migration Notice Banner */}
+        {!migrationBannerDismissed && (
+          <div className="bg-accent-cyan/10 border-b border-accent-cyan/20 px-4 lg:px-6 py-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                <Info className="w-5 h-5 text-accent-cyan flex-shrink-0 mt-0.5 sm:mt-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-accent-cyan">
+                    Upload issues -- Migration in progress
+                  </p>
+                  <p className="text-xs text-text-muted">
+                    We are aware of uploads failing to Intune. We are currently migrating to a new platform that validates packages before they are uploaded to Intune. This migration is not yet complete. Thank you for your patience.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={dismissMigrationBanner}
+                className="text-text-muted hover:text-text-primary transition-colors flex-shrink-0 p-1 rounded hover:bg-overlay/5"
+                aria-label="Dismiss migration notice"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
