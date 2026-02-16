@@ -518,7 +518,9 @@ jobs:
             }));
           }
 
-          syncManifests().catch(err => {
+          syncManifests().then(() => {
+            process.exit(0);
+          }).catch(err => {
             console.error('Sync failed:', err);
             process.exit(1);
           });
