@@ -343,6 +343,7 @@ jobs:
           path: |
             test-debug.log
             test-results.json
+            C:\Windows\Logs\PSAppDeployToolkit\*.log
           retention-days: 7
           if-no-files-found: ignore
 
