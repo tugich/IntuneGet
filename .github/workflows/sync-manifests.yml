@@ -237,7 +237,7 @@ jobs:
           async function syncManifests() {
             const appIds = process.env.APP_IDS;
             const appLimit = parseInt(process.env.APP_LIMIT || '2000', 10);
-            const syncMode = process.env.SYNC_MODE || 'incremental';
+            const syncMode = process.env.SYNC_MODE || 'all';
             const forceRefresh = process.env.FORCE_REFRESH === 'true';
 
             // Update sync status
