@@ -345,6 +345,7 @@ jobs:
             test-debug.log
             test-results.json
             C:\Windows\Logs\Software\*.log
+            C:\ProgramData\IntuneGet\Logs\*.log
           retention-days: 7
           if-no-files-found: ignore
 

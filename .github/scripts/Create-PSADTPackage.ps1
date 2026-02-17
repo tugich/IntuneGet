@@ -314,6 +314,15 @@ if (Use-PSADTBrandAsset -Source $brandingBannerPath -TargetName $bannerTarget -P
     Update-PowerShellDataSetting -Path $configPath -Section 'Assets' -Setting 'Banner' -ValueLiteral (ConvertTo-PSADTConfigValue $bannerTarget)
 }
 
+# User-scope apps run as the logged-in user who cannot write to C:\Windows\Logs\Software
+# Override the PSADT log directory to ProgramData which is writable by all authenticated users
+if ($IsUserScope) {
+    # Use literal path since .psd1 files load in restricted language mode
+    # where PSADT runtime variables like $envProgramData are not available
+    Update-PowerShellDataSetting -Path $configPath -Section 'Toolkit' -Setting 'LogPath' -ValueLiteral "'C:\ProgramData\IntuneGet\Logs'"
+    Write-Host "User-scope: Log directory overridden to C:\ProgramData\IntuneGet\Logs"
+}
+
 # Auto-detect installer type from file extension (override incorrect manifest data)
 $fileExtension = [System.IO.Path]::GetExtension($installerFileName).ToLower()
 $originalInstallerType = $installerTypeLower
@@ -773,7 +782,7 @@ $lines = @(
     '    AppScriptVersion = ''1.0.0'''
     '    AppScriptDate = (Get-Date -Format ''yyyy-MM-dd'')'
     '    AppScriptAuthor = ''IntuneGet'''
-    '    RequireAdmin = $true'
+    "    RequireAdmin = `$$(-not $IsUserScope)"
     '    InstallName = '''''
     '    InstallTitle = '''''
     '    DeployAppScriptFriendlyName = $MyInvocation.MyCommand.Name'
@@ -964,15 +973,37 @@ if ($preUninstallPromptCalls) {
 
 # Generate uninstall command based on whether registry lookup is needed
 if ($useRegistryUninstall) {
+    $wingetIdEscaped = $WingetId -replace "'", "''" -replace '`', '``' -replace '\$', '`$'
     $lines += @(
         ''
         '    # Use PSADT v4 Uninstall-ADTApplication to find and uninstall'
         '    # This handles the registry lookup, MSI vs EXE detection, and silent'
         '    # switches automatically using the app''s registered QuietUninstallString'
         "    `$appName = '$registryUninstallDisplayName'"
+        "    `$wingetId = '$wingetIdEscaped'"
         ''
-        '    Write-ADTLogEntry -Message "Uninstalling application: $appName" -Severity ''Info'' -Source ''Uninstall-ADTDeployment'''
-        '    Uninstall-ADTApplication -Name $appName -SuccessExitCodes @(0, 1605, 1614)'
+        '    Write-ADTLogEntry -Message "Searching for installed application: $appName" -Source ''Uninstall-ADTDeployment'''
+        '    $installedApp = Get-ADTApplication -Name $appName'
+        ''
+        '    if ($installedApp) {'
+        '        Write-ADTLogEntry -Message "Found via registry name, uninstalling..." -Source ''Uninstall-ADTDeployment'''
+        '        Uninstall-ADTApplication -Name $appName -SuccessExitCodes @(0, 1605, 1614)'
+        '    } else {'
+        '        Write-ADTLogEntry -Message "Not found by name ''$appName'', falling back to winget uninstall --id $wingetId" -Severity ''Warning'' -Source ''Uninstall-ADTDeployment'''
+        ''
+        '        # Find winget.exe (may not be in PATH when running as SYSTEM)'
+        '        $wingetExe = Get-Command winget.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source'
+        '        if (-not $wingetExe) {'
+        '            $wingetExe = Get-ChildItem "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*_*__8wekyb3d8bbwe\winget.exe" -ErrorAction SilentlyContinue |'
+        '                Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName'
+        '        }'
+        ''
+        '        if ($wingetExe) {'
+        '            Start-ADTProcess -FilePath $wingetExe -ArgumentList "uninstall --id $wingetId --silent --accept-source-agreements --disable-interactivity" -WindowStyle Hidden -SuccessExitCodes @(0)'
+        '        } else {'
+        '            throw "Could not find installed application: $appName (winget not available for fallback)"'
+        '        }'
+        '    }'
     )
 } elseif ($useMsixUninstall) {
     $lines += @(
