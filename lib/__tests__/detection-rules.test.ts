@@ -494,7 +494,7 @@ describe('generateUninstallCommand', () => {
     expect(command).toContain('Test Application');
   });
 
-  it('should include correct silent switches for Inno uninstall', () => {
+  it('should delegate Inno uninstall to registry lookup when display name is provided', () => {
     const installer: NormalizedInstaller = {
       architecture: 'x64',
       url: 'https://example.com/app.exe',
@@ -504,8 +504,8 @@ describe('generateUninstallCommand', () => {
 
     const command = generateUninstallCommand(installer, 'Inno App');
 
-    expect(command).toContain('/VERYSILENT');
-    expect(command).toContain('/SUPPRESSMSGBOXES');
+    expect(command).toContain('REGISTRY_UNINSTALL:');
+    expect(command).toContain('Inno App');
   });
 
   it('should fall back to generic uninstall for EXE without display name', () => {

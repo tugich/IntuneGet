@@ -105,10 +105,16 @@ describe('GET /api/updates/available', () => {
       policyOps
     );
 
+    const uploadHistoryQuery = createAwaitableQuery(
+      { data: [], error: null },
+      []
+    );
+
     createServerClientMock.mockReturnValue({
       from: (table: string) => {
         if (table === 'update_check_results') return updatesQuery;
         if (table === 'app_update_policies') return policiesQuery;
+        if (table === 'upload_history') return uploadHistoryQuery;
         throw new Error(`Unexpected table: ${table}`);
       },
     });
