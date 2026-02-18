@@ -286,6 +286,7 @@ export default function UploadsPage() {
 
       // Refresh jobs to show the new job
       await fetchJobs();
+      setFilter('active');
     } catch (err) {
       console.error('Failed to force redeploy:', err);
       setError(err instanceof Error ? err.message : 'Failed to redeploy');
@@ -309,6 +310,7 @@ export default function UploadsPage() {
         body: JSON.stringify({
           items: [job.package_config],
           skipTest: true,
+          forceCreate: true,
         }),
       });
 
@@ -322,6 +324,7 @@ export default function UploadsPage() {
       }
 
       await fetchJobs();
+      setFilter('active');
     } catch (err) {
       console.error('Failed to deploy without testing:', err);
       setError(err instanceof Error ? err.message : 'Failed to deploy without testing');
