@@ -426,7 +426,7 @@ if ($psadtConfig.processesToClose -and $psadtConfig.processesToClose.Count -gt 0
 }
 $showClosePrompt = if ($psadtConfig.showClosePrompt) { $true } else { $false }
 $closeCountdown = if ($psadtConfig.closeCountdown) { [int]$psadtConfig.closeCountdown } else { 60 }
-$allowDefer = if ($psadtConfig.ContainsKey('allowDefer')) { [bool]$psadtConfig.allowDefer } else { $true }
+$allowDefer = if ($psadtConfig.ContainsKey('allowDefer')) { [bool]$psadtConfig.allowDefer } else { $false }
 $deferTimes = if ($psadtConfig.deferTimes) { [int]$psadtConfig.deferTimes } else { 3 }
 
 # Extended welcome parameters
@@ -473,9 +473,7 @@ if ($processesToClose.Count -gt 0) {
 # Build Show-ADTInstallationWelcome call if enabled
 $welcomeCall = ''
 if ($allowDefer -or ($showClosePrompt -and $processesToClose.Count -gt 0) -or $blockExecution -or $checkDiskSpace) {
-    $welcomeParams = @(
-        "-Title '$welcomeTitle'"
-    )
+    $welcomeParams = @()
 
     if (-not [string]::IsNullOrWhiteSpace($welcomeMessageEscaped)) {
         $welcomeParams += '-CustomText'
@@ -484,16 +482,16 @@ if ($allowDefer -or ($showClosePrompt -and $processesToClose.Count -gt 0) -or $b
     # Handle parameter sets correctly for PSADT v4
     # When both deferrals AND close prompts are enabled, use -AllowDeferCloseProcesses
     if ($processesToClose.Count -gt 0 -and $allowDefer) {
-        $welcomeParams += "-Subtitle 'The following applications must be closed before installation can proceed'"
         $welcomeParams += '-CloseProcesses $script:ProcessesToClose'
         $welcomeParams += '-AllowDeferCloseProcesses'
         $welcomeParams += "-ForceCloseProcessesCountdown $closeCountdown"
         $welcomeParams += "-DeferTimes $deferTimes"
+        if ($blockExecution) { $welcomeParams += '-BlockExecution' }
     } elseif ($processesToClose.Count -gt 0) {
         # Only close prompts, no deferrals
-        $welcomeParams += "-Subtitle 'The following applications must be closed before installation can proceed'"
         $welcomeParams += '-CloseProcesses $script:ProcessesToClose'
         $welcomeParams += "-CloseProcessesCountdown $closeCountdown"
+        if ($blockExecution) { $welcomeParams += '-BlockExecution' }
     } elseif ($allowDefer) {
         # Only deferrals, no close prompts
         $welcomeParams += '-AllowDefer'
@@ -505,7 +503,6 @@ if ($allowDefer -or ($showClosePrompt -and $processesToClose.Count -gt 0) -or $b
     if ($persistPrompt) { $welcomeParams += '-PersistPrompt' }
     if ($minimizeWindows) { $welcomeParams += '-MinimizeWindows' }
     if ($windowLocation -ne 'Default') { $welcomeParams += "-WindowLocation '$windowLocation'" }
-    if ($blockExecution) { $welcomeParams += '-BlockExecution' }
     if ($checkDiskSpace) {
         $welcomeParams += '-CheckDiskSpace'
         if ($requiredDiskSpace) { $welcomeParams += "-RequiredDiskSpace $requiredDiskSpace" }
