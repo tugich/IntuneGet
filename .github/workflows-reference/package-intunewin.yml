@@ -336,6 +336,15 @@ jobs:
             throw
           }
 
+      - name: Collect system logs for upload
+        if: failure() && env.SKIP_TEST != 'true'
+        shell: pwsh
+        run: |
+          $logDir = ".\collected-logs"
+          New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+          Copy-Item -Path "C:\Windows\Logs\Software\*.log" -Destination $logDir -ErrorAction SilentlyContinue
+          Copy-Item -Path "C:\ProgramData\IntuneGet\Logs\*.log" -Destination $logDir -ErrorAction SilentlyContinue
+
       - name: Upload test debug logs
         if: failure() && env.SKIP_TEST != 'true'
         uses: actions/upload-artifact@v4
@@ -344,8 +353,7 @@ jobs:
           path: |
             test-debug.log
             test-results.json
-            C:\Windows\Logs\Software\*.log
-            C:\ProgramData\IntuneGet\Logs\*.log
+            collected-logs/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -356,6 +364,7 @@ jobs:
           Remove-Item -Path ".\package" -Recurse -Force -ErrorAction SilentlyContinue
           Remove-Item -Path ".\test-results.json" -Force -ErrorAction SilentlyContinue
           Remove-Item -Path ".\test-debug.log" -Force -ErrorAction SilentlyContinue
+          Remove-Item -Path ".\collected-logs" -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Authenticate to Microsoft Graph
         env:
