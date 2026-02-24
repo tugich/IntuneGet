@@ -5,6 +5,8 @@ import { useEffect, useState, Suspense, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Shield, Loader2, Package, ChevronDown, Copy, Check, AlertTriangle, Users, Boxes, ArrowLeft } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { VerificationSceneFallback } from '@/components/auth/verification-scene/VerificationSceneFallback';
 import { Button } from '@/components/ui/button';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { getAdminConsentUrl } from '@/lib/msal-config';
@@ -15,6 +17,11 @@ import { GridBackground } from '@/components/landing/ui/GridBackground';
 import { FadeIn } from '@/components/landing/animations/FadeIn';
 import { CountUp } from '@/components/landing/animations/CountUp';
 import { springPresets } from '@/lib/animations/variants';
+
+const VerificationScene = dynamic(
+  () => import('@/components/auth/verification-scene/VerificationScene').then(m => m.VerificationScene),
+  { ssr: false, loading: () => <VerificationSceneFallback /> }
+);
 
 // Microsoft logo SVG component -- colors per official brand spec
 function MicrosoftLogo({ className }: { className?: string }) {
@@ -125,24 +132,14 @@ function SignInContent() {
 
   // Show loading state while checking auth or verifying consent
   if (isAuthenticated || isVerifyingConsent) {
+    const statusText = isVerifyingConsent ? 'Verifying permissions...' : 'Redirecting to your dashboard...';
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deepest">
-        <motion.div
-          className="flex flex-col items-center gap-6"
-          initial={shouldReduceMotion ? {} : { opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="relative">
-            <div className="absolute inset-0 bg-accent-cyan/10 rounded-full blur-2xl animate-pulse" />
-            <div className="relative w-16 h-16 bg-gradient-to-br from-accent-cyan to-accent-violet rounded-2xl flex items-center justify-center shadow-glow-cyan">
-              <Loader2 className="h-7 w-7 animate-spin text-white" />
-            </div>
-          </div>
-          <p className="text-text-muted text-sm font-medium">
-            {isVerifyingConsent ? 'Verifying permissions...' : 'Redirecting to your dashboard...'}
-          </p>
-        </motion.div>
+        {shouldReduceMotion ? (
+          <VerificationSceneFallback statusText={statusText} />
+        ) : (
+          <VerificationScene statusText={statusText} />
+        )}
       </div>
     );
   }
