@@ -44,7 +44,8 @@ async function getCuratedPackages(
   const baseQuery = supabase
     .from('curated_apps')
     .select('*', { count: 'exact', head: true })
-    .eq('is_verified', true);
+    .eq('is_verified', true)
+    .eq('is_locale_variant', false);
 
   const countQuery = category ? baseQuery.eq('category', category) : baseQuery;
   const { count: totalCount, error: countError } = await countQuery;
@@ -57,7 +58,8 @@ async function getCuratedPackages(
   let dataQuery = supabase
     .from('curated_apps')
     .select('id, winget_id, name, publisher, latest_version, description, homepage, category, tags, icon_path, popularity_rank')
-    .eq('is_verified', true);
+    .eq('is_verified', true)
+    .eq('is_locale_variant', false);
 
   if (category) {
     dataQuery = dataQuery.eq('category', category);

@@ -108,13 +108,91 @@ jobs:
               packages = packages.slice(0, importLimit);
             }
 
+            // ---------------------------------------------------------------
+            // Locale detection for language variant grouping
+            // Known locale codes (ISO 639-1 + common BCP 47 subtags)
+            // ---------------------------------------------------------------
+            const LOCALE_CODES = new Set([
+              'aa','ab','af','ak','am','an','ar','as','ast','av','ay','az',
+              'ba','be','bg','bm','bn','bo','br','bs',
+              'ca','ce','cak','ch','co','cr','cs','cu','cv','cy',
+              'da','de','dsb','dv','dz',
+              'ee','el','en-CA','en-GB','en-US','eo','es-AR','es-CL','es-ES','es-MX',
+              'et','eu',
+              'fa','ff','fi','fj','fo','fr','fur','fy-NL',
+              'ga-IE','gd','gl','gn','gu-IN',
+              'ha','he','hi-IN','ho','hr','hsb','ht','hu','hy-AM',
+              'ia','id','ig','ii','ik','io','is','it',
+              'ja','jv',
+              'ka','kab','kg','ki','kk','kl','km','kn','ko','ks','ku','kv','kw','ky',
+              'la','lb','lg','li','lij','ln','lo','lt','lu','lv',
+              'mg','mh','mi','mk','ml','mn','mr','ms','mt','my',
+              'na','nb-NO','nd','ne-NP','ng','nl','nn-NO','no','nr','nv','ny',
+              'oc','oj','om','or','os',
+              'pa-IN','pi','pl','ps','pt-BR','pt-PT',
+              'qu',
+              'rm','rn','ro','ru','rw',
+              'sa','sc','sco','sd','se','sg','si','sk','sl','sm','sn','so','son','sq','sr','ss','st','su','sv-SE','sw','szl',
+              'ta','te','tg','th','ti','tk','tl','tn','to','tr','trs','ts','tt','tw','ty',
+              'ug','uk','ur','uz',
+              'vi','vo',
+              'wa','wo',
+              'xh',
+              'yi','yo',
+              'za','zh-CN','zh-TW','zu'
+            ]);
+
+            // Whitelist of parent package IDs eligible for locale variant grouping.
+            // Add more entries here as needed (e.g., 'LibreOffice.LibreOffice').
+            const LOCALE_VARIANT_PARENTS = new Set([
+              'Mozilla.Firefox',
+            ]);
+
+            function detectLocaleVariant(packageId) {
+              const parts = packageId.split('.');
+              if (parts.length < 3) return null;
+
+              const lastPart = parts[parts.length - 1];
+              const lastTwoParts = parts.length >= 4
+                ? parts[parts.length - 2] + '-' + lastPart
+                : null;
+
+              // Check compound locale first (e.g., "es-ES", "pt-BR", "fy-NL")
+              if (lastTwoParts && LOCALE_CODES.has(lastTwoParts)) {
+                const parentId = parts.slice(0, -2).join('.');
+                if (!LOCALE_VARIANT_PARENTS.has(parentId)) return null;
+                return { parentId, locale: lastTwoParts };
+              }
+
+              // Check single locale code (e.g., "de", "fr", "ja")
+              // Only match if the segment is lowercase (BCP 47 convention).
+              if (lastPart === lastPart.toLowerCase() && LOCALE_CODES.has(lastPart)) {
+                const parentId = parts.slice(0, -1).join('.');
+                if (!LOCALE_VARIANT_PARENTS.has(parentId)) return null;
+                return { parentId, locale: lastPart };
+              }
+
+              return null;
+            }
+
             // Transform packages to our schema
             // Index v2 format: { Name, PackageId, Version, Tags, LastUpdate }
+
+            // First pass: build a set of all package IDs so we can validate parents
+            const allPackageIds = new Set(
+              packages.map(pkg => pkg.PackageId || pkg.PackageIdentifier || '').filter(Boolean)
+            );
+
             const appsToUpsert = packages.map(pkg => {
               // Extract publisher from PackageId (first part before .)
               const packageId = pkg.PackageId || pkg.PackageIdentifier || '';
               const parts = packageId.split('.');
               const publisher = parts[0] || 'Unknown';
+
+              // Detect locale variant
+              const localeInfo = detectLocaleVariant(packageId);
+              // Only mark as variant if the parent package also exists in the index
+              const isVariant = localeInfo !== null && allPackageIds.has(localeInfo.parentId);
 
               return {
                 winget_id: packageId,
@@ -125,11 +203,15 @@ jobs:
                 winget_last_update: pkg.LastUpdate || null,
                 is_verified: true, // Source is authoritative (winget-pkgs)
                 is_winget_verified: true,
+                parent_winget_id: isVariant ? localeInfo.parentId : null,
+                locale_code: isVariant ? localeInfo.locale : null,
+                is_locale_variant: isVariant,
                 updated_at: new Date().toISOString()
               };
             }).filter(app => app.winget_id); // Filter out any entries without ID
 
-            console.log(`Prepared ${appsToUpsert.length} apps for upsert`);
+            const variantCount = appsToUpsert.filter(a => a.is_locale_variant).length;
+            console.log(`Prepared ${appsToUpsert.length} apps for upsert (${variantCount} locale variants detected)`);
 
             // Upsert in batches to handle scale
             const batchSize = 500;
@@ -166,6 +248,16 @@ jobs:
                 }
               }
 
+              // Icon inheritance: copy parent icon_path to locale variants
+              if (variantCount > 0) {
+                const { data: iconCount, error: iconError } = await supabase.rpc('inherit_parent_icons');
+                if (iconError) {
+                  console.log('Icon inheritance: skipped (function may not exist yet):', iconError.message);
+                } else {
+                  console.log(`Icon inheritance: updated ${iconCount || 0} variant icons from parent apps`);
+                }
+              }
+
               // Update sync status to success
               await supabase.from('curated_sync_status').upsert({
                 id: 'build-app-list',
@@ -185,12 +277,14 @@ jobs:
               console.log(`\nImport complete:`);
               console.log(`  - Total packages in index: ${packages.length}`);
               console.log(`  - Successfully upserted: ${totalUpserted}`);
+              console.log(`  - Locale variants detected: ${variantCount}`);
               console.log(`  - Batch errors: ${errors}`);
 
               // Output stats for workflow
               fs.writeFileSync('./import-stats.json', JSON.stringify({
                 total: packages.length,
                 upserted: totalUpserted,
+                locale_variants: variantCount,
                 errors: errors
               }));
 
@@ -223,6 +317,7 @@ jobs:
           if [ -f import-stats.json ]; then
             TOTAL=$(jq -r '.total' import-stats.json)
             UPSERTED=$(jq -r '.upserted' import-stats.json)
+            VARIANTS=$(jq -r '.locale_variants // 0' import-stats.json)
             ERRORS=$(jq -r '.errors' import-stats.json)
 
             echo "## Curated App List Build Summary" >> $GITHUB_STEP_SUMMARY
@@ -231,6 +326,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "- **Total packages in index:** $TOTAL" >> $GITHUB_STEP_SUMMARY
             echo "- **Successfully imported:** $UPSERTED" >> $GITHUB_STEP_SUMMARY
+            echo "- **Locale variants detected:** $VARIANTS" >> $GITHUB_STEP_SUMMARY
             echo "- **Batch errors:** $ERRORS" >> $GITHUB_STEP_SUMMARY
             echo "- **Generated at:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY

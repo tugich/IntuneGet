@@ -119,6 +119,16 @@ export interface WingetVersionsResponse {
   Versions: string[];
 }
 
+// Locale variant metadata for language-specific packages
+export interface LocaleVariant {
+  wingetId: string;       // e.g., "Mozilla.Firefox.de"
+  localeCode: string;     // e.g., "de"
+  localeName: string;     // e.g., "Deutsch"
+  countryFlag: string;    // ISO 3166-1 alpha-2 country code, e.g., "DE"
+  flagEmoji?: string;     // Pre-rendered flag emoji, e.g., flag for DE
+  version?: string;
+}
+
 // Normalized package data for internal use
 export interface NormalizedPackage {
   id: string;
@@ -135,6 +145,11 @@ export interface NormalizedPackage {
   category?: string;
   popularityRank?: number;
   installerType?: string;
+  // Locale variant fields
+  localeVariants?: LocaleVariant[];
+  isLocaleVariant?: boolean;
+  parentWingetId?: string;
+  localeCode?: string;
 }
 
 // Normalized installer for internal use

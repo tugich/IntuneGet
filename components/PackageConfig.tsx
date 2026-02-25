@@ -22,6 +22,8 @@ import {
   Palette,
   Zap,
   SlidersHorizontal,
+  Globe,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -45,6 +47,8 @@ import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt'
 import { useCartStore } from '@/stores/cart-store';
 import { useUpdateAppSettings } from '@/hooks/use-update-app-settings';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
+import { useLocaleVariants } from '@/hooks/use-packages';
+import { countryCodeToFlag } from '@/lib/locale-utils';
 
 interface PackageConfigProps {
   package: NormalizedPackage;
@@ -82,6 +86,41 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
     deployedConfig?.installScope || 'machine'
   );
   const [showVersions, setShowVersions] = useState(false);
+
+  // Language variant state
+  const [selectedLocale, setSelectedLocale] = useState<string | null>(
+    deployedConfig?.localeCode || null
+  );
+  const [showLocaleDropdown, setShowLocaleDropdown] = useState(false);
+  const [localeSearch, setLocaleSearch] = useState('');
+  const localeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch locale variants only when the server indicated this package has them.
+  // pkg.localeVariants is populated by getPackage() for parent apps with variants.
+  const hasVariantsHint = pkg.localeVariants && pkg.localeVariants.length > 0;
+  const { data: variantData } = useLocaleVariants(hasVariantsHint ? pkg.id : null);
+  const localeVariants = variantData?.variants || pkg.localeVariants || [];
+
+  // Derive the effective winget ID based on locale selection
+  const effectiveWingetId = useMemo(() => {
+    if (!selectedLocale || localeVariants.length === 0) return pkg.id;
+    const variant = localeVariants.find((v) => v.localeCode === selectedLocale);
+    return variant?.wingetId || pkg.id;
+  }, [selectedLocale, localeVariants, pkg.id]);
+
+  // Close locale dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (localeDropdownRef.current && !localeDropdownRef.current.contains(e.target as Node)) {
+        setShowLocaleDropdown(false);
+        setLocaleSearch('');
+      }
+    }
+    if (showLocaleDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showLocaleDropdown]);
 
   // PSADT config state - pre-fill from deployed config when available
   const [config, setConfig] = useState<PSADTConfig>(() => {
@@ -135,24 +174,25 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
       JSON.stringify(categories) !== JSON.stringify(deployedConfig.categories || []);
     const hasGraphChanges = hasAssignmentChanges || hasCategoryChanges;
 
-    // Redeploy-required: version, architecture, scope, PSADT config
+    // Redeploy-required: version, architecture, scope, locale, PSADT config
     const hasVersionChange = selectedVersion !== deployedConfig.version;
     const hasArchChange = selectedArch !== deployedConfig.architecture;
     const hasScopeChange = selectedScope !== deployedConfig.installScope;
+    const hasLocaleChange = (selectedLocale || null) !== (deployedConfig.localeCode || null);
     const hasPsadtChange =
       JSON.stringify(config) !== JSON.stringify(deployedConfig.psadtConfig);
     const hasRedeployChanges =
-      hasVersionChange || hasArchChange || hasScopeChange || hasPsadtChange;
+      hasVersionChange || hasArchChange || hasScopeChange || hasLocaleChange || hasPsadtChange;
 
     return { hasGraphChanges, hasRedeployChanges };
   }, [isDeployed, deployedConfig, assignments, categories,
-      selectedVersion, selectedArch, selectedScope, config]);
+      selectedVersion, selectedArch, selectedScope, selectedLocale, config]);
 
   // Get selected installer
   const selectedInstaller = installers.find((i) => i.architecture === selectedArch) || installers[0];
   const availableArchitectures = [...new Set(installers.map((i) => i.architecture))];
   const inCart = selectedInstaller
-    ? isInCart(pkg.id, selectedVersion, selectedInstaller.architecture)
+    ? isInCart(effectiveWingetId, selectedVersion, selectedInstaller.architecture)
     : false;
 
   // Escape key handler
@@ -177,26 +217,34 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
     }
   }, [selectedInstaller]);
 
-  // Generate detection rules when installer or version changes
-  // Pass wingetId and version for registry marker detection (most reliable for EXE installers)
+  // Generate detection rules when installer, version, or locale changes
+  // Pass effectiveWingetId so locale variant packages get correct detection markers
   useEffect(() => {
     if (selectedInstaller) {
-      const rules = generateDetectionRules(selectedInstaller, pkg.name, pkg.id, selectedVersion);
+      const rules = generateDetectionRules(selectedInstaller, pkg.name, effectiveWingetId, selectedVersion);
       setConfig((prev) => ({
         ...prev,
         detectionRules: rules,
       }));
     }
-  }, [selectedInstaller, pkg.name, pkg.id, selectedVersion]);
+  }, [selectedInstaller, pkg.name, effectiveWingetId, selectedVersion]);
 
   const handleAddToCart = async () => {
     if (!selectedInstaller || inCart || addedToCartSuccess) return;
 
     setIsAddingToCart(true);
     try {
+      // Build display name with locale suffix if a non-default locale is selected
+      const selectedLocaleInfo = selectedLocale
+        ? localeVariants.find((v) => v.localeCode === selectedLocale)
+        : null;
+      const displayName = selectedLocaleInfo
+        ? `${pkg.name} (${selectedLocaleInfo.localeName})`
+        : pkg.name;
+
       addItem({
-        wingetId: pkg.id,
-        displayName: pkg.name,
+        wingetId: effectiveWingetId,
+        displayName,
         publisher: pkg.publisher,
         description: pkg.description,
         version: selectedVersion,
@@ -211,6 +259,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
         psadtConfig: config,
         assignments: assignments.length > 0 ? assignments : undefined,
         categories: categories.length > 0 ? categories : undefined,
+        localeCode: selectedLocale || undefined,
         ...(isDeployed ? { forceCreate: true } : {}),
       });
       setAddedToCartSuccess(true);
@@ -227,7 +276,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
     try {
       await updateSettings({
         intuneAppId,
-        wingetId: pkg.id,
+        wingetId: effectiveWingetId,
         assignments,
         categories,
       });
@@ -389,6 +438,116 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </div>
             </div>
+
+            {/* Language Selector - only shown when locale variants exist */}
+            {localeVariants.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-2">
+                  <Globe className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />
+                  Language
+                </label>
+                <div className="relative" ref={localeDropdownRef}>
+                  <button
+                    onClick={() => {
+                      setShowLocaleDropdown(!showLocaleDropdown);
+                      setLocaleSearch('');
+                    }}
+                    aria-haspopup="listbox"
+                    aria-expanded={showLocaleDropdown}
+                    className="w-full flex items-center justify-between px-4 py-2.5 bg-bg-elevated border border-overlay/15 rounded-lg text-text-primary hover:border-overlay/20 transition-colors text-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      {selectedLocale ? (
+                        <>
+                          <span>{countryCodeToFlag(
+                            localeVariants.find((v) => v.localeCode === selectedLocale)?.countryFlag || ''
+                          )}</span>
+                          <span>
+                            {localeVariants.find((v) => v.localeCode === selectedLocale)?.localeName || selectedLocale}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span>{countryCodeToFlag('US')}</span>
+                          <span>English (US) - Default</span>
+                        </>
+                      )}
+                    </span>
+                    <ChevronDown className={cn('w-4 h-4 transition-transform', showLocaleDropdown && 'rotate-180')} />
+                  </button>
+
+                  {showLocaleDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-bg-elevated border border-overlay/15 rounded-lg shadow-xl max-h-64 overflow-hidden flex flex-col">
+                      {/* Search input for large variant lists */}
+                      {localeVariants.length > 10 && (
+                        <div className="p-2 border-b border-overlay/10">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
+                            <input
+                              type="text"
+                              placeholder="Search languages..."
+                              value={localeSearch}
+                              onChange={(e) => setLocaleSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 bg-bg-primary border border-overlay/10 rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-cyan/40"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="overflow-y-auto">
+                        {/* Default (English/base package) option */}
+                        <button
+                          onClick={() => {
+                            setSelectedLocale(null);
+                            setShowLocaleDropdown(false);
+                            setLocaleSearch('');
+                          }}
+                          className={cn(
+                            'w-full px-4 py-2 text-left text-sm hover:bg-overlay/15 transition-colors flex items-center gap-2',
+                            !selectedLocale ? 'text-accent-cyan bg-accent-cyan/10' : 'text-text-primary'
+                          )}
+                        >
+                          <span>{countryCodeToFlag('US')}</span>
+                          <span>English (US) - Default</span>
+                        </button>
+
+                        {/* Locale variant options */}
+                        {localeVariants
+                          .filter((v) => {
+                            if (!localeSearch) return true;
+                            const search = localeSearch.toLowerCase();
+                            return (
+                              v.localeName.toLowerCase().includes(search) ||
+                              v.localeCode.toLowerCase().includes(search)
+                            );
+                          })
+                          .map((variant) => (
+                            <button
+                              key={variant.localeCode}
+                              onClick={() => {
+                                setSelectedLocale(variant.localeCode);
+                                setShowLocaleDropdown(false);
+                                setLocaleSearch('');
+                              }}
+                              className={cn(
+                                'w-full px-4 py-2 text-left text-sm hover:bg-overlay/15 transition-colors flex items-center gap-2',
+                                selectedLocale === variant.localeCode
+                                  ? 'text-accent-cyan bg-accent-cyan/10'
+                                  : 'text-text-primary'
+                              )}
+                            >
+                              <span>{countryCodeToFlag(variant.countryFlag)}</span>
+                              <span>{variant.localeName}</span>
+                              <span className="text-text-muted text-xs ml-auto">{variant.localeCode}</span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Install Scope */}
             <div>

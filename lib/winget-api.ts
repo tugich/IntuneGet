@@ -18,6 +18,8 @@ import {
   getBestInstaller as getManifestBestInstaller,
   fetchAvailableVersions,
 } from './manifest-api';
+import { getLocaleDisplay } from './locale-utils';
+import type { LocaleVariant } from '@/types/winget';
 
 // Supabase client for server-side operations
 function getSupabaseClient() {
@@ -108,6 +110,26 @@ export async function getPackage(packageId: string): Promise<CuratedPackage | nu
 
       const versions = versionData?.map(v => v.version) || [];
 
+      // Fetch locale variants if this is a parent app (not a variant itself)
+      let localeVariants: LocaleVariant[] | undefined;
+      if (!curatedData.is_locale_variant) {
+        const { data: variantData } = await supabase.rpc('get_locale_variants', {
+          parent_id: packageId,
+        });
+        if (variantData && variantData.length > 0) {
+          localeVariants = variantData.map((v: { winget_id: string; locale_code: string; latest_version: string | null }) => {
+            const display = getLocaleDisplay(v.locale_code);
+            return {
+              wingetId: v.winget_id,
+              localeCode: v.locale_code,
+              localeName: display.name,
+              countryFlag: display.flag,
+              version: v.latest_version || undefined,
+            };
+          });
+        }
+      }
+
       return {
         id: curatedData.winget_id,
         name: curatedData.name,
@@ -121,6 +143,10 @@ export async function getPackage(packageId: string): Promise<CuratedPackage | nu
         iconPath: curatedData.icon_path,
         category: curatedData.category,
         popularityRank: curatedData.popularity_rank,
+        localeVariants,
+        isLocaleVariant: curatedData.is_locale_variant || false,
+        parentWingetId: curatedData.parent_winget_id || undefined,
+        localeCode: curatedData.locale_code || undefined,
       };
     }
 

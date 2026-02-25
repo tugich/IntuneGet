@@ -133,6 +133,7 @@ export interface CartItem {
   publisher: string;
   description?: string;
   version: string;
+  localeCode?: string; // Selected locale for language variant packages
   architecture: WingetArchitecture;
   installScope: WingetScope;
   installerType: WingetInstallerType;

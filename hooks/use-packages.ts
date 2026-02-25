@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import type { NormalizedPackage, NormalizedInstaller } from '@/types/winget';
+import type { NormalizedPackage, NormalizedInstaller, LocaleVariant } from '@/types/winget';
 import type { ChangelogData } from '@/components/InstallationChangelog';
 
 interface PopularPackagesResponse {
@@ -187,5 +187,26 @@ export function useInstallationChangelog(id: string, version?: string) {
     },
     enabled: !!id,
     staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+  });
+}
+
+interface LocaleVariantsResponse {
+  parentId: string;
+  count: number;
+  variants: LocaleVariant[];
+}
+
+export function useLocaleVariants(parentWingetId: string | null) {
+  return useQuery<LocaleVariantsResponse>({
+    queryKey: ['packages', 'variants', parentWingetId],
+    queryFn: async () => {
+      const response = await fetch(`/api/winget/variants?id=${encodeURIComponent(parentWingetId!)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch locale variants');
+      }
+      return response.json();
+    },
+    enabled: !!parentWingetId,
+    staleTime: 5 * 60 * 1000,
   });
 }
