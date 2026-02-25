@@ -271,7 +271,6 @@ export function SuggestionsList({
                   )}
 
                   <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
-                    <span>Suggested by {suggestion.suggested_by_email.split('@')[0]}</span>
                     <span>{formatDate(suggestion.created_at)}</span>
                   </div>
                 </div>

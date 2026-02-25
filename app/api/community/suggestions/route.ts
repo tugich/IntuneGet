@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('app_suggestions')
-      .select('*', { count: 'exact' });
+      .select('id, winget_id, reason, status, votes_count, github_issue_number, reviewed_at, reviewed_by, created_at', { count: 'exact' });
 
     // Filter by status
     if (status !== 'all') {
