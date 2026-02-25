@@ -124,14 +124,6 @@ export function SuggestionsList({
     );
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
-    });
-  };
 
   const getStatusBadge = (suggestionStatus: Suggestion['status']) => {
     const config = statusConfig[suggestionStatus];
@@ -270,9 +262,6 @@ export function SuggestionsList({
                     </p>
                   )}
 
-                  <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
-                    <span>{formatDate(suggestion.created_at)}</span>
-                  </div>
                 </div>
               </div>
             ))}
