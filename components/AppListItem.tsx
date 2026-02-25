@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
 import type { NormalizedPackage } from '@/types/winget';
+import { cleanPackageName } from '@/lib/locale-utils';
 import { useCartStore } from '@/stores/cart-store';
 import { useQuickAdd } from '@/hooks/useQuickAdd';
 
@@ -118,7 +119,7 @@ function AppListItemComponent({ package: pkg, onSelect, isDeployed = false, isBu
         <div className="flex-1 min-w-0 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <h4 className="text-sm font-semibold text-text-primary truncate group-hover:text-accent-cyan transition-colors">
-              {pkg.name}
+              {cleanPackageName(pkg.name)}
             </h4>
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs text-text-secondary truncate">

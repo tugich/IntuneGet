@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight, Loader2, Plus, C
 import { AppIcon } from '@/components/AppIcon';
 import { Button } from '@/components/ui/button';
 import type { NormalizedPackage } from '@/types/winget';
+import { cleanPackageName } from '@/lib/locale-utils';
 import { usePackagesByCategory } from '@/hooks/use-packages';
 import { useCartStore } from '@/stores/cart-store';
 import { useQuickAdd } from '@/hooks/useQuickAdd';
@@ -226,7 +227,7 @@ function CollectionCardComponent({ package: pkg, onSelect, isDeployed = false }:
 
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-medium text-text-primary line-clamp-2 group-hover:text-accent-cyan transition-colors">
-            {pkg.name}
+            {cleanPackageName(pkg.name)}
           </h4>
           <p className="text-xs text-text-muted truncate">{pkg.publisher}</p>
         </div>

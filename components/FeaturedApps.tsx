@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
 import type { NormalizedPackage } from '@/types/winget';
+import { cleanPackageName } from '@/lib/locale-utils';
 import { useCartStore } from '@/stores/cart-store';
 import { useQuickAdd } from '@/hooks/useQuickAdd';
 
@@ -127,7 +128,7 @@ function FeaturedMainCardComponent({ package: pkg, onSelect, isDeployed = false 
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-2xl md:text-3xl font-bold text-text-primary group-hover:text-accent-cyan transition-colors">
-                  {pkg.name}
+                  {cleanPackageName(pkg.name)}
                 </h2>
                 <p className="text-text-secondary mt-1">{pkg.publisher}</p>
               </div>
@@ -259,7 +260,7 @@ function FeaturedSecondaryCardComponent({ package: pkg, onSelect, isDeployed = f
 
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-text-primary truncate group-hover:text-accent-cyan transition-colors">
-            {pkg.name}
+            {cleanPackageName(pkg.name)}
           </h3>
           <p className="text-xs text-text-muted truncate">{pkg.publisher}</p>
           {pkg.description && (

@@ -224,6 +224,14 @@ export function getLocaleDisplay(code: string): LocaleDisplay {
  * Convert an ISO 3166-1 alpha-2 country code to a flag emoji.
  * Works by mapping each letter to its regional indicator symbol.
  */
+/**
+ * Strip trailing locale tags like "(en-US)" or "(de)" from a package display name.
+ * Useful for showing clean names in the catalog (e.g., "Mozilla Firefox" instead of "Mozilla Firefox (en-US)").
+ */
+export function cleanPackageName(name: string): string {
+  return name.replace(/\s*\([a-z]{2}(-[A-Z]{2})?\)\s*$/, '').trim();
+}
+
 export function countryCodeToFlag(code: string): string {
   if (!code || code.length !== 2) return '';
   return code

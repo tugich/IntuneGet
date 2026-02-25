@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/AppIcon';
 import { CategoryBadge } from '@/components/CategoryFilter';
 import type { NormalizedPackage } from '@/types/winget';
+import { cleanPackageName } from '@/lib/locale-utils';
 import { useCartStore } from '@/stores/cart-store';
 import { useQuickAdd } from '@/hooks/useQuickAdd';
 
@@ -120,7 +121,7 @@ function AppCardComponent({ package: pkg, onSelect, isDeployed = false, isBulkSe
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h3 className="text-text-primary font-semibold text-base truncate group-hover:text-accent-cyan transition-colors">
-                {pkg.name}
+                {cleanPackageName(pkg.name)}
               </h3>
               <p className="text-text-secondary text-sm truncate">{pkg.publisher}</p>
               {pkg.id && (

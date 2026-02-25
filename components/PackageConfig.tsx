@@ -48,7 +48,7 @@ import { useCartStore } from '@/stores/cart-store';
 import { useUpdateAppSettings } from '@/hooks/use-update-app-settings';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { useLocaleVariants } from '@/hooks/use-packages';
-import { countryCodeToFlag } from '@/lib/locale-utils';
+import { countryCodeToFlag, cleanPackageName } from '@/lib/locale-utils';
 
 interface PackageConfigProps {
   package: NormalizedPackage;
@@ -248,7 +248,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
         : null;
       // Strip trailing locale tags like "(en-US)" from the base name only when replacing with a selected locale
       const displayName = selectedLocaleInfo
-        ? `${pkg.name.replace(/\s*\([a-z]{2}(-[A-Z]{2})?\)\s*$/, '').trim()} (${selectedLocaleInfo.localeName})`
+        ? `${cleanPackageName(pkg.name)} (${selectedLocaleInfo.localeName})`
         : pkg.name;
 
       addItem({
@@ -350,7 +350,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 className="border-accent-cyan/30"
               />
               <div>
-                <h2 id="package-config-title" className="text-xl font-bold text-text-primary">{pkg.name}</h2>
+                <h2 id="package-config-title" className="text-xl font-bold text-text-primary">{cleanPackageName(pkg.name)}</h2>
                 <p className="text-text-muted text-sm">{pkg.publisher}</p>
                 <p className="text-text-muted text-xs font-mono mt-1">{pkg.id}</p>
               </div>
