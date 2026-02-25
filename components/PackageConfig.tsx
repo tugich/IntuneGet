@@ -95,10 +95,10 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   const [localeSearch, setLocaleSearch] = useState('');
   const localeDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch locale variants only when the server indicated this package has them.
-  // pkg.localeVariants is populated by getPackage() for parent apps with variants.
-  const hasVariantsHint = pkg.localeVariants && pkg.localeVariants.length > 0;
-  const { data: variantData } = useLocaleVariants(hasVariantsHint ? pkg.id : null);
+  // Fetch locale variants for this package.
+  // The API returns empty (count: 0) for packages without variants.
+  // Cached for 5 minutes via React Query staleTime.
+  const { data: variantData } = useLocaleVariants(pkg.id);
   const localeVariants = variantData?.variants || pkg.localeVariants || [];
 
   // Derive the effective winget ID based on locale selection
