@@ -98,8 +98,16 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   // Fetch locale variants for this package.
   // The API returns empty (count: 0) for packages without variants.
   // Cached for 5 minutes via React Query staleTime.
-  const { data: variantData } = useLocaleVariants(pkg.id);
-  const localeVariants = variantData?.variants || pkg.localeVariants || [];
+  const { data: variantData, isSuccess: variantsLoaded } = useLocaleVariants(pkg.id);
+  const localeVariants = variantsLoaded ? (variantData?.variants ?? []) : (pkg.localeVariants ?? []);
+
+  // Clear stale selectedLocale if it doesn't exist in the resolved variants
+  useEffect(() => {
+    if (variantsLoaded && selectedLocale) {
+      const exists = localeVariants.some((v) => v.localeCode === selectedLocale);
+      if (!exists) setSelectedLocale(null);
+    }
+  }, [variantsLoaded, localeVariants, selectedLocale]);
 
   // Derive the effective winget ID based on locale selection
   const effectiveWingetId = useMemo(() => {
