@@ -241,6 +241,7 @@ export function UploadCart() {
                         <AppIcon
                           packageId={item.wingetId}
                           packageName={item.displayName}
+                          iconPath={item.iconPath}
                           size="md"
                           className="flex-shrink-0"
                         />

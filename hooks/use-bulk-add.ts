@@ -80,6 +80,7 @@ export function useBulkAdd(): UseBulkAddReturn {
               installCommand: generateInstallCommand(installer, installer.scope || 'machine'),
               uninstallCommand: generateUninstallCommand(installer, pkg.name),
               detectionRules,
+              iconPath: pkg.iconPath,
               psadtConfig: {
                 ...DEFAULT_PSADT_CONFIG,
                 processesToClose,

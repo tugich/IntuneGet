@@ -246,8 +246,9 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
       const selectedLocaleInfo = selectedLocale
         ? localeVariants.find((v) => v.localeCode === selectedLocale)
         : null;
+      // Strip trailing locale tags like "(en-US)" from the base name only when replacing with a selected locale
       const displayName = selectedLocaleInfo
-        ? `${pkg.name} (${selectedLocaleInfo.localeName})`
+        ? `${pkg.name.replace(/\s*\([a-z]{2}(-[A-Z]{2})?\)\s*$/, '').trim()} (${selectedLocaleInfo.localeName})`
         : pkg.name;
 
       addItem({
@@ -268,6 +269,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
         assignments: assignments.length > 0 ? assignments : undefined,
         categories: categories.length > 0 ? categories : undefined,
         localeCode: selectedLocale || undefined,
+        iconPath: pkg.iconPath,
         ...(isDeployed ? { forceCreate: true } : {}),
       });
       setAddedToCartSuccess(true);

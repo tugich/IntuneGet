@@ -134,6 +134,7 @@ export interface CartItem {
   description?: string;
   version: string;
   localeCode?: string; // Selected locale for language variant packages
+  iconPath?: string; // Icon path for display (parent icon for locale variants)
   architecture: WingetArchitecture;
   installScope: WingetScope;
   installerType: WingetInstallerType;
