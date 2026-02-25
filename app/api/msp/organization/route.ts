@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
       user_email: user.userEmail,
       user_name: user.userName,
       user_tenant_id: user.tenantId,
+      role: 'owner',
     };
 
     const membershipResult = await getTable(supabase, 'msp_user_memberships')

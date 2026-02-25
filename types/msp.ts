@@ -100,6 +100,7 @@ export interface MspUserMembership {
   user_email: string;
   user_name: string | null;
   user_tenant_id: string | null;
+  role: 'owner' | 'admin' | 'operator' | 'viewer';
   created_at: string;
   updated_at: string;
 }
