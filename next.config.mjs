@@ -7,6 +7,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "intuneget.com",
       },
+      {
+        protocol: "https",
+        hostname: "store-images.s-microsoft.com",
+      },
+      {
+        protocol: "https",
+        hostname: "store-images.microsoft.com",
+      },
     ],
     formats: ["image/avif", "image/webp"],
   },

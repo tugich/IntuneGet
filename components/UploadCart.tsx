@@ -19,6 +19,7 @@ import { AppIcon } from '@/components/AppIcon';
 import { useCartStore } from '@/stores/cart-store';
 import { CartItemConfig } from '@/components/CartItemConfig';
 import type { CartItem } from '@/types/upload';
+import { isStoreCartItem, isWin32CartItem } from '@/types/upload';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { usePermissionStatus } from '@/hooks/usePermissionStatus';
 import { useMspOptional } from '@/hooks/useMspOptional';
@@ -274,18 +275,33 @@ export function UploadCart() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
-                          v{item.version}
-                        </span>
-                        <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
-                          {item.architecture}
-                        </span>
-                        <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
-                          {item.installScope}
-                        </span>
-                        <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs uppercase border border-overlay/5">
-                          {item.installerType}
-                        </span>
+                        {!isStoreCartItem(item) && (
+                          <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
+                            v{item.version}
+                          </span>
+                        )}
+                        {isStoreCartItem(item) ? (
+                          <>
+                            <span className="px-2 py-1 bg-violet-500/10 rounded text-violet-300 text-xs font-medium border border-violet-500/20">
+                              Store
+                            </span>
+                            <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
+                              {item.installExperience}
+                            </span>
+                          </>
+                        ) : isWin32CartItem(item) ? (
+                          <>
+                            <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
+                              {item.architecture}
+                            </span>
+                            <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs border border-overlay/5">
+                              {item.installScope}
+                            </span>
+                            <span className="px-2 py-1 bg-bg-elevated rounded text-text-primary text-xs uppercase border border-overlay/5">
+                              {item.installerType}
+                            </span>
+                          </>
+                        ) : null}
                         {item.forceCreate && (
                           <span className="px-2 py-1 bg-accent-cyan/10 rounded text-accent-cyan text-xs font-medium border border-accent-cyan/20 inline-flex items-center gap-1">
                             <RefreshCw className="w-3 h-3" />

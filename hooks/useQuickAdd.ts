@@ -31,6 +31,39 @@ export function useQuickAdd(
       setIsLoading(true);
 
       try {
+        // Store apps: no manifest fetch needed, add directly
+        if (pkg.appSource === 'store') {
+          addItem({
+            appSource: 'store',
+            wingetId: pkg.packageIdentifier || pkg.id,
+            displayName: pkg.name,
+            publisher: pkg.publisher,
+            description: pkg.description,
+            version: pkg.version,
+            packageIdentifier: pkg.packageIdentifier || pkg.id,
+            installExperience: 'user',
+            iconPath: pkg.iconPath,
+          });
+
+          toast.success(`${pkg.name} added`, {
+            description: 'Microsoft Store app',
+            action: {
+              label: 'Undo',
+              onClick: () => {
+                const items = useCartStore.getState().items;
+                const addedItem = items.find(
+                  (item) => item.wingetId === (pkg.packageIdentifier || pkg.id) && item.version === pkg.version
+                );
+                if (addedItem) {
+                  removeItem(addedItem.id);
+                }
+              },
+            },
+          });
+          return;
+        }
+
+        // Win32 apps: fetch manifest and select best installer
         const response = await fetch(
           `/api/winget/manifest?id=${encodeURIComponent(pkg.id)}&arch=${encodeURIComponent(architecture)}`
         );
@@ -47,6 +80,7 @@ export function useQuickAdd(
           const processesToClose = getDefaultProcessesToClose(pkg.name, installer.type);
 
           addItem({
+            appSource: 'win32',
             wingetId: pkg.id,
             displayName: pkg.name,
             publisher: pkg.publisher,
@@ -96,7 +130,7 @@ export function useQuickAdd(
         setIsLoading(false);
       }
     },
-    [pkg.id, pkg.name, pkg.publisher, pkg.description, pkg.version, architecture, addItem, removeItem]
+    [pkg.id, pkg.name, pkg.publisher, pkg.description, pkg.version, pkg.appSource, pkg.packageIdentifier, pkg.iconPath, architecture, addItem, removeItem]
   );
 
   return { quickAdd, isLoading };

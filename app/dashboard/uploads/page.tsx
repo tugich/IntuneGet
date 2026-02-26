@@ -50,6 +50,7 @@ interface PackagingJob {
   publisher: string;
   architecture: string;
   installer_type: string;
+  app_source?: 'win32' | 'store';
   status: 'queued' | 'packaging' | 'completed' | 'failed' | 'uploading' | 'deployed' | 'cancelled' | 'duplicate_skipped';
   status_message?: string;
   progress_percent: number;
@@ -619,7 +620,7 @@ function UploadJobCard({
   const isStale = isActive && (Date.now() - new Date(job.updated_at).getTime()) > 30 * 60 * 1000;
   // Allow cancelling active jobs or dismissing completed/failed jobs
   const isCancellable = ['queued', 'packaging', 'uploading'].includes(job.status);
-  const isDismissable = ['completed', 'failed', 'duplicate_skipped'].includes(job.status);
+  const isDismissable = ['completed', 'failed', 'duplicate_skipped', 'deployed'].includes(job.status);
   const canRemove = isCancellable || isDismissable;
 
   const itemVariants = {
@@ -681,7 +682,11 @@ function UploadJobCard({
             <div>
               <h3 className="text-text-primary text-[15px] font-semibold">{job.display_name}</h3>
               <p className="text-text-secondary text-sm mt-0.5">
-                {job.publisher} <span className="text-overlay/20">|</span> v{job.version} <span className="text-overlay/20">|</span> {job.architecture}
+                {job.publisher}
+                {job.app_source !== 'store' && job.installer_type && (
+                  <><span className="text-overlay/20"> | </span>v{job.version}</>
+                )}
+                <span className="text-overlay/20"> | </span>{job.architecture}
               </p>
               {/* Assignments */}
               {job.package_config?.assignments && job.package_config.assignments.length > 0 && (

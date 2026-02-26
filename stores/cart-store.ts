@@ -5,7 +5,8 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CartItem } from '@/types/upload';
+import type { CartItem, Win32CartItem, StoreCartItem, NewCartItem } from '@/types/upload';
+import { isStoreCartItem, isWin32CartItem } from '@/types/upload';
 import type { NormalizedInstaller, WingetScope } from '@/types/winget';
 import type { PSADTConfig } from '@/types/psadt';
 import { DEFAULT_PSADT_CONFIG } from '@/types/psadt';
@@ -17,8 +18,8 @@ interface CartState {
 }
 
 interface CartActions {
-  addItem: (item: Omit<CartItem, 'id' | 'addedAt'>) => void;
-  addItemSilent: (item: Omit<CartItem, 'id' | 'addedAt'>) => void;
+  addItem: (item: NewCartItem) => void;
+  addItemSilent: (item: NewCartItem) => void;
   setAutoOpenOnAdd: (enabled: boolean) => void;
   setAutoOpenOnAddFromServer: (enabled: boolean) => void;
   removeItem: (id: string) => void;
@@ -27,11 +28,19 @@ interface CartActions {
   toggleCart: () => void;
   openCart: () => void;
   closeCart: () => void;
-  isInCart: (wingetId: string, version: string, architecture: string) => boolean;
+  isInCart: (wingetId: string, version: string, architecture?: string) => boolean;
   getItemCount: () => number;
 }
 
 type CartStore = CartState & CartActions;
+
+function generateCartItemId(item: NewCartItem): string {
+  if ('appSource' in item && item.appSource === 'store') {
+    return `store-${item.wingetId}-${item.version}-${Date.now()}`;
+  }
+  const win32 = item as Omit<Win32CartItem, 'id' | 'addedAt'>;
+  return `${item.wingetId}-${item.version}-${win32.architecture || 'neutral'}-${Date.now()}`;
+}
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -41,7 +50,7 @@ export const useCartStore = create<CartStore>()(
       autoOpenOnAdd: true,
 
       addItem: (item) => {
-        const id = `${item.wingetId}-${item.version}-${item.architecture}-${Date.now()}`;
+        const id = generateCartItemId(item);
         const shouldOpenCart = get().autoOpenOnAdd;
         set((state) => ({
           items: [
@@ -50,14 +59,14 @@ export const useCartStore = create<CartStore>()(
               ...item,
               id,
               addedAt: new Date().toISOString(),
-            },
+            } as CartItem,
           ],
           isOpen: shouldOpenCart,
         }));
       },
 
       addItemSilent: (item) => {
-        const id = `${item.wingetId}-${item.version}-${item.architecture}-${Date.now()}`;
+        const id = generateCartItemId(item);
         set((state) => ({
           items: [
             ...state.items,
@@ -65,7 +74,7 @@ export const useCartStore = create<CartStore>()(
               ...item,
               id,
               addedAt: new Date().toISOString(),
-            },
+            } as CartItem,
           ],
           // Don't open cart - used for bulk operations
         }));
@@ -87,7 +96,7 @@ export const useCartStore = create<CartStore>()(
       updateItem: (id, updates) => {
         set((state) => ({
           items: state.items.map((item) =>
-            item.id === id ? { ...item, ...updates } : item
+            item.id === id ? { ...item, ...updates } as CartItem : item
           ),
         }));
       },
@@ -109,12 +118,16 @@ export const useCartStore = create<CartStore>()(
       },
 
       isInCart: (wingetId, version, architecture) => {
-        return get().items.some(
-          (item) =>
-            item.wingetId === wingetId &&
-            item.version === version &&
-            item.architecture === architecture
-        );
+        return get().items.some((item) => {
+          if (item.wingetId !== wingetId || item.version !== version) return false;
+          // Store items match on wingetId + version only (no architecture)
+          if (isStoreCartItem(item)) return true;
+          // Win32 items also check architecture
+          if (isWin32CartItem(item) && architecture) {
+            return item.architecture === architecture;
+          }
+          return true;
+        });
       },
 
       getItemCount: () => {
@@ -123,15 +136,29 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: 'intuneget-cart',
+      version: 1,
       partialize: (state) => ({
         items: state.items,
         autoOpenOnAdd: state.autoOpenOnAdd,
       }),
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as { items?: CartItem[]; autoOpenOnAdd?: boolean };
+        if (version === 0 && state.items) {
+          // Backfill appSource: 'win32' for items persisted before store app support
+          state.items = state.items.map((item) => {
+            if (!item.appSource) {
+              return Object.assign({}, item, { appSource: 'win32' as const }) as CartItem;
+            }
+            return item;
+          });
+        }
+        return state;
+      },
     }
   )
 );
 
-// Helper function to create a cart item from package and installer data
+// Helper function to create a Win32 cart item from package and installer data
 export function createCartItem(
   wingetId: string,
   displayName: string,
@@ -140,7 +167,7 @@ export function createCartItem(
   installer: NormalizedInstaller,
   installScope: WingetScope = 'machine',
   psadtConfig?: Partial<PSADTConfig>
-): Omit<CartItem, 'id' | 'addedAt'> {
+): Omit<Win32CartItem, 'id' | 'addedAt'> {
   // Import detection rule generator
   const { generateDetectionRules, generateInstallCommand, generateUninstallCommand } = require('@/lib/detection-rules');
 
@@ -148,6 +175,7 @@ export function createCartItem(
   const detectionRules = generateDetectionRules(installer, displayName, wingetId, version);
 
   return {
+    appSource: 'win32',
     wingetId,
     displayName,
     publisher,
@@ -165,5 +193,30 @@ export function createCartItem(
       detectionRules,
       ...psadtConfig,
     },
+  };
+}
+
+// Helper function to create a Store cart item
+export function createStoreCartItem(
+  packageIdentifier: string,
+  displayName: string,
+  publisher: string,
+  version: string,
+  installExperience: 'user' | 'system' = 'user',
+  options?: {
+    description?: string;
+    iconPath?: string;
+  }
+): Omit<StoreCartItem, 'id' | 'addedAt'> {
+  return {
+    appSource: 'store',
+    wingetId: packageIdentifier, // Use store ID as the wingetId for consistency
+    displayName,
+    publisher,
+    version,
+    packageIdentifier,
+    installExperience,
+    description: options?.description,
+    iconPath: options?.iconPath,
   };
 }

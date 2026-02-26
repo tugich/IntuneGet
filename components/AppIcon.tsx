@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,10 +49,18 @@ export function AppIcon({
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Determine icon URL - iconPath is the directory, we append the filename based on size
+  // Reset image state when iconPath changes (e.g. store manifest icon arrives async)
+  useEffect(() => {
+    setImageError(false);
+    setImageLoaded(false);
+  }, [iconPath]);
+
+  // Determine icon URL
   const imageSize = imageSizes[size];
-  const baseDir = iconPath || `/icons/${packageId}/`;
-  const iconUrl = `${baseDir.replace(/\/?$/, '/')}icon-${imageSize}.png`;
+  const isExternalUrl = iconPath?.startsWith('http');
+  const iconUrl = isExternalUrl
+    ? iconPath!
+    : `${(iconPath || `/icons/${packageId}/`).replace(/\/?$/, '/')}icon-${imageSize}.png`;
 
   const handleError = () => {
     setImageError(true);

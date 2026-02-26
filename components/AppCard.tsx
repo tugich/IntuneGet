@@ -130,9 +130,11 @@ function AppCardComponent({ package: pkg, onSelect, isDeployed = false, isBulkSe
                 </p>
               )}
             </div>
-            <span className="text-xs text-text-secondary bg-bg-surface px-2.5 py-1 rounded-md flex-shrink-0 border border-overlay/10">
-              v{pkg.version}
-            </span>
+            {pkg.appSource !== 'store' && (
+              <span className="text-xs text-text-secondary bg-bg-surface px-2.5 py-1 rounded-md flex-shrink-0 border border-overlay/10">
+                v{pkg.version}
+              </span>
+            )}
           </div>
 
           {pkg.description && (
@@ -142,15 +144,20 @@ function AppCardComponent({ package: pkg, onSelect, isDeployed = false, isBulkSe
           )}
 
           <div className="flex items-center flex-wrap gap-1.5 mt-3">
+            {pkg.appSource === 'store' && (
+              <span className="text-xs font-medium text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
+                Store
+              </span>
+            )}
             {pkg.category && (
               <CategoryBadge category={pkg.category} />
             )}
-            {pkg.installerType && (
+            {pkg.installerType && pkg.appSource !== 'store' && (
               <span className={`text-xs px-2 py-0.5 rounded-full border ${installerTypeStyles[pkg.installerType.toLowerCase()] || 'text-text-secondary bg-bg-surface border-overlay/10'}`}>
                 {getInstallerLabel(pkg.installerType)}
               </span>
             )}
-            {pkg.popularityRank != null && pkg.popularityRank <= 100 && (
+            {pkg.popularityRank != null && pkg.popularityRank <= 100 && pkg.appSource !== 'store' && (
               <span className="text-xs font-medium text-accent-violet bg-accent-violet/10 px-2 py-0.5 rounded-full border border-accent-violet/20">
                 Top {pkg.popularityRank}
               </span>

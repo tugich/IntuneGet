@@ -18,8 +18,8 @@ export interface PackagingJob {
   display_name: string;
   publisher: string | null;
   architecture: string | null;
-  installer_type: string;
-  installer_url: string;
+  installer_type: string | null;
+  installer_url: string | null;
   installer_sha256: string | null;
   install_command: string | null;
   uninstall_command: string | null;
@@ -35,6 +35,7 @@ export interface PackagingJob {
   encryption_info: Json | null;
   intune_app_id: string | null;
   intune_app_url: string | null;
+  app_source: string | null;
   status: string;
   status_message: string | null;
   progress_percent: number;
@@ -71,6 +72,7 @@ export interface UploadHistoryRecord {
   intune_app_id: string;
   intune_app_url: string | null;
   intune_tenant_id: string | null;
+  app_source: string | null;
   deployed_at: string;
 }
 

@@ -3,6 +3,8 @@
  * Shared module for verifying admin consent via client credentials flow
  */
 
+import { acquireGraphToken } from '@/lib/graph-token';
+
 export type ConsentVerifyError =
   | 'consent_not_granted'
   | 'insufficient_intune_permissions'
@@ -29,28 +31,15 @@ export async function verifyTenantConsent(tenantId: string): Promise<ConsentVeri
   }
 
   try {
-    const response = await fetch(
-      `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'https://graph.microsoft.com/.default',
-          grant_type: 'client_credentials',
-        }).toString(),
-      }
-    );
-
-    if (!response.ok) {
+    let accessToken: string;
+    try {
+      const tokenResult = await acquireGraphToken(tenantId);
+      accessToken = tokenResult.accessToken;
+    } catch {
       return { verified: false, error: 'consent_not_granted' };
     }
 
-    // Token obtained - first check roles claim for explicit permission verification
-    const tokenData = await response.json();
-    const accessToken = tokenData.access_token;
-
+    // Token obtained - check roles claim for explicit permission verification
     try {
       const tokenPayload = JSON.parse(
         Buffer.from(accessToken.split('.')[1], 'base64').toString()

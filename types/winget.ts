@@ -129,6 +129,9 @@ export interface LocaleVariant {
   version?: string;
 }
 
+// App source type
+export type AppSource = 'win32' | 'store';
+
 // Normalized package data for internal use
 export interface NormalizedPackage {
   id: string;
@@ -145,6 +148,10 @@ export interface NormalizedPackage {
   category?: string;
   popularityRank?: number;
   installerType?: string;
+  // App source (win32 = winget LOB, store = Microsoft Store)
+  appSource?: AppSource;
+  // Microsoft Store product ID (e.g. "9WZDNCRFJ3PZ")
+  packageIdentifier?: string;
   // Locale variant fields
   localeVariants?: LocaleVariant[];
   isLocaleVariant?: boolean;
@@ -162,4 +169,16 @@ export interface NormalizedInstaller {
   silentArgs?: string;
   productCode?: string;
   packageFamilyName?: string;
+}
+
+// Microsoft Store manifest enrichment (fetched from public Store APIs)
+export interface StoreManifestResponse {
+  packageIdentifier: string;
+  packageName: string;
+  publisher: string;
+  description: string;
+  shortDescription: string;
+  packageFamilyName?: string;
+  architectures: string[];
+  iconUrl?: string;
 }

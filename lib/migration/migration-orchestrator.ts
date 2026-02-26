@@ -12,7 +12,7 @@ import type {
   SccmMigrationResult,
   SccmMigrationProject,
 } from '@/types/sccm';
-import type { CartItem } from '@/types/upload';
+import type { Win32CartItem } from '@/types/upload';
 import type { DetectionRule } from '@/types/intune';
 import type { NormalizedInstaller, NormalizedPackage, WingetScope } from '@/types/winget';
 import { convertSccmAppSettings, convertDetectionRules, validateDetectionRules } from './settings-converter';
@@ -26,7 +26,7 @@ export interface MigrationPreparation {
   sccmApp: SccmAppRecord;
   wingetPackage: NormalizedPackage | null;
   installer: NormalizedInstaller | null;
-  cartItem: Omit<CartItem, 'id' | 'addedAt'> | null;
+  cartItem: Omit<Win32CartItem, 'id' | 'addedAt'> | null;
   preview: SccmMigrationPreviewItem;
   canMigrate: boolean;
   errors: string[];
@@ -41,7 +41,7 @@ export async function buildMigrationCartItem(
   installer: NormalizedInstaller,
   options: SccmMigrationOptions
 ): Promise<{
-  cartItem: Omit<CartItem, 'id' | 'addedAt'>;
+  cartItem: Omit<Win32CartItem, 'id' | 'addedAt'>;
   detectionSource: 'sccm' | 'winget' | 'hybrid';
   commandSource: 'sccm' | 'winget';
   warnings: string[];
@@ -272,7 +272,7 @@ export async function prepareMigrations(
     const preview = await generateMigrationPreview(app, wingetPackage, installer, options);
 
     // Build cart item if migratable
-    let cartItem: Omit<CartItem, 'id' | 'addedAt'> | null = null;
+    let cartItem: Omit<Win32CartItem, 'id' | 'addedAt'> | null = null;
     if (preview.canMigrate && wingetPackage && installer) {
       const result = await buildMigrationCartItem(app, wingetPackage, installer, options);
       cartItem = result.cartItem;
@@ -304,11 +304,11 @@ export async function prepareMigrations(
 export function executeMigrationBatch(
   preparations: MigrationPreparation[]
 ): {
-  cartItems: Array<Omit<CartItem, 'id' | 'addedAt'>>;
+  cartItems: Array<Omit<Win32CartItem, 'id' | 'addedAt'>>;
   successful: string[];
   failed: Array<{ appId: string; error: string }>;
 } {
-  const cartItems: Array<Omit<CartItem, 'id' | 'addedAt'>> = [];
+  const cartItems: Array<Omit<Win32CartItem, 'id' | 'addedAt'>> = [];
   const successful: string[] = [];
   const failed: Array<{ appId: string; error: string }> = [];
 

@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
               displayName: packagingJob.display_name,
               publisher: packagingJob.publisher || 'Unknown Publisher',
               architecture: packagingJob.architecture || 'x64',
-              installerType: packagingJob.installer_type,
+              installerType: packagingJob.installer_type || 'exe',
               installCommand: packagingJob.install_command || '',
               uninstallCommand: packagingJob.uninstall_command || '',
               installScope: packagingJob.install_scope || 'system',

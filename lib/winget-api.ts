@@ -400,6 +400,8 @@ function normalizeCuratedApp(app: Record<string, unknown>): CuratedPackage {
     iconPath: app.icon_path as string | undefined,
     category: app.category as string | undefined,
     popularityRank: app.popularity_rank as number | undefined,
+    appSource: app.app_source === 'store' ? 'store' : 'win32',
+    packageIdentifier: app.store_package_id as string | undefined,
   };
 }
 

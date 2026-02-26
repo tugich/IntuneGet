@@ -105,6 +105,7 @@ export function PackageDetails({ package: pkg, onClose }: PackageDetailsProps) {
     const processesToClose = getDefaultProcessesToClose(pkg.name, selectedInstaller.type);
 
     addItem({
+      appSource: 'win32',
       wingetId: pkg.id,
       displayName: pkg.name,
       publisher: pkg.publisher,

@@ -16,6 +16,8 @@ interface CuratedAppResult {
   tags: string[] | null;
   icon_path: string | null;
   popularity_rank: number | null;
+  app_source: string | null;
+  store_package_id: string | null;
 }
 
 type SortBy = 'popular' | 'name' | 'newest';
@@ -57,7 +59,7 @@ async function getCuratedPackages(
 
   let dataQuery = supabase
     .from('curated_apps')
-    .select('id, winget_id, name, publisher, latest_version, description, homepage, category, tags, icon_path, popularity_rank')
+    .select('id, winget_id, name, publisher, latest_version, description, homepage, category, tags, icon_path, popularity_rank, app_source, store_package_id')
     .eq('is_verified', true)
     .eq('is_locale_variant', false);
 
@@ -136,6 +138,8 @@ export async function GET(request: NextRequest) {
       category: p.category,
       iconPath: p.icon_path,
       popularityRank: p.popularity_rank,
+      appSource: p.app_source === 'store' ? 'store' : 'win32',
+      packageIdentifier: p.store_package_id || undefined,
     }));
 
     return NextResponse.json({

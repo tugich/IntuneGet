@@ -125,32 +125,15 @@ export interface PackageConfiguration {
   assignToGroups?: GroupAssignment[];
 }
 
-// Cart item for batch uploads
-export interface CartItem {
+// Base fields shared by all cart item types
+interface CartItemBase {
   id: string; // Unique cart item ID
   wingetId: string;
   displayName: string;
   publisher: string;
   description?: string;
   version: string;
-  localeCode?: string; // Selected locale for language variant packages
   iconPath?: string; // Icon path for display (parent icon for locale variants)
-  architecture: WingetArchitecture;
-  installScope: WingetScope;
-  installerType: WingetInstallerType;
-  installerUrl: string;
-  installerSha256: string;
-
-  // Configuration
-  installCommand: string;
-  uninstallCommand: string;
-  detectionRules: DetectionRule[];
-
-  // Requirement rules (for "Update Only" - check app existence before install)
-  requirementRules?: RequirementRule[];
-
-  // PSADT Configuration
-  psadtConfig: PSADTConfig;
 
   // Assignment configuration
   assignments?: PackageAssignment[];
@@ -163,6 +146,45 @@ export interface CartItem {
 
   // Cart metadata
   addedAt: string;
+}
+
+// Win32 LOB app - goes through packaging pipeline (PSADT + .intunewin + GitHub Actions)
+export interface Win32CartItem extends CartItemBase {
+  appSource: 'win32';
+  localeCode?: string; // Selected locale for language variant packages
+  architecture: WingetArchitecture;
+  installScope: WingetScope;
+  installerType: WingetInstallerType;
+  installerUrl: string;
+  installerSha256: string;
+  installCommand: string;
+  uninstallCommand: string;
+  detectionRules: DetectionRule[];
+  requirementRules?: RequirementRule[];
+  psadtConfig: PSADTConfig;
+}
+
+// Microsoft Store app - deployed via Graph API winGetApp (single API call, no packaging)
+export interface StoreCartItem extends CartItemBase {
+  appSource: 'store';
+  packageIdentifier: string; // Microsoft Store product ID, e.g. "9WZDNCRFJ3PZ"
+  installExperience: 'user' | 'system';
+}
+
+// Discriminated union - use appSource to distinguish
+export type CartItem = Win32CartItem | StoreCartItem;
+
+// Input type for adding items to the cart (without auto-generated fields)
+export type NewCartItem = Omit<Win32CartItem, 'id' | 'addedAt'> | Omit<StoreCartItem, 'id' | 'addedAt'>;
+
+// Type guards
+export function isStoreCartItem(item: CartItem): item is StoreCartItem {
+  return item.appSource === 'store';
+}
+
+export function isWin32CartItem(item: CartItem): item is Win32CartItem {
+  // Missing appSource defaults to win32 for backward compatibility with persisted carts
+  return !item.appSource || item.appSource === 'win32';
 }
 
 // Batch upload request

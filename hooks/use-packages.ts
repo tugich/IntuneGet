@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
-import type { NormalizedPackage, NormalizedInstaller, LocaleVariant } from '@/types/winget';
+import type { NormalizedPackage, NormalizedInstaller, LocaleVariant, StoreManifestResponse } from '@/types/winget';
 import type { ChangelogData } from '@/components/InstallationChangelog';
 
 interface PopularPackagesResponse {
@@ -137,7 +137,7 @@ export function useSearchPackages(query: string, limit: number = 50, category?: 
   });
 }
 
-export function usePackageManifest(id: string, version?: string, arch?: string) {
+export function usePackageManifest(id: string, version?: string, arch?: string, skip?: boolean) {
   return useQuery<ManifestResponse>({
     queryKey: ['packages', 'manifest', id, version, arch],
     queryFn: async () => {
@@ -151,7 +151,7 @@ export function usePackageManifest(id: string, version?: string, arch?: string) 
       }
       return response.json();
     },
-    enabled: !!id,
+    enabled: !!id && !skip,
   });
 }
 
@@ -208,5 +208,32 @@ export function useLocaleVariants(parentWingetId: string | null) {
     },
     enabled: !!parentWingetId,
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+class FetchError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export function useStoreManifest(packageIdentifier: string | undefined, skip?: boolean) {
+  return useQuery<StoreManifestResponse>({
+    queryKey: ['store', 'manifest', packageIdentifier],
+    queryFn: async () => {
+      const response = await fetch(`/api/store/manifest?id=${encodeURIComponent(packageIdentifier!)}`);
+      if (!response.ok) {
+        throw new FetchError('Failed to fetch store manifest', response.status);
+      }
+      return response.json();
+    },
+    enabled: !!packageIdentifier && !skip,
+    staleTime: 30 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error instanceof FetchError && error.status >= 400 && error.status < 500) return false;
+      return failureCount < 2;
+    },
   });
 }

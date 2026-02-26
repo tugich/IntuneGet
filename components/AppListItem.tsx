@@ -125,19 +125,27 @@ function AppListItemComponent({ package: pkg, onSelect, isDeployed = false, isBu
               <span className="text-xs text-text-secondary truncate">
                 {pkg.publisher}
               </span>
-              <span className="text-xs text-text-muted sm:hidden">v{pkg.version}</span>
+              {pkg.appSource !== 'store' && (
+                <span className="text-xs text-text-muted sm:hidden">v{pkg.version}</span>
+              )}
             </div>
           </div>
 
-          <span className="text-xs text-text-secondary bg-bg-surface px-2 py-0.5 rounded border border-overlay/10 flex-shrink-0 hidden sm:inline">
-            v{pkg.version}
-          </span>
+          {pkg.appSource !== 'store' && (
+            <span className="text-xs text-text-secondary bg-bg-surface px-2 py-0.5 rounded border border-overlay/10 flex-shrink-0 hidden sm:inline">
+              v{pkg.version}
+            </span>
+          )}
 
-          {pkg.installerType && (
+          {pkg.appSource === 'store' ? (
+            <span className="text-xs font-medium text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded border border-violet-500/20 flex-shrink-0 hidden md:inline">
+              Store
+            </span>
+          ) : pkg.installerType ? (
             <span className={`text-xs px-2 py-0.5 rounded border flex-shrink-0 hidden md:inline ${getInstallerTypeStyle(pkg.installerType)}`}>
               {getInstallerLabel(pkg.installerType)}
             </span>
-          )}
+          ) : null}
 
           {pkg.category && (
             <div className="hidden xl:block flex-shrink-0">

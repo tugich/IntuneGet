@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { AppIcon } from '@/components/AppIcon';
 import { AssignmentConfig } from '@/components/AssignmentConfig';
 import { CategoryConfig } from '@/components/CategoryConfig';
-import type { NormalizedPackage, NormalizedInstaller, WingetScope, WingetArchitecture } from '@/types/winget';
+import type { NormalizedPackage, NormalizedInstaller, WingetScope, WingetArchitecture, StoreManifestResponse } from '@/types/winget';
 import type {
   PSADTConfig,
   ProcessToClose,
@@ -44,11 +44,12 @@ import type {
 } from '@/types/psadt';
 import type { CartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
-import { useCartStore } from '@/stores/cart-store';
+import { useCartStore, createStoreCartItem } from '@/stores/cart-store';
 import { useUpdateAppSettings } from '@/hooks/use-update-app-settings';
 import { generateDetectionRules, generateInstallCommand, generateUninstallCommand } from '@/lib/detection-rules';
 import { useLocaleVariants } from '@/hooks/use-packages';
 import { countryCodeToFlag, cleanPackageName } from '@/lib/locale-utils';
+import { Store } from 'lucide-react';
 
 interface PackageConfigProps {
   package: NormalizedPackage;
@@ -57,6 +58,7 @@ interface PackageConfigProps {
   isDeployed?: boolean;
   deployedConfig?: CartItem | null;
   intuneAppId?: string | null;
+  storeManifest?: StoreManifestResponse;
 }
 
 type ConfigSection =
@@ -72,24 +74,33 @@ type ConfigSection =
   | 'branding'
   | 'advanced';
 
-export function PackageConfig({ package: pkg, installers, onClose, isDeployed = false, deployedConfig, intuneAppId }: PackageConfigProps) {
+export function PackageConfig({ package: pkg, installers, onClose, isDeployed = false, deployedConfig, intuneAppId, storeManifest }: PackageConfigProps) {
+  const isStoreApp = pkg.appSource === 'store';
+
+  // Store app install experience state
+  const [storeInstallExperience, setStoreInstallExperience] = useState<'user' | 'system'>('user');
+
   // Selection state - pre-fill from deployed config when available
   const [selectedVersion, setSelectedVersion] = useState(
     deployedConfig?.version || pkg.version
   );
   const [selectedArch, setSelectedArch] = useState<WingetArchitecture>(() => {
-    const preferred = deployedConfig?.architecture || 'x64';
+    const win32Config = deployedConfig && 'architecture' in deployedConfig ? deployedConfig : null;
+    const preferred = win32Config?.architecture || 'x64';
     const available = new Set(installers.map((i) => i.architecture));
     return available.has(preferred) ? preferred : (installers[0]?.architecture || 'x64');
   });
-  const [selectedScope, setSelectedScope] = useState<WingetScope>(
-    deployedConfig?.installScope || 'machine'
-  );
+  const [selectedScope, setSelectedScope] = useState<WingetScope>(() => {
+    const win32Config = deployedConfig && 'installScope' in deployedConfig ? deployedConfig : null;
+    return win32Config?.installScope || 'machine';
+  });
   const [showVersions, setShowVersions] = useState(false);
 
   // Language variant state
-  const [selectedLocale, setSelectedLocale] = useState<string | null>(
-    deployedConfig?.localeCode || null
+  const [selectedLocale, setSelectedLocale] = useState<string | null>(() => {
+    const win32Config = deployedConfig && 'localeCode' in deployedConfig ? deployedConfig : null;
+    return win32Config?.localeCode || null;
+  }
   );
   const [showLocaleDropdown, setShowLocaleDropdown] = useState(false);
   const [localeSearch, setLocaleSearch] = useState('');
@@ -132,8 +143,9 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
 
   // PSADT config state - pre-fill from deployed config when available
   const [config, setConfig] = useState<PSADTConfig>(() => {
-    if (deployedConfig?.psadtConfig) {
-      return deployedConfig.psadtConfig;
+    const win32Config = deployedConfig && 'psadtConfig' in deployedConfig ? deployedConfig : null;
+    if (win32Config?.psadtConfig) {
+      return win32Config.psadtConfig;
     }
     return {
       ...DEFAULT_PSADT_CONFIG,
@@ -150,7 +162,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   );
 
   // UI state
-  const [expandedSection, setExpandedSection] = useState<ConfigSection | null>('detection');
+  const [expandedSection, setExpandedSection] = useState<ConfigSection | null>(isStoreApp ? 'assignment' : 'detection');
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addedToCartSuccess, setAddedToCartSuccess] = useState(false);
   const [configMode, setConfigMode] = useState<'quick' | 'advanced'>('quick');
@@ -184,11 +196,13 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
 
     // Redeploy-required: version, architecture, scope, locale, PSADT config
     const hasVersionChange = selectedVersion !== deployedConfig.version;
-    const hasArchChange = selectedArch !== deployedConfig.architecture;
-    const hasScopeChange = selectedScope !== deployedConfig.installScope;
-    const hasLocaleChange = (selectedLocale || null) !== (deployedConfig.localeCode || null);
-    const hasPsadtChange =
-      JSON.stringify(config) !== JSON.stringify(deployedConfig.psadtConfig);
+    const win32Deployed = 'architecture' in deployedConfig ? deployedConfig : null;
+    const hasArchChange = win32Deployed ? selectedArch !== win32Deployed.architecture : false;
+    const hasScopeChange = win32Deployed ? selectedScope !== win32Deployed.installScope : false;
+    const hasLocaleChange = win32Deployed ? (selectedLocale || null) !== (win32Deployed.localeCode || null) : false;
+    const hasPsadtChange = win32Deployed
+      ? JSON.stringify(config) !== JSON.stringify(win32Deployed.psadtConfig)
+      : false;
     const hasRedeployChanges =
       hasVersionChange || hasArchChange || hasScopeChange || hasLocaleChange || hasPsadtChange;
 
@@ -196,12 +210,14 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   }, [isDeployed, deployedConfig, assignments, categories,
       selectedVersion, selectedArch, selectedScope, selectedLocale, config]);
 
-  // Get selected installer
+  // Get selected installer (not relevant for store apps)
   const selectedInstaller = installers.find((i) => i.architecture === selectedArch) || installers[0];
   const availableArchitectures = [...new Set(installers.map((i) => i.architecture))];
-  const inCart = selectedInstaller
-    ? isInCart(effectiveWingetId, selectedVersion, selectedInstaller.architecture)
-    : false;
+  const inCart = isStoreApp
+    ? isInCart(pkg.packageIdentifier || pkg.id, selectedVersion)
+    : selectedInstaller
+      ? isInCart(effectiveWingetId, selectedVersion, selectedInstaller.architecture)
+      : false;
 
   // Escape key handler
   useEffect(() => {
@@ -238,40 +254,68 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   }, [selectedInstaller, pkg.name, effectiveWingetId, selectedVersion]);
 
   const handleAddToCart = async () => {
-    if (!selectedInstaller || inCart || addedToCartSuccess) return;
+    if (addedToCartSuccess) return;
+
+    // Store apps don't need an installer
+    if (!isStoreApp && !selectedInstaller) return;
+    if (!isStoreApp && inCart) return;
 
     setIsAddingToCart(true);
     try {
-      // Build display name with locale suffix if a non-default locale is selected
-      const selectedLocaleInfo = selectedLocale
-        ? localeVariants.find((v) => v.localeCode === selectedLocale)
-        : null;
-      // Strip trailing locale tags like "(en-US)" from the base name only when replacing with a selected locale
-      const displayName = selectedLocaleInfo
-        ? `${cleanPackageName(pkg.name)} (${selectedLocaleInfo.localeName})`
-        : pkg.name;
+      if (isStoreApp) {
+        // Store app: simplified cart item
+        // Use enriched data from Store manifest when available
+        const storeItem = createStoreCartItem(
+          pkg.packageIdentifier || pkg.id,
+          pkg.name,
+          storeManifest?.publisher || pkg.publisher,
+          selectedVersion,
+          storeInstallExperience,
+          {
+            description: storeManifest?.description || pkg.description,
+            iconPath: storeManifest?.iconUrl || pkg.iconPath,
+          }
+        );
+        addItem({
+          ...storeItem,
+          assignments: assignments.length > 0 ? assignments : undefined,
+          categories: categories.length > 0 ? categories : undefined,
+          ...(isDeployed ? { forceCreate: true } : {}),
+        });
+      } else {
+        // Win32 app: full cart item with installer details
+        // Build display name with locale suffix if a non-default locale is selected
+        const selectedLocaleInfo = selectedLocale
+          ? localeVariants.find((v) => v.localeCode === selectedLocale)
+          : null;
+        // Strip trailing locale tags like "(en-US)" from the base name only when replacing with a selected locale
+        const displayName = selectedLocaleInfo
+          ? `${cleanPackageName(pkg.name)} (${selectedLocaleInfo.localeName})`
+          : pkg.name;
 
-      addItem({
-        wingetId: effectiveWingetId,
-        displayName,
-        publisher: pkg.publisher,
-        description: pkg.description,
-        version: selectedVersion,
-        architecture: selectedInstaller.architecture,
-        installScope: selectedScope,
-        installerType: selectedInstaller.type,
-        installerUrl: selectedInstaller.url,
-        installerSha256: selectedInstaller.sha256,
-        installCommand: config.installCommand || generateInstallCommand(selectedInstaller, selectedScope),
-        uninstallCommand: config.uninstallCommand || generateUninstallCommand(selectedInstaller, pkg.name),
-        detectionRules: config.detectionRules,
-        psadtConfig: config,
-        assignments: assignments.length > 0 ? assignments : undefined,
-        categories: categories.length > 0 ? categories : undefined,
-        localeCode: selectedLocale || undefined,
-        iconPath: pkg.iconPath,
-        ...(isDeployed ? { forceCreate: true } : {}),
-      });
+        addItem({
+          appSource: 'win32',
+          wingetId: effectiveWingetId,
+          displayName,
+          publisher: pkg.publisher,
+          description: pkg.description,
+          version: selectedVersion,
+          architecture: selectedInstaller!.architecture,
+          installScope: selectedScope,
+          installerType: selectedInstaller!.type,
+          installerUrl: selectedInstaller!.url,
+          installerSha256: selectedInstaller!.sha256,
+          installCommand: config.installCommand || generateInstallCommand(selectedInstaller!, selectedScope),
+          uninstallCommand: config.uninstallCommand || generateUninstallCommand(selectedInstaller!, pkg.name),
+          detectionRules: config.detectionRules,
+          psadtConfig: config,
+          assignments: assignments.length > 0 ? assignments : undefined,
+          categories: categories.length > 0 ? categories : undefined,
+          localeCode: selectedLocale || undefined,
+          iconPath: pkg.iconPath,
+          ...(isDeployed ? { forceCreate: true } : {}),
+        });
+      }
       setAddedToCartSuccess(true);
       setTimeout(() => onClose(), 1200);
     } finally {
@@ -345,13 +389,13 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
               <AppIcon
                 packageId={pkg.id}
                 packageName={pkg.name}
-                iconPath={pkg.iconPath}
+                iconPath={storeManifest?.iconUrl || pkg.iconPath}
                 size="lg"
                 className="border-accent-cyan/30"
               />
               <div>
                 <h2 id="package-config-title" className="text-xl font-bold text-text-primary">{cleanPackageName(pkg.name)}</h2>
-                <p className="text-text-muted text-sm">{pkg.publisher}</p>
+                <p className="text-text-muted text-sm">{storeManifest?.publisher || pkg.publisher}</p>
                 <p className="text-text-muted text-xs font-mono mt-1">{pkg.id}</p>
               </div>
             </div>
@@ -386,7 +430,80 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
               </div>
             )}
 
-            {/* Version & Architecture Selection */}
+            {/* Microsoft Store badge */}
+            {isStoreApp && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+                <Store className="w-4 h-4 text-violet-400" />
+                <span className="text-sm font-medium text-violet-300">Microsoft Store App</span>
+                <span className="text-xs text-violet-400/70 ml-auto font-mono">{pkg.packageIdentifier || pkg.id}</span>
+              </div>
+            )}
+
+            {/* Store App: Install Experience */}
+            {isStoreApp && (
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-2">Install Experience</label>
+                <div className="flex gap-2">
+                  {(['user', 'system'] as const).map((exp) => (
+                    <button
+                      key={exp}
+                      onClick={() => setStoreInstallExperience(exp)}
+                      className={cn(
+                        'flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                        storeInstallExperience === exp
+                          ? 'bg-accent-cyan border-accent-cyan text-white'
+                          : 'bg-bg-elevated border-overlay/15 text-text-primary hover:border-overlay/20'
+                      )}
+                    >
+                      {exp === 'user' ? 'Per-User (Recommended)' : 'Per-System'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Store App: Enriched metadata from Store APIs */}
+            {isStoreApp && storeManifest && (
+              <div className="space-y-3">
+                {/* Description */}
+                {storeManifest.description && storeManifest.description !== pkg.description && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-1">Description</label>
+                    <p className="text-sm text-text-secondary leading-relaxed">{storeManifest.description}</p>
+                  </div>
+                )}
+
+                {/* PackageFamilyName */}
+                {storeManifest.packageFamilyName && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-1">Package Family Name</label>
+                    <div className="px-3 py-2 bg-bg-elevated border border-overlay/10 rounded-lg">
+                      <code className="text-xs text-text-secondary font-mono break-all">{storeManifest.packageFamilyName}</code>
+                    </div>
+                  </div>
+                )}
+
+                {/* Supported Architectures */}
+                {storeManifest.architectures.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-1">Supported Architectures</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {storeManifest.architectures.map((arch) => (
+                        <span
+                          key={arch}
+                          className="inline-flex items-center px-2.5 py-1 rounded-md bg-bg-elevated border border-overlay/10 text-xs font-medium text-text-secondary"
+                        >
+                          {arch}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Win32 App: Version & Architecture Selection */}
+            {!isStoreApp && (<>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Version */}
               <div>
@@ -586,9 +703,10 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 })}
               </div>
             </div>
+            </>)}
 
             <div className="border-t border-overlay/10 pt-6">
-              <div className="flex items-center justify-between mb-4">
+              {!isStoreApp && <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-text-primary flex items-center gap-2">
                   <Settings className="w-5 h-5 text-accent-cyan" />
                   Deployment Configuration
@@ -619,10 +737,10 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                     Advanced
                   </button>
                 </div>
-              </div>
+              </div>}
 
-              {/* Installation Behavior (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('behavior')) && <ConfigSection
+              {/* Installation Behavior (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('behavior')) && <ConfigSection
                 title="Installation Behavior"
                 icon={<Settings className="w-4 h-4" />}
                 expanded={expandedSection === 'behavior'}
@@ -779,8 +897,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Deferral Settings (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('deferral')) && <ConfigSection
+              {/* Deferral Settings (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('deferral')) && <ConfigSection
                 title="Deferral Settings"
                 icon={<Clock className="w-4 h-4" />}
                 expanded={expandedSection === 'deferral'}
@@ -867,8 +985,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Progress & Notifications (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('progress')) && <ConfigSection
+              {/* Progress & Notifications (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('progress')) && <ConfigSection
                 title="Progress & Notifications"
                 icon={<Bell className="w-4 h-4" />}
                 expanded={expandedSection === 'progress'}
@@ -1022,8 +1140,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Custom Prompts (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('prompts')) && <ConfigSection
+              {/* Custom Prompts (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('prompts')) && <ConfigSection
                 title="Custom Prompts"
                 icon={<MessageSquare className="w-4 h-4" />}
                 expanded={expandedSection === 'prompts'}
@@ -1229,8 +1347,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Restart Prompt (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('restart')) && <ConfigSection
+              {/* Restart Prompt (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('restart')) && <ConfigSection
                 title="Restart Prompt"
                 icon={<RefreshCw className="w-4 h-4" />}
                 expanded={expandedSection === 'restart'}
@@ -1297,8 +1415,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Disk Space Check (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('diskspace')) && <ConfigSection
+              {/* Disk Space Check (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('diskspace')) && <ConfigSection
                 title="Disk Space Check"
                 icon={<HardDrive className="w-4 h-4" />}
                 expanded={expandedSection === 'diskspace'}
@@ -1335,8 +1453,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Detection Rules (quick + advanced) */}
-              {(visibleSections === null || visibleSections.includes('detection')) && <ConfigSection
+              {/* Detection Rules (quick + advanced, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('detection')) && <ConfigSection
                 title="Detection Rules"
                 icon={<FileCode className="w-4 h-4" />}
                 expanded={expandedSection === 'detection'}
@@ -1363,8 +1481,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Assignment Configuration (quick + advanced) */}
-              {(visibleSections === null || visibleSections.includes('assignment')) && <ConfigSection
+              {/* Assignment Configuration (quick + advanced, all app types) */}
+              {(isStoreApp || visibleSections === null || visibleSections.includes('assignment')) && <ConfigSection
                 title="Assignment Configuration"
                 icon={<Target className="w-4 h-4" />}
                 expanded={expandedSection === 'assignment'}
@@ -1376,8 +1494,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 />
               </ConfigSection>}
 
-              {/* Category Configuration (quick + advanced) */}
-              {(visibleSections === null || visibleSections.includes('category')) && <ConfigSection
+              {/* Category Configuration (quick + advanced, all app types) */}
+              {(isStoreApp || visibleSections === null || visibleSections.includes('category')) && <ConfigSection
                 title="Category Configuration"
                 icon={<FolderTree className="w-4 h-4" />}
                 expanded={expandedSection === 'category'}
@@ -1389,8 +1507,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 />
               </ConfigSection>}
 
-              {/* Teaser for quick mode */}
-              {configMode === 'quick' && (
+              {/* Teaser for quick mode (win32 only) */}
+              {!isStoreApp && configMode === 'quick' && (
                 <button
                   onClick={() => setConfigMode('advanced')}
                   className="w-full py-3 px-4 rounded-lg border border-dashed border-overlay/15 text-sm text-text-secondary hover:text-text-primary hover:border-overlay/25 transition-colors text-center"
@@ -1399,8 +1517,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </button>
               )}
 
-              {/* Branding (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('branding')) && <ConfigSection
+              {/* Branding (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('branding')) && <ConfigSection
                 title="Branding"
                 icon={<Palette className="w-4 h-4" />}
                 expanded={expandedSection === 'branding'}
@@ -1503,8 +1621,8 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </div>
               </ConfigSection>}
 
-              {/* Advanced (advanced only) */}
-              {(visibleSections === null || visibleSections.includes('advanced')) && <ConfigSection
+              {/* Advanced (advanced only, win32 only) */}
+              {!isStoreApp && (visibleSections === null || visibleSections.includes('advanced')) && <ConfigSection
                 title="Advanced Options"
                 icon={<Terminal className="w-4 h-4" />}
                 expanded={expandedSection === 'advanced'}
@@ -1597,7 +1715,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 </Button>
                 <Button
                   onClick={handleAddToCart}
-                  disabled={!selectedInstaller || inCart || isAddingToCart || addedToCartSuccess}
+                  disabled={(!isStoreApp && !selectedInstaller) || inCart || isAddingToCart || addedToCartSuccess}
                   variant="outline"
                   className={cn(
                     'py-5 text-base font-medium',
@@ -1622,7 +1740,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
           ) : (
             <Button
               onClick={handleAddToCart}
-              disabled={!selectedInstaller || inCart || isAddingToCart || addedToCartSuccess}
+              disabled={(!isStoreApp && !selectedInstaller) || inCart || isAddingToCart || addedToCartSuccess}
               className={cn(
                 'w-full py-5 text-base font-medium',
                 inCart || addedToCartSuccess

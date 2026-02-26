@@ -18,7 +18,10 @@ import { getFeatureFlags } from '@/lib/features';
 import { verifyTenantConsent } from '@/lib/msp/consent-verification';
 import { extractSilentSwitches } from '@/lib/msp/silent-switches';
 import { buildIntuneAppDescription } from '@/lib/intune-description';
-import type { CartItem } from '@/types/upload';
+import { acquireGraphToken } from '@/lib/graph-token';
+import { deployStoreApp } from '@/lib/store-app-deploy';
+import type { CartItem, Win32CartItem, StoreCartItem } from '@/types/upload';
+import { isStoreCartItem, isWin32CartItem } from '@/types/upload';
 
 export const maxDuration = 60;
 
@@ -136,194 +139,327 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if packaging pipeline is configured
-    const config = getAppConfig();
-    const features = getFeatureFlags();
-    const isLocalPackagerMode = features.localPackager;
-
-    if (!features.pipeline) {
-      return NextResponse.json(
-        { error: 'Packaging pipeline not configured. Set PACKAGER_MODE=local or configure GitHub Actions.' },
-        { status: 503 }
-      );
-    }
-
-    // For GitHub mode, verify GitHub Actions is configured
-    if (!isLocalPackagerMode && !isGitHubActionsConfigured()) {
-      return NextResponse.json(
-        { error: 'GitHub Actions packaging service not configured' },
-        { status: 503 }
-      );
-    }
-
-    // Get callback URL from environment (only used in GitHub mode)
-    const baseUrl = config.app.url || (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000');
-    const callbackUrl = `${baseUrl}/api/package/callback`;
-
     // Get database adapter (SQLite or Supabase)
     const db = getDatabase();
 
-    // Phase 1: Create all job records sequentially (fast DB inserts)
-    const jobs: PackagingJobRecord[] = [];
-    const errors: { wingetId: string; error: string }[] = [];
-    const pendingDispatches: {
-      item: CartItem;
-      jobId: string;
-      createdAt: string;
-    }[] = [];
+    // Partition items into store apps and win32 apps
+    const storeItems: StoreCartItem[] = [];
+    const win32Items: Win32CartItem[] = [];
 
     for (const item of items) {
+      if (isStoreCartItem(item)) {
+        storeItems.push(item);
+      } else {
+        // Treat missing appSource as win32 for backward compatibility
+        win32Items.push(item as Win32CartItem);
+      }
+    }
+
+    const jobs: PackagingJobRecord[] = [];
+    const errors: { wingetId: string; error: string }[] = [];
+
+    // ========================================================================
+    // Handle Store apps - deploy synchronously via Graph API (no packaging)
+    // ========================================================================
+    if (storeItems.length > 0) {
+      let accessToken: string | undefined;
       try {
-        const jobId = crypto.randomUUID();
-
-        const jobRecord = await db.jobs.create({
-          id: jobId,
-          user_id: userId,
-          user_email: userEmail,
-          tenant_id: tenantId,
-          winget_id: item.wingetId,
-          version: item.version,
-          display_name: item.displayName,
-          publisher: item.publisher,
-          architecture: item.architecture,
-          installer_type: item.installerType,
-          installer_url: item.installerUrl,
-          installer_sha256: item.installerSha256,
-          install_command: item.installCommand,
-          uninstall_command: item.uninstallCommand,
-          install_scope: item.installScope,
-          detection_rules: item.detectionRules as unknown as import('@/types/database').Json,
-          package_config: item as unknown as import('@/types/database').Json,
-          status: 'queued',
-          progress_percent: 0,
-        });
-
-        if (!jobRecord) {
-          errors.push({ wingetId: item.wingetId, error: 'Failed to create job record' });
-          continue;
-        }
-
-        // Local packager mode: leave job in queued state for pickup
-        if (isLocalPackagerMode) {
-          jobs.push({
-            id: jobId,
-            user_id: userId,
-            tenant_id: tenantId,
-            winget_id: item.wingetId,
-            version: item.version,
-            display_name: item.displayName,
-            publisher: item.publisher,
-            status: 'queued',
-            package_config: item,
-            created_at: jobRecord?.created_at || new Date().toISOString(),
-          });
-          continue;
-        }
-
-        pendingDispatches.push({
-          item,
-          jobId,
-          createdAt: jobRecord?.created_at || new Date().toISOString(),
-        });
+        const tokenResult = await acquireGraphToken(tenantId);
+        accessToken = tokenResult.accessToken;
       } catch (error) {
-        errors.push({
-          wingetId: item.wingetId,
-          error: error instanceof Error ? error.message : 'Unknown error',
+        // If token fails, mark all store items as errors
+        for (const item of storeItems) {
+          errors.push({
+            wingetId: item.wingetId,
+            error: `Token acquisition failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          });
+        }
+      }
+
+      if (accessToken) {
+        const storeResults = await Promise.allSettled(
+          storeItems.map(async (item) => {
+            const jobId = crypto.randomUUID();
+
+            // Create job record (store apps have no installer fields)
+            const jobRecord = await db.jobs.create({
+              id: jobId,
+              user_id: userId,
+              user_email: userEmail,
+              tenant_id: tenantId,
+              winget_id: item.wingetId,
+              version: item.version,
+              display_name: item.displayName,
+              publisher: item.publisher,
+              package_config: item as unknown as import('@/types/database').Json,
+              status: 'uploading',
+              progress_percent: 50,
+              app_source: 'store',
+            } as Record<string, unknown>);
+
+            if (!jobRecord) throw new Error('Failed to create job record');
+
+            try {
+              // Deploy via Graph API
+              const result = await deployStoreApp(item, accessToken!);
+
+              // Mark as deployed
+              await db.jobs.update(jobId, {
+                status: 'deployed',
+                progress_percent: 100,
+                intune_app_id: result.intuneAppId,
+                intune_app_url: result.intuneAppUrl,
+                completed_at: new Date().toISOString(),
+              });
+
+              // Write upload history
+              await db.uploadHistory.create({
+                packaging_job_id: jobId,
+                user_id: userId,
+                winget_id: item.wingetId,
+                version: item.version,
+                display_name: item.displayName,
+                publisher: item.publisher,
+                intune_app_id: result.intuneAppId,
+                intune_app_url: result.intuneAppUrl,
+                intune_tenant_id: tenantId,
+              });
+
+              return {
+                jobId,
+                item,
+                result,
+                createdAt: jobRecord.created_at || new Date().toISOString(),
+              };
+            } catch (deployError) {
+              // Mark job as failed so it doesn't stay stuck in 'uploading'
+              await db.jobs.update(jobId, {
+                status: 'failed',
+                progress_percent: 0,
+                error_message: deployError instanceof Error ? deployError.message : 'Deployment failed',
+                completed_at: new Date().toISOString(),
+              }).catch(() => {}); // Best-effort cleanup
+              throw deployError;
+            }
+          })
+        );
+
+        for (let i = 0; i < storeResults.length; i++) {
+          const result = storeResults[i];
+          if (result.status === 'fulfilled') {
+            const { jobId, item, createdAt } = result.value;
+            jobs.push({
+              id: jobId,
+              user_id: userId,
+              tenant_id: tenantId,
+              winget_id: item.wingetId,
+              version: item.version,
+              display_name: item.displayName,
+              publisher: item.publisher,
+              status: 'deployed',
+              package_config: item,
+              created_at: createdAt,
+            });
+          } else {
+            errors.push({
+              wingetId: storeItems[i]?.wingetId || 'unknown',
+              error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
+            });
+          }
+        }
+      }
+    }
+
+    // ========================================================================
+    // Handle Win32 apps - existing packaging pipeline
+    // ========================================================================
+    if (win32Items.length > 0) {
+      // Check if packaging pipeline is configured
+      const config = getAppConfig();
+      const features = getFeatureFlags();
+      const isLocalPackagerMode = features.localPackager;
+
+      if (!features.pipeline) {
+        for (const item of win32Items) {
+          errors.push({ wingetId: item.wingetId, error: 'Packaging pipeline not configured' });
+        }
+      } else if (!isLocalPackagerMode && !isGitHubActionsConfigured()) {
+        for (const item of win32Items) {
+          errors.push({ wingetId: item.wingetId, error: 'GitHub Actions packaging service not configured' });
+        }
+      } else {
+        // Get callback URL from environment (only used in GitHub mode)
+        const config2 = getAppConfig();
+        const baseUrl = config2.app.url || (process.env.VERCEL_URL
+          ? `https://${process.env.VERCEL_URL}`
+          : 'http://localhost:3000');
+        const callbackUrl = `${baseUrl}/api/package/callback`;
+
+        const pendingDispatches: {
+          item: Win32CartItem;
+          jobId: string;
+          createdAt: string;
+        }[] = [];
+
+        // Phase 1: Create all win32 job records
+        for (const item of win32Items) {
+          try {
+            const jobId = crypto.randomUUID();
+
+            const jobRecord = await db.jobs.create({
+              id: jobId,
+              user_id: userId,
+              user_email: userEmail,
+              tenant_id: tenantId,
+              winget_id: item.wingetId,
+              version: item.version,
+              display_name: item.displayName,
+              publisher: item.publisher,
+              architecture: item.architecture,
+              installer_type: item.installerType,
+              installer_url: item.installerUrl,
+              installer_sha256: item.installerSha256,
+              install_command: item.installCommand,
+              uninstall_command: item.uninstallCommand,
+              install_scope: item.installScope,
+              detection_rules: item.detectionRules as unknown as import('@/types/database').Json,
+              package_config: item as unknown as import('@/types/database').Json,
+              status: 'queued',
+              progress_percent: 0,
+            });
+
+            if (!jobRecord) {
+              errors.push({ wingetId: item.wingetId, error: 'Failed to create job record' });
+              continue;
+            }
+
+            // Local packager mode: leave job in queued state for pickup
+            if (isLocalPackagerMode) {
+              jobs.push({
+                id: jobId,
+                user_id: userId,
+                tenant_id: tenantId,
+                winget_id: item.wingetId,
+                version: item.version,
+                display_name: item.displayName,
+                publisher: item.publisher,
+                status: 'queued',
+                package_config: item,
+                created_at: jobRecord?.created_at || new Date().toISOString(),
+              });
+              continue;
+            }
+
+            pendingDispatches.push({
+              item,
+              jobId,
+              createdAt: jobRecord?.created_at || new Date().toISOString(),
+            });
+          } catch (error) {
+            errors.push({
+              wingetId: item.wingetId,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+
+        // Phase 2: Dispatch all GitHub Actions workflows in parallel
+        const isBatch = pendingDispatches.length > 1;
+
+        const dispatchResults = await Promise.allSettled(
+          pendingDispatches.map(async ({ item, jobId, createdAt }) => {
+            const workflowInputs: WorkflowInputs = {
+              jobId,
+              tenantId,
+              wingetId: item.wingetId,
+              displayName: item.displayName,
+              description: buildIntuneAppDescription({
+                description: item.description,
+                fallback: `Deployed via IntuneGet from Winget: ${item.wingetId}`,
+              }),
+              publisher: item.publisher,
+              version: item.version,
+              architecture: item.architecture,
+              installerUrl: item.installerUrl,
+              installerSha256: item.installerSha256 || '',
+              installerType: item.installerType,
+              silentSwitches: extractSilentSwitches(item.installCommand, item.installerType),
+              uninstallCommand: item.uninstallCommand,
+              callbackUrl,
+              psadtConfig: item.psadtConfig ? JSON.stringify(item.psadtConfig) : undefined,
+              detectionRules: item.detectionRules ? JSON.stringify(item.detectionRules) : undefined,
+              requirementRules: item.requirementRules ? JSON.stringify(item.requirementRules) : undefined,
+              assignments: item.assignments ? JSON.stringify(item.assignments) : undefined,
+              categories: item.categories ? JSON.stringify(item.categories) : undefined,
+              installScope: item.installScope,
+              forceCreate: item.forceCreate || forceCreate,
+            };
+
+            const triggerResult = await triggerPackagingWorkflow(
+              workflowInputs,
+              undefined,
+              { skipRunCapture: isBatch }
+            );
+
+            const updateData: Record<string, unknown> = {
+              status: 'packaging',
+              packaging_started_at: new Date().toISOString(),
+            };
+
+            if (triggerResult.runId) {
+              updateData.github_run_id = triggerResult.runId.toString();
+              updateData.github_run_url = triggerResult.runUrl;
+            }
+
+            await db.jobs.update(jobId, updateData);
+
+            return { item, jobId, createdAt, triggerResult };
+          })
+        );
+
+        // Collect results from parallel dispatches
+        dispatchResults.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            const { item, jobId, createdAt } = result.value;
+            jobs.push({
+              id: jobId,
+              user_id: userId,
+              tenant_id: tenantId,
+              winget_id: item.wingetId,
+              version: item.version,
+              display_name: item.displayName,
+              publisher: item.publisher,
+              status: 'packaging',
+              package_config: item,
+              created_at: createdAt,
+            });
+          } else {
+            const dispatch = pendingDispatches[idx];
+            errors.push({
+              wingetId: dispatch?.item.wingetId || 'unknown',
+              error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
+            });
+          }
         });
       }
     }
 
-    // Phase 2: Dispatch all GitHub Actions workflows in parallel
-    // Skip run ID capture for batch dispatches -- concurrent triggers with shared
-    // timestamps make the polling unreliable. Single-item deploys still capture it.
-    const isBatch = pendingDispatches.length > 1;
-
-    const dispatchResults = await Promise.allSettled(
-      pendingDispatches.map(async ({ item, jobId, createdAt }) => {
-        const workflowInputs: WorkflowInputs = {
-          jobId,
-          tenantId,
-          wingetId: item.wingetId,
-          displayName: item.displayName,
-          description: buildIntuneAppDescription({
-            description: item.description,
-            fallback: `Deployed via IntuneGet from Winget: ${item.wingetId}`,
-          }),
-          publisher: item.publisher,
-          version: item.version,
-          architecture: item.architecture,
-          installerUrl: item.installerUrl,
-          installerSha256: item.installerSha256 || '',
-          installerType: item.installerType,
-          silentSwitches: extractSilentSwitches(item.installCommand, item.installerType),
-          uninstallCommand: item.uninstallCommand,
-          callbackUrl,
-          psadtConfig: item.psadtConfig ? JSON.stringify(item.psadtConfig) : undefined,
-          detectionRules: item.detectionRules ? JSON.stringify(item.detectionRules) : undefined,
-          requirementRules: item.requirementRules ? JSON.stringify(item.requirementRules) : undefined,
-          assignments: item.assignments ? JSON.stringify(item.assignments) : undefined,
-          categories: item.categories ? JSON.stringify(item.categories) : undefined,
-          installScope: item.installScope,
-          forceCreate: item.forceCreate || forceCreate,
-        };
-
-        const triggerResult = await triggerPackagingWorkflow(
-          workflowInputs,
-          undefined,
-          { skipRunCapture: isBatch }
-        );
-
-        const updateData: Record<string, unknown> = {
-          status: 'packaging',
-          packaging_started_at: new Date().toISOString(),
-        };
-
-        if (triggerResult.runId) {
-          updateData.github_run_id = triggerResult.runId.toString();
-          updateData.github_run_url = triggerResult.runUrl;
-        }
-
-        await db.jobs.update(jobId, updateData);
-
-        return { item, jobId, createdAt, triggerResult };
-      })
-    );
-
-    // Collect results from parallel dispatches
-    dispatchResults.forEach((result, idx) => {
-      if (result.status === 'fulfilled') {
-        const { item, jobId, createdAt } = result.value;
-        jobs.push({
-          id: jobId,
-          user_id: userId,
-          tenant_id: tenantId,
-          winget_id: item.wingetId,
-          version: item.version,
-          display_name: item.displayName,
-          publisher: item.publisher,
-          status: 'packaging',
-          package_config: item,
-          created_at: createdAt,
-        });
-      } else {
-        const dispatch = pendingDispatches[idx];
-        errors.push({
-          wingetId: dispatch?.item.wingetId || 'unknown',
-          error: result.reason instanceof Error ? result.reason.message : 'Unknown error',
-        });
-      }
-    });
-
     // Return results
+    const totalJobs = jobs.length;
+    const storeDeployed = jobs.filter(j => j.status === 'deployed').length;
+    const win32Queued = totalJobs - storeDeployed;
+
     return NextResponse.json({
-      success: jobs.length > 0,
+      success: totalJobs > 0,
       jobs,
       errors: errors.length > 0 ? errors : undefined,
       message: errors.length > 0
-        ? `${jobs.length} job(s) queued, ${errors.length} failed`
-        : `${jobs.length} job(s) queued successfully`,
+        ? `${totalJobs} job(s) processed, ${errors.length} failed`
+        : storeDeployed > 0 && win32Queued > 0
+          ? `${storeDeployed} Store app(s) deployed, ${win32Queued} Win32 app(s) queued`
+          : storeDeployed > 0
+            ? `${storeDeployed} Store app(s) deployed successfully`
+            : `${win32Queued} job(s) queued successfully`,
     });
   } catch {
     return NextResponse.json(

@@ -67,6 +67,7 @@ export function useBulkAdd(): UseBulkAddReturn {
             const processesToClose = getDefaultProcessesToClose(pkg.name, installer.type);
 
             addItemSilent({
+              appSource: 'win32',
               wingetId: pkg.id,
               displayName: pkg.name,
               publisher: pkg.publisher,

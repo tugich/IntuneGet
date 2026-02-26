@@ -3,7 +3,7 @@
  * Coordinates the full deployment workflow from staging to Intune
  */
 
-import type { CartItem, StagedPackage, UploadJob, PackagingJob } from '@/types/upload';
+import type { CartItem, Win32CartItem, StagedPackage, UploadJob, PackagingJob } from '@/types/upload';
 import type { DetectionRule } from '@/types/intune';
 import { resolveInstallerFileName } from '@/lib/installer-filename';
 import { buildIntuneAppDescription } from '@/lib/intune-description';
@@ -194,7 +194,7 @@ export async function deployBatch(
 export function createPackagingJob(
   userId: string,
   stagedPackageId: string,
-  cartItem: CartItem
+  cartItem: Win32CartItem
 ): PackagingJob {
   return {
     id: crypto.randomUUID(),
@@ -221,7 +221,7 @@ export function createPackagingJob(
  */
 export function cartItemToStagedPackage(
   userId: string,
-  item: CartItem
+  item: Win32CartItem
 ): Omit<StagedPackage, 'id' | 'createdAt' | 'expiresAt'> {
   return {
     userId,

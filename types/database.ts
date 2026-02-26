@@ -247,8 +247,8 @@ export interface Database {
           display_name: string;
           publisher: string | null;
           architecture: string | null;
-          installer_type: string;
-          installer_url: string;
+          installer_type: string | null;
+          installer_url: string | null;
           installer_sha256: string | null;
           install_command: string | null;
           uninstall_command: string | null;
@@ -256,6 +256,7 @@ export interface Database {
           silent_switches: string | null;
           detection_rules: Json | null;
           package_config: Json | null;
+          app_source: string | null;
           github_run_id: string | null;
           github_run_url: string | null;
           intunewin_url: string | null;
@@ -289,8 +290,8 @@ export interface Database {
           display_name: string;
           publisher?: string | null;
           architecture?: string | null;
-          installer_type: string;
-          installer_url: string;
+          installer_type?: string | null;
+          installer_url?: string | null;
           installer_sha256?: string | null;
           install_command?: string | null;
           uninstall_command?: string | null;
@@ -298,6 +299,7 @@ export interface Database {
           silent_switches?: string | null;
           detection_rules?: Json | null;
           package_config?: Json | null;
+          app_source?: string | null;
           github_run_id?: string | null;
           github_run_url?: string | null;
           intunewin_url?: string | null;
@@ -331,8 +333,8 @@ export interface Database {
           display_name?: string;
           publisher?: string | null;
           architecture?: string | null;
-          installer_type?: string;
-          installer_url?: string;
+          installer_type?: string | null;
+          installer_url?: string | null;
           installer_sha256?: string | null;
           install_command?: string | null;
           uninstall_command?: string | null;
@@ -340,6 +342,7 @@ export interface Database {
           silent_switches?: string | null;
           detection_rules?: Json | null;
           package_config?: Json | null;
+          app_source?: string | null;
           github_run_id?: string | null;
           github_run_url?: string | null;
           intunewin_url?: string | null;
@@ -377,6 +380,7 @@ export interface Database {
           intune_app_id: string;
           intune_app_url: string | null;
           intune_tenant_id: string | null;
+          app_source: string | null;
           deployed_at: string;
         };
         Insert: {
@@ -390,6 +394,7 @@ export interface Database {
           intune_app_id: string;
           intune_app_url?: string | null;
           intune_tenant_id?: string | null;
+          app_source?: string | null;
           deployed_at?: string;
         };
         Update: {
@@ -403,6 +408,7 @@ export interface Database {
           intune_app_id?: string;
           intune_app_url?: string | null;
           intune_tenant_id?: string | null;
+          app_source?: string | null;
           deployed_at?: string;
         };
         Relationships: GenericRelationship[];

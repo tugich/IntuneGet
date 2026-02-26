@@ -200,6 +200,7 @@ export const supabaseDb: DatabaseAdapter = {
         install_scope: job.install_scope,
         detection_rules: job.detection_rules,
         package_config: job.package_config,
+        app_source: job.app_source || 'win32',
         status: job.status || 'queued',
         progress_percent: job.progress_percent || 0,
       };

@@ -23,7 +23,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AssignmentConfig } from '@/components/AssignmentConfig';
 import { CategoryConfig } from '@/components/CategoryConfig';
-import type { CartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
+import type { CartItem, StoreCartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
+import { isStoreCartItem, isWin32CartItem } from '@/types/upload';
 import type { RequirementRule } from '@/types/intune';
 import type {
   PSADTConfig,
@@ -58,23 +59,32 @@ type ConfigSection =
 
 export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
   const updateItem = useCartStore((state) => state.updateItem);
+  const isStore = isStoreCartItem(item);
+  const isWin32 = isWin32CartItem(item);
 
-  // Local state for editing
-  const [selectedScope, setSelectedScope] = useState<WingetScope>(item.installScope);
-  const [config, setConfig] = useState<PSADTConfig>(() => ({
-    ...item.psadtConfig,
-  }));
+  // Store app state
+  const [storeInstallExperience, setStoreInstallExperience] = useState<'user' | 'system'>(
+    isStore ? (item as StoreCartItem).installExperience : 'user'
+  );
+
+  // Local state for editing (win32-specific fields use safe defaults for store items)
+  const [selectedScope, setSelectedScope] = useState<WingetScope>(
+    isWin32 ? item.installScope : 'machine'
+  );
+  const [config, setConfig] = useState<PSADTConfig>(() =>
+    isWin32 ? { ...item.psadtConfig } : ({} as PSADTConfig)
+  );
   const [assignments, setAssignments] = useState<PackageAssignment[]>(
     item.assignments || []
   );
   const [categories, setCategories] = useState<IntuneAppCategorySelection[]>(
     item.categories || []
   );
-  const [installCommand, setInstallCommand] = useState(item.installCommand);
-  const [uninstallCommand, setUninstallCommand] = useState(item.uninstallCommand);
+  const [installCommand, setInstallCommand] = useState(isWin32 ? item.installCommand : '');
+  const [uninstallCommand, setUninstallCommand] = useState(isWin32 ? item.uninstallCommand : '');
 
   // UI state
-  const [expandedSection, setExpandedSection] = useState<ConfigSection | null>('behavior');
+  const [expandedSection, setExpandedSection] = useState<ConfigSection | null>(isStore ? 'assignment' : 'behavior');
   const [isSaving, setIsSaving] = useState(false);
 
   const updateConfig = (updates: Partial<PSADTConfig>) => {
@@ -114,24 +124,34 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Generate requirement rules if any assignment uses "Update Only"
-      let requirementRules: RequirementRule[] | undefined;
-      if (assignments.some((a) => a.intent === 'updateOnly')) {
-        requirementRules = generateRequirementRules(
-          item.displayName,
-          item.installerType
-        );
-      }
+      if (isStore) {
+        // Store apps: only update install experience, assignments, categories
+        updateItem(item.id, {
+          installExperience: storeInstallExperience,
+          assignments: assignments.length > 0 ? assignments : undefined,
+          categories: categories.length > 0 ? categories : undefined,
+        } as Partial<StoreCartItem>);
+      } else {
+        // Win32 apps: full config update
+        // Generate requirement rules if any assignment uses "Update Only"
+        let requirementRules: RequirementRule[] | undefined;
+        if (isWin32 && assignments.some((a) => a.intent === 'updateOnly')) {
+          requirementRules = generateRequirementRules(
+            item.displayName,
+            item.installerType
+          );
+        }
 
-      updateItem(item.id, {
-        installScope: selectedScope,
-        psadtConfig: config,
-        assignments: assignments.length > 0 ? assignments : undefined,
-        categories: categories.length > 0 ? categories : undefined,
-        requirementRules,
-        installCommand,
-        uninstallCommand,
-      });
+        updateItem(item.id, {
+          installScope: selectedScope,
+          psadtConfig: config,
+          assignments: assignments.length > 0 ? assignments : undefined,
+          categories: categories.length > 0 ? categories : undefined,
+          requirementRules,
+          installCommand,
+          uninstallCommand,
+        });
+      }
       onClose();
     } finally {
       setIsSaving(false);
@@ -170,60 +190,98 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
             {/* Read-only info */}
             <div className="bg-bg-elevated/50 rounded-lg p-4 border border-overlay/15">
               <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-text-muted">Version</span>
-                  <p className="text-text-primary font-medium">v{item.version}</p>
-                </div>
-                <div>
-                  <span className="text-text-muted">Architecture</span>
-                  <p className="text-text-primary font-medium">{item.architecture}</p>
-                </div>
-                <div>
-                  <span className="text-text-muted">Installer Type</span>
-                  <p className="text-text-primary font-medium uppercase">{item.installerType}</p>
-                </div>
+                {!isStore && (
+                  <div>
+                    <span className="text-text-muted">Version</span>
+                    <p className="text-text-primary font-medium">v{item.version}</p>
+                  </div>
+                )}
+                {isStore ? (
+                  <div>
+                    <span className="text-text-muted">Type</span>
+                    <p className="text-violet-300 font-medium">Microsoft Store</p>
+                  </div>
+                ) : isWin32 ? (
+                  <>
+                    <div>
+                      <span className="text-text-muted">Architecture</span>
+                      <p className="text-text-primary font-medium">{item.architecture}</p>
+                    </div>
+                    <div>
+                      <span className="text-text-muted">Installer Type</span>
+                      <p className="text-text-primary font-medium uppercase">{item.installerType}</p>
+                    </div>
+                  </>
+                ) : null}
                 <div>
                   <span className="text-text-muted">Publisher</span>
                   <p className="text-text-primary font-medium">{item.publisher}</p>
                 </div>
               </div>
               <p className="text-text-muted text-xs mt-3">
-                Version and architecture cannot be changed. Remove and re-add the app to select different options.
+                {isStore
+                  ? 'Store app settings. Remove and re-add to change app selection.'
+                  : 'Version and architecture cannot be changed. Remove and re-add the app to select different options.'}
               </p>
             </div>
 
-            {/* Install Scope */}
-            <div>
-              <label className="block text-sm font-medium text-text-muted mb-2">Install Scope</label>
-              <div className="flex gap-2">
-                {(['machine', 'user'] as WingetScope[]).map((scope) => {
-                  const label = scope === 'machine' ? 'Per-Machine' : 'Per-User';
-                  return (
+            {/* Store app: Install Experience */}
+            {isStore && (
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-2">Install Experience</label>
+                <div className="flex gap-2">
+                  {(['user', 'system'] as const).map((exp) => (
                     <button
-                      key={scope}
-                      onClick={() => setSelectedScope(scope)}
+                      key={exp}
+                      onClick={() => setStoreInstallExperience(exp)}
                       className={cn(
                         'flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors',
-                        selectedScope === scope
+                        storeInstallExperience === exp
                           ? 'bg-blue-600 border-blue-500 text-white'
                           : 'bg-bg-elevated border-overlay/15 text-text-primary hover:border-overlay/20'
                       )}
                     >
-                      {label}
+                      {exp === 'user' ? 'Per-User' : 'Per-System'}
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Win32 app: Install Scope */}
+            {isWin32 && (
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-2">Install Scope</label>
+                <div className="flex gap-2">
+                  {(['machine', 'user'] as WingetScope[]).map((scope) => {
+                    const label = scope === 'machine' ? 'Per-Machine' : 'Per-User';
+                    return (
+                      <button
+                        key={scope}
+                        onClick={() => setSelectedScope(scope)}
+                        className={cn(
+                          'flex-1 px-4 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                          selectedScope === scope
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : 'bg-bg-elevated border-overlay/15 text-text-primary hover:border-overlay/20'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-overlay/10 pt-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+              {isWin32 && <h3 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-400" />
                 Deployment Configuration
-              </h3>
+              </h3>}
 
-              {/* Installation Behavior */}
-              <ConfigSection
+              {/* Installation Behavior (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Installation Behavior"
                 icon={<Settings className="w-4 h-4" />}
                 expanded={expandedSection === 'behavior'}
@@ -378,10 +436,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     </select>
                   </div>
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Deferral Settings */}
-              <ConfigSection
+              {/* Deferral Settings (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Deferral Settings"
                 icon={<Clock className="w-4 h-4" />}
                 expanded={expandedSection === 'deferral'}
@@ -455,10 +513,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     </div>
                   )}
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Progress & Notifications */}
-              <ConfigSection
+              {/* Progress & Notifications (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Progress & Notifications"
                 icon={<Bell className="w-4 h-4" />}
                 expanded={expandedSection === 'progress'}
@@ -609,10 +667,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     )}
                   </div>
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Custom Prompts */}
-              <ConfigSection
+              {/* Custom Prompts (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Custom Prompts"
                 icon={<MessageSquare className="w-4 h-4" />}
                 expanded={expandedSection === 'prompts'}
@@ -816,10 +874,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     </div>
                   )}
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Restart Prompt */}
-              <ConfigSection
+              {/* Restart Prompt (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Restart Prompt"
                 icon={<RefreshCw className="w-4 h-4" />}
                 expanded={expandedSection === 'restart'}
@@ -882,10 +940,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     </div>
                   )}
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Disk Space Check */}
-              <ConfigSection
+              {/* Disk Space Check (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Disk Space Check"
                 icon={<HardDrive className="w-4 h-4" />}
                 expanded={expandedSection === 'diskspace'}
@@ -919,9 +977,9 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     </div>
                   )}
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Assignment Configuration */}
+              {/* Assignment Configuration (all app types) */}
               <ConfigSection
                 title="Assignment Configuration"
                 icon={<Target className="w-4 h-4" />}
@@ -947,8 +1005,8 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                 />
               </ConfigSection>
 
-              {/* Branding */}
-              <ConfigSection
+              {/* Branding (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Branding"
                 icon={<Palette className="w-4 h-4" />}
                 expanded={expandedSection === 'branding'}
@@ -1049,10 +1107,10 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     />
                   </div>
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
 
-              {/* Advanced */}
-              <ConfigSection
+              {/* Advanced (win32 only) */}
+              {isWin32 && <ConfigSection
                 title="Advanced Options"
                 icon={<Terminal className="w-4 h-4" />}
                 expanded={expandedSection === 'advanced'}
@@ -1089,7 +1147,7 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                     <p className="text-text-muted text-xs mt-1">Override the auto-generated uninstall command</p>
                   </div>
                 </div>
-              </ConfigSection>
+              </ConfigSection>}
             </div>
           </div>
         </div>

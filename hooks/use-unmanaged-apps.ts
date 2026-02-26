@@ -328,6 +328,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
       );
 
       addItem({
+        appSource: 'win32',
         wingetId: app.matchedPackageId,
         displayName: manifest?.name || app.displayName,
         publisher: manifest?.publisher || app.publisher || '',
@@ -430,6 +431,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
       );
 
       addItemSilent({
+        appSource: 'win32',
         wingetId: app.matchedPackageId!,
         displayName: manifest?.name || app.displayName,
         publisher: manifest?.publisher || app.publisher || '',

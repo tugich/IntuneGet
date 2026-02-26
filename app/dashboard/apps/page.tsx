@@ -33,6 +33,7 @@ import {
   usePopularPackages,
   useSearchPackages,
   usePackageManifest,
+  useStoreManifest,
   useCategories,
   useInfinitePackages,
 } from '@/hooks/use-packages';
@@ -215,9 +216,16 @@ export default function AppCatalogPage() {
     isSelectedDeployed ? selectedPackage?.id ?? null : null
   );
 
+  const isSelectedStoreApp = selectedPackage?.appSource === 'store';
   const { data: manifestData, isLoading: isLoadingInstallers } = usePackageManifest(
     selectedPackage?.id || '',
-    selectedPackage?.version
+    selectedPackage?.version,
+    undefined,
+    isSelectedStoreApp // skip manifest fetch for store apps
+  );
+  const { data: storeManifestData, isLoading: isLoadingStoreManifest } = useStoreManifest(
+    isSelectedStoreApp ? (selectedPackage?.packageIdentifier || selectedPackage?.id) : undefined,
+    !isSelectedStoreApp
   );
 
   const hasSearched = searchQuery.length >= 2;
@@ -888,7 +896,7 @@ export default function AppCatalogPage() {
         </>
       )}
 
-      {selectedPackage && !isLoadingInstallers && selectedInstallers.length > 0 && !(isSelectedDeployed && isLoadingDeployedConfig) && (
+      {selectedPackage && ((isSelectedStoreApp && !isLoadingStoreManifest) || (!isSelectedStoreApp && !isLoadingInstallers && selectedInstallers.length > 0)) && !(isSelectedDeployed && isLoadingDeployedConfig) && (
         <PackageConfig
           package={selectedPackage}
           installers={selectedInstallers}
@@ -896,10 +904,11 @@ export default function AppCatalogPage() {
           isDeployed={isSelectedDeployed}
           deployedConfig={deployedConfig}
           intuneAppId={intuneAppId}
+          storeManifest={storeManifestData}
         />
       )}
 
-      {selectedPackage && (isLoadingInstallers || (isSelectedDeployed && isLoadingDeployedConfig)) && (
+      {selectedPackage && ((isSelectedStoreApp && isLoadingStoreManifest) || (!isSelectedStoreApp && isLoadingInstallers) || (isSelectedDeployed && isLoadingDeployedConfig)) && (
         <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-label="Loading package details">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} aria-hidden="true" />
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-overlay/5 shadow-2xl flex items-center justify-center animate-slide-in-right">
@@ -914,7 +923,7 @@ export default function AppCatalogPage() {
         </div>
       )}
 
-      {selectedPackage && !isLoadingInstallers && selectedInstallers.length === 0 && (
+      {selectedPackage && !isSelectedStoreApp && !isLoadingInstallers && selectedInstallers.length === 0 && (
         <div className="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-label="No installers found">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleCloseConfig} aria-hidden="true" />
           <div className="absolute right-0 top-0 bottom-0 w-full max-w-2xl bg-bg-surface border-l border-overlay/5 shadow-2xl flex items-center justify-center animate-slide-in-right">

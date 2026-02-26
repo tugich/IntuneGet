@@ -18,6 +18,8 @@ interface CuratedAppResult {
   popularity_rank: number | null;
   installer_type: string | null;
   rank: number;
+  app_source: string | null;
+  store_package_id: string | null;
 }
 
 // Search curated apps
@@ -115,6 +117,8 @@ export async function GET(request: NextRequest) {
           iconPath: p.icon_path,
           popularityRank: p.popularity_rank,
           installerType: p.installer_type,
+          appSource: p.app_source === 'store' ? 'store' : 'win32',
+          packageIdentifier: p.store_package_id || undefined,
         })),
         source: 'curated',
       }, {
