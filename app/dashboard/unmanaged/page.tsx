@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Radar,
   Package,
@@ -43,6 +43,7 @@ export default function UnmanagedAppsPage() {
     fromCache,
     isLoading,
     isRefreshing,
+    error,
     filters,
     permissionError,
     viewMode,
@@ -71,6 +72,8 @@ export default function UnmanagedAppsPage() {
   // Determine empty state variant
   const emptyVariant = useMemo(() => {
     if (filteredApps.length > 0) return null;
+    // Show error state when load failed and there are no apps to display
+    if (error && statusCounts.all === 0) return 'error' as const;
     if (statusCounts.all === 0) return 'no-data' as const;
     if (filters.search) return 'search' as const;
     // Check all-claimed BEFORE generic filtered check:
@@ -81,7 +84,7 @@ export default function UnmanagedAppsPage() {
     // All apps are claimed with showClaimed: true (shouldn't reach here normally)
     if (allMatchedClaimed) return 'all-claimed' as const;
     return 'no-data' as const;
-  }, [filteredApps.length, statusCounts.all, statusCounts.matched, filters, claimableCount]);
+  }, [filteredApps.length, statusCounts.all, statusCounts.matched, filters, claimableCount, error]);
 
   // Link and Claim combined handler
   const handleLinkAndClaim = useCallback(async (app: Parameters<typeof handleLinkPackage>[0], wingetPackageId: string) => {
@@ -225,6 +228,33 @@ export default function UnmanagedAppsPage() {
         }
         className="mb-0"
       />
+
+      {/* Error banner */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="flex items-start gap-3 p-4 bg-status-error/10 border border-status-error/20 rounded-lg"
+          >
+            <AlertCircle className="w-5 h-5 text-status-error flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-status-error font-medium">Error</p>
+              <p className="text-status-error/70 text-sm mt-1">{error}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="text-status-error hover:bg-status-error/10 text-xs"
+            >
+              Retry
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Stat Cards (5) */}
       <StatCardGrid columns={4}>

@@ -6,12 +6,13 @@ import {
   Package,
   Search,
   CheckCircle2,
+  AlertTriangle,
   RefreshCw,
   ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-type EmptyVariant = 'no-data' | 'filtered' | 'search' | 'all-claimed';
+type EmptyVariant = 'no-data' | 'filtered' | 'search' | 'all-claimed' | 'error';
 
 interface UnmanagedEmptyStateProps {
   variant: EmptyVariant;
@@ -47,6 +48,11 @@ const config: Record<EmptyVariant, {
     title: 'All matched apps claimed!',
     getDescription: () => 'Every matched app has been claimed and added to your deployment cart. Head to Deployments to continue.',
   },
+  'error': {
+    icon: AlertTriangle,
+    title: 'Failed to load apps',
+    getDescription: () => 'Something went wrong while loading your apps. Please try again.',
+  },
 };
 
 export function UnmanagedEmptyState({
@@ -59,12 +65,16 @@ export function UnmanagedEmptyState({
 }: UnmanagedEmptyStateProps) {
   const { icon: Icon, title, getDescription } = config[variant];
   const isSuccess = variant === 'all-claimed';
+  const isError = variant === 'error';
 
   return (
     <div className="text-center py-20 relative">
-      {/* Background accent for success variant */}
+      {/* Background accent for success/error variants */}
       {isSuccess && (
         <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent rounded-2xl" />
+      )}
+      {isError && (
+        <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 via-transparent to-transparent rounded-2xl" />
       )}
 
       <div className="relative">
@@ -73,22 +83,27 @@ export function UnmanagedEmptyState({
             className={`absolute inset-0 rounded-2xl flex items-center justify-center ${
               isSuccess
                 ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/10'
-                : 'bg-gradient-to-br from-black/5 to-black/10'
+                : isError
+                  ? 'bg-gradient-to-br from-red-500/20 to-red-600/10'
+                  : 'bg-gradient-to-br from-black/5 to-black/10'
             }`}
           >
             <Icon
               className={`w-10 h-10 ${
-                isSuccess ? 'text-emerald-400' : 'text-text-muted'
+                isSuccess ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-text-muted'
               }`}
             />
           </div>
           {isSuccess && (
             <div className="absolute -inset-2 rounded-2xl bg-emerald-500/10 blur-xl opacity-60" />
           )}
+          {isError && (
+            <div className="absolute -inset-2 rounded-2xl bg-red-500/10 blur-xl opacity-60" />
+          )}
         </div>
         <h3
           className={`text-xl font-semibold mb-2 ${
-            isSuccess ? 'text-emerald-400' : 'text-text-primary'
+            isSuccess ? 'text-emerald-400' : isError ? 'text-red-400' : 'text-text-primary'
           }`}
         >
           {title}
@@ -98,10 +113,10 @@ export function UnmanagedEmptyState({
         </p>
 
         <div className="flex items-center justify-center gap-3 mt-6">
-          {variant === 'no-data' && onRefresh && (
+          {(variant === 'no-data' || variant === 'error') && onRefresh && (
             <Button type="button" variant="outline" onClick={onRefresh} className="border-overlay/10">
               <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+              {variant === 'error' ? 'Retry' : 'Refresh'}
             </Button>
           )}
           {variant === 'filtered' && onClearFilters && (

@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json(
-          { error: 'Failed to fetch unmanaged apps from Intune' },
+          { error: `Failed to fetch apps from Intune (${graphResponse.status})` },
           { status: graphResponse.status }
         );
       }
@@ -314,9 +314,10 @@ export async function GET(request: NextRequest) {
       lastSynced: now,
       fromCache: false,
     } as UnmanagedAppsResponse);
-  } catch {
+  } catch (error) {
+    console.error('Unmanaged apps API error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch unmanaged apps' },
+      { error: error instanceof Error ? error.message : 'Failed to fetch unmanaged apps' },
       { status: 500 }
     );
   }
@@ -397,7 +398,8 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(stats);
-  } catch {
+  } catch (error) {
+    console.error('Unmanaged apps stats API error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }
@@ -432,6 +434,7 @@ async function getServicePrincipalToken(tenantId: string): Promise<string | null
   const clientSecret = process.env.AZURE_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
+    console.error('Service principal token failure: missing AZURE_CLIENT_ID or AZURE_CLIENT_SECRET');
     return null;
   }
 
@@ -453,12 +456,15 @@ async function getServicePrincipalToken(tenantId: string): Promise<string | null
     );
 
     if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text().catch(() => 'unknown error');
+      console.error(`Service principal token failure for tenant ${tenantId}: ${tokenResponse.status} - ${errorText}`);
       return null;
     }
 
     const tokenData = await tokenResponse.json();
     return tokenData.access_token;
-  } catch {
+  } catch (error) {
+    console.error('Service principal token error:', error);
     return null;
   }
 }

@@ -40,6 +40,7 @@ export interface UseUnmanagedAppsReturn {
   // UI state
   isLoading: boolean;
   isRefreshing: boolean;
+  error: string | null;
   filters: UnmanagedAppsFilters;
   permissionError: string | null;
   viewMode: ViewMode;
@@ -104,6 +105,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
   // UI state
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<UnmanagedAppsFilters>(defaultFilters);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const { settings: userSettings, setViewMode: persistViewMode } = useUserSettings();
@@ -126,10 +128,14 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
     return token;
   }, [getAccessToken]);
 
-  // Fetch unmanaged apps
-  const fetchApps = useCallback(async (forceRefresh = false) => {
+  // Fetch unmanaged apps. Returns true on success, false on failure.
+  const fetchApps = useCallback(async (forceRefresh = false): Promise<boolean> => {
+    setError(null);
     const accessToken = await getToken();
-    if (!accessToken) return;
+    if (!accessToken) {
+      setError('Authentication failed. Please sign in again.');
+      return false;
+    }
 
     try {
       const url = `/api/intune/unmanaged-apps${forceRefresh ? '?refresh=true' : ''}`;
@@ -145,7 +151,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
 
         if (response.status === 403 && errorData.permissionRequired) {
           setPermissionError(errorData.permissionRequired);
-          return;
+          return false;
         }
 
         throw new Error(errorData.error || 'Failed to fetch unmanaged apps');
@@ -156,14 +162,12 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
       setApps(data.apps);
       setLastSynced(data.lastSynced);
       setFromCache(data.fromCache);
-    } catch (error) {
-      console.error('Error fetching unmanaged apps:', error);
-      const message = error instanceof Error ? error.message : 'Failed to fetch unmanaged apps from Intune';
-      toast({
-        title: 'Failed to load apps',
-        description: message.includes('fetch') ? 'Network error. Check your connection and try again.' : message,
-        variant: 'destructive',
-      });
+      return true;
+    } catch (err) {
+      console.error('Error fetching unmanaged apps:', err);
+      const message = err instanceof Error ? err.message : 'Failed to fetch unmanaged apps';
+      setError(message);
+      return false;
     }
   }, [getToken, mspHeaders]);
 
@@ -182,12 +186,14 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
   // Refresh handler
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await fetchApps(true);
+    const success = await fetchApps(true);
     setIsRefreshing(false);
-    toast({
-      title: 'Refreshed',
-      description: 'Unmanaged apps list has been updated',
-    });
+    if (success) {
+      toast({
+        title: 'Refreshed',
+        description: 'Unmanaged apps list has been updated',
+      });
+    }
   }, [fetchApps]);
 
   // Cart winget IDs for quick lookup
@@ -690,6 +696,7 @@ export function useUnmanagedApps(): UseUnmanagedAppsReturn {
     fromCache,
     isLoading,
     isRefreshing,
+    error,
     filters,
     permissionError,
     viewMode,
