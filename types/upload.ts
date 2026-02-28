@@ -6,6 +6,7 @@
 import type { DetectionRule, RequirementRule } from './intune';
 import type { WingetArchitecture, WingetScope, WingetInstallerType } from './winget';
 import type { PSADTConfig } from './psadt';
+import type { EspProfileSelection } from './esp';
 
 // Staged package awaiting upload to Intune
 export interface StagedPackage {
@@ -140,6 +141,9 @@ interface CartItemBase {
 
   // Intune category configuration
   categories?: IntuneAppCategorySelection[];
+
+  // ESP profile configuration
+  espProfiles?: EspProfileSelection[];
 
   // Redeploy flag - skip duplicate detection during deployment
   forceCreate?: boolean;

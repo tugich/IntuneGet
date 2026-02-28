@@ -391,6 +391,7 @@ export async function POST(request: NextRequest) {
               requirementRules: item.requirementRules ? JSON.stringify(item.requirementRules) : undefined,
               assignments: item.assignments ? JSON.stringify(item.assignments) : undefined,
               categories: item.categories ? JSON.stringify(item.categories) : undefined,
+              espProfiles: item.espProfiles ? JSON.stringify(item.espProfiles) : undefined,
               installScope: item.installScope,
               forceCreate: item.forceCreate || forceCreate,
             };
