@@ -24,6 +24,7 @@ export interface WorkflowInputs {
   requirementRules?: string; // JSON-serialized RequirementRule[]
   assignments?: string; // JSON-serialized PackageAssignment[]
   categories?: string; // JSON-serialized IntuneAppCategorySelection[]
+  espProfiles?: string; // JSON-serialized EspProfileSelection[]
   installScope?: 'machine' | 'user'; // Install scope for per-user vs per-machine
   forceCreate?: boolean; // Skip duplicate check and force create new app
 }
@@ -137,6 +138,7 @@ export async function triggerPackagingWorkflow(
           requirementRules: inputs.requirementRules || '[]',
           assignments: inputs.assignments || '[]',
           categories: inputs.categories || '[]',
+          espProfiles: inputs.espProfiles || '[]',
           installScope: inputs.installScope || 'machine',
           forceCreate: inputs.forceCreate ? 'true' : 'false',
         },

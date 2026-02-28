@@ -24,12 +24,14 @@ import {
   SlidersHorizontal,
   Globe,
   Search,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AppIcon } from '@/components/AppIcon';
 import { AssignmentConfig } from '@/components/AssignmentConfig';
 import { CategoryConfig } from '@/components/CategoryConfig';
+import { EspProfileSelector } from '@/components/EspProfileSelector';
 import type { NormalizedPackage, NormalizedInstaller, WingetScope, WingetArchitecture, StoreManifestResponse } from '@/types/winget';
 import type {
   PSADTConfig,
@@ -43,6 +45,7 @@ import type {
   BalloonTipConfig,
 } from '@/types/psadt';
 import type { CartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
+import type { EspProfileSelection } from '@/types/esp';
 import { DEFAULT_PSADT_CONFIG, getDefaultProcessesToClose } from '@/types/psadt';
 import { useCartStore, createStoreCartItem } from '@/stores/cart-store';
 import { useUpdateAppSettings } from '@/hooks/use-update-app-settings';
@@ -71,6 +74,7 @@ type ConfigSection =
   | 'detection'
   | 'assignment'
   | 'category'
+  | 'esp'
   | 'branding'
   | 'advanced';
 
@@ -160,6 +164,9 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   const [categories, setCategories] = useState<IntuneAppCategorySelection[]>(
     deployedConfig?.categories || []
   );
+  const [espProfiles, setEspProfiles] = useState<EspProfileSelection[]>(
+    deployedConfig?.espProfiles || []
+  );
 
   // UI state
   const [expandedSection, setExpandedSection] = useState<ConfigSection | null>(isStoreApp ? 'assignment' : 'detection');
@@ -167,7 +174,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
   const [addedToCartSuccess, setAddedToCartSuccess] = useState(false);
   const [configMode, setConfigMode] = useState<'quick' | 'advanced'>('quick');
 
-  const quickSections: ConfigSection[] = ['detection', 'assignment', 'category'];
+  const quickSections: ConfigSection[] = ['detection', 'assignment', 'category', 'esp'];
   const isQuickSection = (section: ConfigSection) => quickSections.includes(section);
   const visibleSections = configMode === 'quick' ? quickSections : null; // null = show all
 
@@ -192,7 +199,9 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
       JSON.stringify(assignments) !== JSON.stringify(deployedConfig.assignments || []);
     const hasCategoryChanges =
       JSON.stringify(categories) !== JSON.stringify(deployedConfig.categories || []);
-    const hasGraphChanges = hasAssignmentChanges || hasCategoryChanges;
+    const hasEspChanges =
+      JSON.stringify(espProfiles) !== JSON.stringify(deployedConfig.espProfiles || []);
+    const hasGraphChanges = hasAssignmentChanges || hasCategoryChanges || hasEspChanges;
 
     // Redeploy-required: version, architecture, scope, locale, PSADT config
     const hasVersionChange = selectedVersion !== deployedConfig.version;
@@ -207,7 +216,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
       hasVersionChange || hasArchChange || hasScopeChange || hasLocaleChange || hasPsadtChange;
 
     return { hasGraphChanges, hasRedeployChanges };
-  }, [isDeployed, deployedConfig, assignments, categories,
+  }, [isDeployed, deployedConfig, assignments, categories, espProfiles,
       selectedVersion, selectedArch, selectedScope, selectedLocale, config]);
 
   // Get selected installer (not relevant for store apps)
@@ -280,6 +289,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
           ...storeItem,
           assignments: assignments.length > 0 ? assignments : undefined,
           categories: categories.length > 0 ? categories : undefined,
+          espProfiles: espProfiles.length > 0 ? espProfiles : undefined,
           ...(isDeployed ? { forceCreate: true } : {}),
         });
       } else {
@@ -311,6 +321,7 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
           psadtConfig: config,
           assignments: assignments.length > 0 ? assignments : undefined,
           categories: categories.length > 0 ? categories : undefined,
+          espProfiles: espProfiles.length > 0 ? espProfiles : undefined,
           localeCode: selectedLocale || undefined,
           iconPath: pkg.iconPath,
           ...(isDeployed ? { forceCreate: true } : {}),
@@ -1504,6 +1515,21 @@ export function PackageConfig({ package: pkg, installers, onClose, isDeployed = 
                 <CategoryConfig
                   categories={categories}
                   onChange={setCategories}
+                />
+              </ConfigSection>}
+
+              {/* ESP Configuration (quick + advanced, all app types) */}
+              {(isStoreApp || visibleSections === null || visibleSections.includes('esp')) && <ConfigSection
+                title="Enrollment Status Page"
+                icon={<Shield className="w-4 h-4" />}
+                expanded={expandedSection === 'esp'}
+                onToggle={() => toggleSection('esp')}
+              >
+                <EspProfileSelector
+                  espProfiles={espProfiles}
+                  onChange={setEspProfiles}
+                  mode="pre-deploy"
+                  hasRequiredAssignment={assignments.some((a) => a.intent === 'required')}
                 />
               </ConfigSection>}
 

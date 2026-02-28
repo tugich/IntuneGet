@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { useMicrosoftAuth } from '@/hooks/useMicrosoftAuth';
 import { ProgressStepper } from '@/components/ProgressStepper';
 import { ErrorDisplay } from '@/components/ErrorDisplay';
+import { EspProfileSelector } from '@/components/EspProfileSelector';
 import { PageHeader, AnimatedStatCard, StatCardGrid, AnimatedEmptyState, SkeletonGrid } from '@/components/dashboard';
 import type { PackageAssignment } from '@/types/upload';
 
@@ -919,6 +920,9 @@ function UploadJobCard({
                 View in Intune Portal
                 <ChevronRight className="w-4 h-4" />
               </a>
+              {job.intune_app_id && job.status === 'deployed' && (
+                <EspProfileSelector mode="post-deploy" intuneAppId={job.intune_app_id} />
+              )}
             </div>
           )}
 

@@ -5,6 +5,8 @@
  */
 
 import type { StoreCartItem, PackageAssignment, IntuneAppCategorySelection } from '@/types/upload';
+import type { EspProfileSelection } from '@/types/esp';
+import { addAppToEspProfile } from '@/lib/esp-api';
 
 const GRAPH_BETA = 'https://graph.microsoft.com/beta';
 
@@ -58,7 +60,8 @@ export async function deployStoreApp(
   // Step 2: Wait for the app to finish publishing before assigning
   // Intune winGetApp goes through a publishing phase after creation
   const needsWait = (item.assignments && item.assignments.length > 0) ||
-                    (item.categories && item.categories.length > 0);
+                    (item.categories && item.categories.length > 0) ||
+                    (item.espProfiles && item.espProfiles.length > 0);
   if (needsWait) {
     await waitForPublished(intuneAppId, accessToken);
   }
@@ -71,6 +74,15 @@ export async function deployStoreApp(
   // Step 4: Apply categories (if any)
   if (item.categories && item.categories.length > 0) {
     await applyStoreCategories(intuneAppId, item.categories, accessToken);
+  }
+
+  // Step 5: Apply ESP profiles (if any) -- non-fatal to avoid orphaning the already-created app
+  if (item.espProfiles && item.espProfiles.length > 0) {
+    try {
+      await applyEspProfiles(intuneAppId, item.espProfiles, accessToken);
+    } catch (err) {
+      console.error(`[Store deploy] ESP profile application failed for ${intuneAppId}:`, err);
+    }
   }
 
   return { intuneAppId, intuneAppUrl };
@@ -229,6 +241,19 @@ async function fetchIconAsBase64(
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Add the deployed app to selected ESP profiles.
+ */
+async function applyEspProfiles(
+  appId: string,
+  espProfiles: EspProfileSelection[],
+  accessToken: string
+): Promise<void> {
+  for (const profile of espProfiles) {
+    await addAppToEspProfile(accessToken, profile.id, appId);
   }
 }
 

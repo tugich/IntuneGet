@@ -18,12 +18,15 @@ import {
   Clock,
   FolderTree,
   Palette,
+  Shield,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AssignmentConfig } from '@/components/AssignmentConfig';
 import { CategoryConfig } from '@/components/CategoryConfig';
+import { EspProfileSelector } from '@/components/EspProfileSelector';
 import type { CartItem, StoreCartItem, IntuneAppCategorySelection, PackageAssignment } from '@/types/upload';
+import type { EspProfileSelection } from '@/types/esp';
 import { isStoreCartItem, isWin32CartItem } from '@/types/upload';
 import type { RequirementRule } from '@/types/intune';
 import type {
@@ -54,6 +57,7 @@ type ConfigSection =
   | 'diskspace'
   | 'assignment'
   | 'category'
+  | 'esp'
   | 'branding'
   | 'advanced';
 
@@ -79,6 +83,9 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
   );
   const [categories, setCategories] = useState<IntuneAppCategorySelection[]>(
     item.categories || []
+  );
+  const [espProfiles, setEspProfiles] = useState<EspProfileSelection[]>(
+    item.espProfiles || []
   );
   const [installCommand, setInstallCommand] = useState(isWin32 ? item.installCommand : '');
   const [uninstallCommand, setUninstallCommand] = useState(isWin32 ? item.uninstallCommand : '');
@@ -125,11 +132,12 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
     setIsSaving(true);
     try {
       if (isStore) {
-        // Store apps: only update install experience, assignments, categories
+        // Store apps: only update install experience, assignments, categories, ESP
         updateItem(item.id, {
           installExperience: storeInstallExperience,
           assignments: assignments.length > 0 ? assignments : undefined,
           categories: categories.length > 0 ? categories : undefined,
+          espProfiles: espProfiles.length > 0 ? espProfiles : undefined,
         } as Partial<StoreCartItem>);
       } else {
         // Win32 apps: full config update
@@ -147,6 +155,7 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
           psadtConfig: config,
           assignments: assignments.length > 0 ? assignments : undefined,
           categories: categories.length > 0 ? categories : undefined,
+          espProfiles: espProfiles.length > 0 ? espProfiles : undefined,
           requirementRules,
           installCommand,
           uninstallCommand,
@@ -1002,6 +1011,21 @@ export function CartItemConfig({ item, onClose }: CartItemConfigProps) {
                 <CategoryConfig
                   categories={categories}
                   onChange={setCategories}
+                />
+              </ConfigSection>
+
+              {/* ESP Configuration */}
+              <ConfigSection
+                title="Enrollment Status Page"
+                icon={<Shield className="w-4 h-4" />}
+                expanded={expandedSection === 'esp'}
+                onToggle={() => toggleSection('esp')}
+              >
+                <EspProfileSelector
+                  espProfiles={espProfiles}
+                  onChange={setEspProfiles}
+                  mode="pre-deploy"
+                  hasRequiredAssignment={assignments.some((a) => a.intent === 'required')}
                 />
               </ConfigSection>
 
