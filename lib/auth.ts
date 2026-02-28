@@ -118,5 +118,5 @@ export async function getStoredTokens(
  * Check if Entra ID client ID is configured
  */
 export function isAzureAdConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID);
+  return Boolean(process.env.AZURE_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID);
 }

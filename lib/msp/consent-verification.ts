@@ -22,7 +22,7 @@ export interface ConsentVerifyResult {
  * and tests actual Intune API access to verify DeviceManagementApps.ReadWrite.All permission.
  */
 export async function verifyTenantConsent(tenantId: string): Promise<ConsentVerifyResult> {
-  const clientId = process.env.AZURE_AD_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
+  const clientId = process.env.AZURE_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET;
 
   // If credentials not configured, skip check (allows local/dev mode)

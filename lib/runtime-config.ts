@@ -20,5 +20,5 @@ export function getPublicClientId(): string {
   if (typeof window !== "undefined" && window.__RUNTIME_CONFIG__?.NEXT_PUBLIC_AZURE_AD_CLIENT_ID) {
     return window.__RUNTIME_CONFIG__.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
   }
-  return process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || "";
+  return process.env.AZURE_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || "";
 }

@@ -109,7 +109,7 @@ export function getConfig(): AppConfig {
     },
 
     azure: {
-      clientId: getEnvVar("NEXT_PUBLIC_AZURE_AD_CLIENT_ID", true) || "",
+      clientId: getEnvVar("AZURE_CLIENT_ID") || getEnvVar("NEXT_PUBLIC_AZURE_AD_CLIENT_ID", true) || "",
       clientSecret: getEnvVar("AZURE_CLIENT_SECRET") || getEnvVar("AZURE_AD_CLIENT_SECRET"),
     },
 

@@ -53,7 +53,7 @@ interface GraphVerificationResult {
  * This prevents users from bypassing consent verification.
  */
 async function verifyConsentWithGraph(tenantId: string): Promise<GraphVerificationResult> {
-  const clientId = process.env.AZURE_AD_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
+  const clientId = process.env.AZURE_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
